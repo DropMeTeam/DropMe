@@ -1,23 +1,29 @@
 import { useState } from "react";
 import { useAuth } from "../state/AuthContext";
 import PlaceInput from "../components/PlaceInput";
-import RouteMap from "../components/RouteMap";
+import MapPicker from "../components/MapPicker";
 import { getRoute } from "../lib/osrm";
 import { api } from "../lib/api";
-
 
 export default function PlanTrip() {
   const { user } = useAuth();
 
-  const [pickup, setPickup] = useState(null);
-  const [dropoff, setDropoff] = useState(null);
+  // unified shape everywhere
+  const [pickup, setPickup] = useState(null);   // { label, lat, lng }
+  const [dropoff, setDropoff] = useState(null); // { label, lat, lng }
+
+  // controlled input values
+  const [pickupText, setPickupText] = useState("");
+  const [dropoffText, setDropoffText] = useState("");
+
+  const [activePin, setActivePin] = useState("pickup"); // pickup | dropoff
 
   const [routePoints, setRoutePoints] = useState([]);
   const [meta, setMeta] = useState(null);
 
-  const [mode, setMode] = useState("pool"); // pool | private | transit (ui only)
+  const [mode, setMode] = useState("pool");
   const [seats, setSeats] = useState(1);
-  const [pickupTime, setPickupTime] = useState(""); // datetime-local
+  const [pickupTime, setPickupTime] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function buildRoute(p, d) {
@@ -33,24 +39,22 @@ export default function PlanTrip() {
 
     setLoading(true);
     try {
-      // Create rider request
       const reqRes = await api.post("/api/requests", {
         mode,
         seats: Number(seats),
         pickupTime,
-        origin: { lat: pickup.lat, lng: pickup.lng, label: pickup.display },
-        destination: { lat: dropoff.lat, lng: dropoff.lng, label: dropoff.display },
+        origin: { lat: pickup.lat, lng: pickup.lng, label: pickup.label },
+        destination: { lat: dropoff.lat, lng: dropoff.lng, label: dropoff.label },
         distanceMeters: meta?.distanceMeters ?? null,
         durationSeconds: meta?.durationSeconds ?? null,
       });
 
       const requestId = reqRes.data?.request?._id || reqRes.data?._id;
 
-      // Find pool matches (backend matching)
       const matchRes = await api.get(`/api/matches/find/${requestId}`);
       console.log("matches", matchRes.data);
 
-      alert("Matches fetched. (Check console) Next step: build Matches UI.");
+      alert("Matches fetched. (Check console) Next: build Matches UI.");
     } catch (e) {
       alert(e?.response?.data?.message || "Failed to find matches");
     } finally {
@@ -61,14 +65,14 @@ export default function PlanTrip() {
   return (
     <div className="min-h-screen bg-[#060812] text-white">
       <div className="mx-auto max-w-6xl px-6 py-8 grid grid-cols-12 gap-6">
-        {/* Left panel */}
+        {/* LEFT */}
         <div className="col-span-12 lg:col-span-4 space-y-4">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h1 className="text-xl font-semibold">Plan your DropMe journey</h1>
                 <p className="text-sm text-white/60 mt-1">
-                  Pool-first matching with a clean workflow.
+                  Type or click on map to select points.
                 </p>
               </div>
               <div className="text-xs text-white/50 mt-1">
@@ -79,28 +83,61 @@ export default function PlanTrip() {
             <div className="mt-5 space-y-4">
               <PlaceInput
                 label="Pick-up"
-                placeholder="Search pickup location"
+                placeholder="Type pickup location"
+                valueLabel={pickupText}
+                onValueLabelChange={setPickupText}
                 onSelect={(p) => {
                   setPickup(p);
+                  setPickupText(p.label);
+                  setActivePin("dropoff");
                   if (dropoff) buildRoute(p, dropoff);
                 }}
               />
 
               <PlaceInput
                 label="Drop-off"
-                placeholder="Search drop-off location"
+                placeholder="Type drop-off location"
+                valueLabel={dropoffText}
+                onValueLabelChange={setDropoffText}
                 onSelect={(d) => {
                   setDropoff(d);
+                  setDropoffText(d.label);
                   if (pickup) buildRoute(pickup, d);
                 }}
               />
 
-              {/* Trip mode cards */}
+              {/* Map set toggle */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setActivePin("pickup")}
+                  className={
+                    "rounded-xl border px-3 py-2 text-sm " +
+                    (activePin === "pickup"
+                      ? "border-white/40 bg-white/10"
+                      : "border-white/10 bg-white/5 hover:bg-white/10")
+                  }
+                >
+                  Set Pick-up on map
+                </button>
+                <button
+                  onClick={() => setActivePin("dropoff")}
+                  className={
+                    "rounded-xl border px-3 py-2 text-sm " +
+                    (activePin === "dropoff"
+                      ? "border-white/40 bg-white/10"
+                      : "border-white/10 bg-white/5 hover:bg-white/10")
+                  }
+                >
+                  Set Drop-off on map
+                </button>
+              </div>
+
+              {/* Trip mode */}
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: "pool", title: "Pool", desc: "Share ride, save cost" },
+                  { id: "pool", title: "Pool", desc: "Share ride" },
                   { id: "private", title: "Private", desc: "Solo ride" },
-                  { id: "transit", title: "Transit", desc: "Public transport" },
+                  { id: "transit", title: "Transit", desc: "Public" },
                 ].map((m) => (
                   <button
                     key={m.id}
@@ -166,9 +203,24 @@ export default function PlanTrip() {
           </div>
         </div>
 
-        {/* Map */}
+        {/* RIGHT: Map */}
         <div className="col-span-12 lg:col-span-8">
-          <RouteMap pickup={pickup} dropoff={dropoff} routePoints={routePoints} />
+          <MapPicker
+            pickup={pickup}
+            dropoff={dropoff}
+            active={activePin}
+            routePoints={routePoints}
+            onChangePickup={(p) => {
+              setPickup(p);
+              setPickupText(p.label);
+              if (dropoff) buildRoute(p, dropoff);
+            }}
+            onChangeDropoff={(d) => {
+              setDropoff(d);
+              setDropoffText(d.label);
+              if (pickup) buildRoute(pickup, d);
+            }}
+          />
         </div>
       </div>
     </div>

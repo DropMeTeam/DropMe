@@ -3,29 +3,26 @@ import { useEffect, useMemo, useRef, useState } from "react";
 export default function PlaceSearch({
   label = "Location",
   placeholder = "Search location",
+  value = "",
+  onValueChange,
   onSelect,
 
-  // Tuning knobs (enterprise-friendly)
   minChars = 3,
   limit = 6,
   debounceMs = 350,
 
-  // Nominatim result quality knobs
-  countryCodes = "lk", // Sri Lanka default (set "" to disable)
-  // Rough bbox around Sri Lanka to bias results (optional)
-  viewbox = "79.35,9.95,81.90,5.85", // left,top,right,bottom
-  bounded = false, // set true to restrict strictly within viewbox
+  countryCodes = "lk",
+  viewbox = "79.35,9.95,81.90,5.85",
+  bounded = false,
 }) {
-  const [q, setQ] = useState("");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const [status, setStatus] = useState("idle"); // idle | ok | empty | error
-
   const rootRef = useRef(null);
   const abortRef = useRef(null);
 
+  const q = value || "";
   const canSearch = q.trim().length >= minChars;
 
   const queryParams = useMemo(() => {
@@ -35,15 +32,12 @@ export default function PlaceSearch({
       addressdetails: "1",
       limit: String(limit),
     };
-
     if (countryCodes) p.countrycodes = countryCodes;
     if (viewbox) p.viewbox = viewbox;
     if (bounded) p.bounded = "1";
-
     return p;
   }, [q, limit, countryCodes, viewbox, bounded]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function onDocClick(e) {
       if (!rootRef.current) return;
@@ -56,13 +50,11 @@ export default function PlaceSearch({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  // Search effect (debounced + abortable)
   useEffect(() => {
     if (!canSearch) {
       setItems([]);
       setOpen(false);
       setActiveIndex(-1);
-      setStatus("idle");
       if (abortRef.current) abortRef.current.abort();
       return;
     }
@@ -70,10 +62,8 @@ export default function PlaceSearch({
     const t = setTimeout(async () => {
       try {
         setLoading(true);
-        setStatus("idle");
         setOpen(true);
 
-        // Abort previous request
         if (abortRef.current) abortRef.current.abort();
         const controller = new AbortController();
         abortRef.current = controller;
@@ -84,31 +74,22 @@ export default function PlaceSearch({
 
         const res = await fetch(url, {
           signal: controller.signal,
-          headers: {
-            "Accept-Language": "en",
-            // Nominatim etiquette (safe, not required):
-            // If you have a domain/email later, put it here.
-          },
+          headers: { "Accept-Language": "en" },
         });
 
         const data = await res.json();
-
         const mapped = (data || []).map((d) => ({
-          display: d.display_name,
+          label: d.display_name,
           lat: Number(d.lat),
           lng: Number(d.lon),
-          raw: d,
         }));
 
         setItems(mapped);
         setActiveIndex(mapped.length ? 0 : -1);
-        setStatus(mapped.length ? "ok" : "empty");
       } catch (e) {
-        // Ignore abort errors
         if (e?.name === "AbortError") return;
         setItems([]);
         setActiveIndex(-1);
-        setStatus("error");
       } finally {
         setLoading(false);
       }
@@ -117,9 +98,9 @@ export default function PlaceSearch({
     return () => clearTimeout(t);
   }, [canSearch, debounceMs, queryParams]);
 
-  function commitSelection(item) {
+  function commit(item) {
     if (!item) return;
-    setQ(item.display);
+    onValueChange?.(item.label);
     setOpen(false);
     setItems([]);
     setActiveIndex(-1);
@@ -127,16 +108,11 @@ export default function PlaceSearch({
   }
 
   function onKeyDown(e) {
-    if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
-      if (canSearch) setOpen(true);
-    }
-
     if (e.key === "Escape") {
       setOpen(false);
       setActiveIndex(-1);
       return;
     }
-
     if (!open || !items.length) return;
 
     if (e.key === "ArrowDown") {
@@ -147,19 +123,19 @@ export default function PlaceSearch({
       setActiveIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      commitSelection(items[activeIndex]);
+      commit(items[activeIndex]);
     }
   }
 
   return (
     <div ref={rootRef} className="w-full">
-      {label && <label className="block text-sm text-white/70 mb-2">{label}</label>}
+      <label className="block text-sm text-white/70 mb-2">{label}</label>
 
       <div className="relative">
         <input
           value={q}
           onChange={(e) => {
-            setQ(e.target.value);
+            onValueChange?.(e.target.value);
             setOpen(true);
           }}
           onFocus={() => {
@@ -176,43 +152,24 @@ export default function PlaceSearch({
           </div>
         )}
 
-        {open && (
+        {open && items.length > 0 && (
           <div className="absolute z-50 mt-2 w-full rounded-xl border border-white/10 bg-[#0B0F19] shadow-xl overflow-hidden">
-            {!canSearch && (
-              <div className="px-4 py-3 text-sm text-white/60">
-                Type at least {minChars} characters…
-              </div>
-            )}
-
-            {canSearch && status === "empty" && (
-              <div className="px-4 py-3 text-sm text-white/60">
-                No results found.
-              </div>
-            )}
-
-            {canSearch && status === "error" && (
-              <div className="px-4 py-3 text-sm text-red-300">
-                Search failed. Try again.
-              </div>
-            )}
-
-            {canSearch &&
-              items.map((it, idx) => (
-                <button
-                  key={`${it.lat},${it.lng},${idx}`}
-                  type="button"
-                  onMouseEnter={() => setActiveIndex(idx)}
-                  onClick={() => commitSelection(it)}
-                  className={
-                    "w-full text-left px-4 py-3 text-sm transition " +
-                    (idx === activeIndex
-                      ? "bg-white/10 text-white"
-                      : "hover:bg-white/5 text-white/80")
-                  }
-                >
-                  {it.display}
-                </button>
-              ))}
+            {items.map((it, idx) => (
+              <button
+                key={`${it.lat},${it.lng},${idx}`}
+                type="button"
+                onMouseEnter={() => setActiveIndex(idx)}
+                onClick={() => commit(it)}
+                className={
+                  "w-full text-left px-4 py-3 text-sm transition " +
+                  (idx === activeIndex
+                    ? "bg-white/10 text-white"
+                    : "hover:bg-white/5 text-white/80")
+                }
+              >
+                {it.label}
+              </button>
+            ))}
           </div>
         )}
       </div>

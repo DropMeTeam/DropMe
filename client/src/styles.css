@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+
+@layer components {
+  .card { @apply rounded-2xl bg-zinc-900/60 border border-zinc-800 shadow-soft; }
+  .btn { @apply inline-flex items-center justify-center rounded-xl px-4 py-2 font-medium transition; }
+  .btn-primary { @apply btn bg-white text-zinc-950 hover:bg-zinc-200; }
+  .btn-ghost { @apply btn bg-zinc-900/40 hover:bg-zinc-900/70 border border-zinc-800; }
+  .input { @apply w-full rounded-xl bg-zinc-950/40 border border-zinc-800 px-3 py-2 outline-none focus:ring-2 focus:ring-white/20; }
+  .pill { @apply inline-flex items-center gap-2 rounded-full px-3 py-1 border border-zinc-800 bg-zinc-900/40 text-sm hover:bg-zinc-900/70 transition; }
+  .pill-active { @apply bg-white text-zinc-950 border-white; }
+}

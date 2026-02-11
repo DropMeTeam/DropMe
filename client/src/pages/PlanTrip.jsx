@@ -1,201 +1,174 @@
-import { useMemo, useState } from "react";
-import { useLoadScript, DirectionsService } from "@react-google-maps/api";
+import { useState } from "react";
 import { useAuth } from "../state/AuthContext";
 import PlaceInput from "../components/PlaceInput";
 import RouteMap from "../components/RouteMap";
-import RideOptions from "../components/RideOptions";
+import { getRoute } from "../lib/osrm";
 import { api } from "../lib/api";
 
-const libraries = ["places"];
 
 export default function PlanTrip() {
   const { user } = useAuth();
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-    libraries
-  });
 
-  const [origin, setOrigin] = useState(null);
-  const [destination, setDestination] = useState(null);
-  const [mode, setMode] = useState("POOL");
-  const [pickupTime, setPickupTime] = useState(() => new Date().toISOString().slice(0, 16));
-  const [timeWindowMins, setTimeWindowMins] = useState(15);
-  const [seatsNeeded, setSeatsNeeded] = useState(1);
+  const [pickup, setPickup] = useState(null);
+  const [dropoff, setDropoff] = useState(null);
 
-  const [directions, setDirections] = useState(null);
-  const [metrics, setMetrics] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [matches, setMatches] = useState([]);
+  const [routePoints, setRoutePoints] = useState([]);
+  const [meta, setMeta] = useState(null);
 
-  const canRoute = Boolean(origin?.point && destination?.point && isLoaded);
+  const [mode, setMode] = useState("pool"); // pool | private | transit (ui only)
+  const [seats, setSeats] = useState(1);
+  const [pickupTime, setPickupTime] = useState(""); // datetime-local
+  const [loading, setLoading] = useState(false);
 
-  const travelMode = useMemo(() => (mode === "TRANSIT" ? "TRANSIT" : "DRIVING"), [mode]);
-
-  const dirRequest = useMemo(() => {
-    if (!canRoute) return null;
-    return {
-      origin: origin.point,
-      destination: destination.point,
-      travelMode,
-      provideRouteAlternatives: true
-    };
-  }, [canRoute, origin, destination, travelMode]);
-
-  async function runMatching() {
-    if (!user) return alert("Log in to request pool matches.");
-    if (!origin || !destination) return;
-
-    setBusy(true);
-    setMatches([]);
-    try {
-      const { data: r } = await api.post("/api/requests", {
-        origin,
-        destination,
-        pickupTime: new Date(pickupTime).toISOString(),
-        timeWindowMins: Number(timeWindowMins),
-        seatsNeeded: Number(seatsNeeded),
-        mode
-      });
-
-      const { data: m } = await api.post("/api/matches/find", {
-        requestId: r.request._id,
-        originMaxM: 3000,
-        destMaxM: 3500
-      });
-
-      setMatches(m.matches || []);
-    } catch (e) {
-      alert(e?.response?.data?.error || "Matching failed");
-    } finally {
-      setBusy(false);
-    }
+  async function buildRoute(p, d) {
+    if (!p || !d) return;
+    const r = await getRoute(p, d);
+    setRoutePoints(r.pathLatLng);
+    setMeta(r);
   }
 
-  async function acceptMatch(matchId) {
-    setBusy(true);
+  async function findMatches() {
+    if (!pickup || !dropoff) return alert("Select pickup & drop-off.");
+    if (!pickupTime) return alert("Select pickup time.");
+
+    setLoading(true);
     try {
-      await api.post(`/api/matches/${matchId}/accept`);
-      alert("Match accepted (MVP). Next step: create Trip + tracking.");
+      // Create rider request
+      const reqRes = await api.post("/api/requests", {
+        mode,
+        seats: Number(seats),
+        pickupTime,
+        origin: { lat: pickup.lat, lng: pickup.lng, label: pickup.display },
+        destination: { lat: dropoff.lat, lng: dropoff.lng, label: dropoff.display },
+        distanceMeters: meta?.distanceMeters ?? null,
+        durationSeconds: meta?.durationSeconds ?? null,
+      });
+
+      const requestId = reqRes.data?.request?._id || reqRes.data?._id;
+
+      // Find pool matches (backend matching)
+      const matchRes = await api.get(`/api/matches/find/${requestId}`);
+      console.log("matches", matchRes.data);
+
+      alert("Matches fetched. (Check console) Next step: build Matches UI.");
     } catch (e) {
-      alert(e?.response?.data?.error || "Accept failed");
+      alert(e?.response?.data?.message || "Failed to find matches");
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   }
-
-  if (!isLoaded) return <div className="p-6">Loading Maps…</div>;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-5">
-      <div className="card p-5 lg:col-span-2">
-        <div className="text-lg font-semibold">Plan a trip</div>
-        <div className="mt-1 text-sm text-zinc-400">Pickup, destination, schedule, then choose mode.</div>
-
-        <div className="mt-5 grid gap-3">
-          <PlaceInput value={origin} onChange={setOrigin} placeholder="Pickup location" />
-          <PlaceInput value={destination} onChange={setDestination} placeholder="Drop-off location" />
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <div className="mb-1 text-xs text-zinc-400">Pickup time</div>
-              <input type="datetime-local" className="input" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} />
-            </div>
-            <div>
-              <div className="mb-1 text-xs text-zinc-400">Time window (mins)</div>
-              <input type="number" className="input" min={0} max={120} value={timeWindowMins} onChange={(e) => setTimeWindowMins(e.target.value)} />
-            </div>
-          </div>
-
-          {mode !== "TRANSIT" ? (
-            <div>
-              <div className="mb-1 text-xs text-zinc-400">Seats</div>
-              <input type="number" className="input" min={1} max={2} value={seatsNeeded} onChange={(e) => setSeatsNeeded(e.target.value)} />
-            </div>
-          ) : null}
-
-          <div className="mt-2 flex flex-wrap gap-2">
-            {mode === "POOL" ? (
-              <button className="btn-primary btn" type="button" disabled={busy || !canRoute} onClick={runMatching}>
-                {busy ? "Matching…" : "Find pool matches"}
-              </button>
-            ) : (
-              <button className="btn-primary btn" type="button" disabled={!canRoute} onClick={() => {}}>
-                Show route
-              </button>
-            )}
-
-            <button
-              className="btn-ghost btn"
-              type="button"
-              onClick={() => {
-                setOrigin(null);
-                setDestination(null);
-                setDirections(null);
-                setMetrics(null);
-                setMatches([]);
-              }}
-            >
-              Reset
-            </button>
-          </div>
-
-          {matches?.length ? (
-            <div className="mt-4">
-              <div className="text-sm font-semibold">Matches</div>
-              <div className="mt-2 grid gap-2">
-                {matches.map((m) => (
-                  <div key={m._id} className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-medium">Driver offer</div>
-                        <div className="text-xs text-zinc-400">
-                          Seats left: {m.offerId.seatsAvailable} • Score: {m.score.toFixed(1)}
-                        </div>
-                      </div>
-                      <button className="btn-primary btn" type="button" disabled={busy} onClick={() => acceptMatch(m._id)}>
-                        Accept
-                      </button>
-                    </div>
-                    <div className="mt-2 text-xs text-zinc-400">
-                      {m.offerId.origin.address || "Origin"} → {m.offerId.destination.address || "Destination"}
-                    </div>
-                  </div>
-                ))}
+    <div className="min-h-screen bg-[#060812] text-white">
+      <div className="mx-auto max-w-6xl px-6 py-8 grid grid-cols-12 gap-6">
+        {/* Left panel */}
+        <div className="col-span-12 lg:col-span-4 space-y-4">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-xl font-semibold">Plan your DropMe journey</h1>
+                <p className="text-sm text-white/60 mt-1">
+                  Pool-first matching with a clean workflow.
+                </p>
+              </div>
+              <div className="text-xs text-white/50 mt-1">
+                {user ? `Signed in: ${user.role}` : "Not signed in"}
               </div>
             </div>
-          ) : null}
-        </div>
-      </div>
 
-      <div className="lg:col-span-3">
-        <RouteMap origin={origin} destination={destination} directions={directions} />
+            <div className="mt-5 space-y-4">
+              <PlaceInput
+                label="Pick-up"
+                placeholder="Search pickup location"
+                onSelect={(p) => {
+                  setPickup(p);
+                  if (dropoff) buildRoute(p, dropoff);
+                }}
+              />
 
-        <div className="mt-4">
-          <RideOptions metrics={metrics} mode={mode} setMode={setMode} />
-        </div>
+              <PlaceInput
+                label="Drop-off"
+                placeholder="Search drop-off location"
+                onSelect={(d) => {
+                  setDropoff(d);
+                  if (pickup) buildRoute(pickup, d);
+                }}
+              />
 
-        {dirRequest ? (
-          <DirectionsService
-            options={dirRequest}
-            callback={(res, status) => {
-              if (status !== "OK" || !res) return;
-setDirections(res);
-const leg = res?.routes?.[0]?.legs?.[0];
-if (leg?.distance?.value && leg?.duration?.value) {
-  setMetrics({
-    distanceKm: leg.distance.value / 1000,
-    durationMins: leg.duration.value / 60
-  });
-}
-            }}
-          />
-        ) : null}
+              {/* Trip mode cards */}
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: "pool", title: "Pool", desc: "Share ride, save cost" },
+                  { id: "private", title: "Private", desc: "Solo ride" },
+                  { id: "transit", title: "Transit", desc: "Public transport" },
+                ].map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setMode(m.id)}
+                    className={
+                      "rounded-xl border px-3 py-3 text-left transition " +
+                      (mode === m.id
+                        ? "border-white/40 bg-white/10"
+                        : "border-white/10 bg-white/5 hover:bg-white/10")
+                    }
+                  >
+                    <div className="font-semibold">{m.title}</div>
+                    <div className="text-xs text-white/60">{m.desc}</div>
+                  </button>
+                ))}
+              </div>
 
-        <div className="mt-4 card p-5">
-          <div className="text-sm font-semibold">Transit mode</div>
-          <div className="mt-1 text-sm text-zinc-300">
-            Set mode to <span className="font-medium">Transit</span> to render public transport directions (Google Directions API).
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-white/70 mb-2">Pick-up time</label>
+                  <input
+                    type="datetime-local"
+                    value={pickupTime}
+                    onChange={(e) => setPickupTime(e.target.value)}
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-white/70 mb-2">Seats</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="6"
+                    value={seats}
+                    onChange={(e) => setSeats(e.target.value)}
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/30"
+                  />
+                </div>
+              </div>
+
+              {meta && (
+                <div className="rounded-xl bg-black/30 border border-white/10 p-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Distance</span>
+                    <span>{(meta.distanceMeters / 1000).toFixed(1)} km</span>
+                  </div>
+                  <div className="flex justify-between mt-2">
+                    <span className="text-white/60">ETA</span>
+                    <span>{Math.round(meta.durationSeconds / 60)} min</span>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={findMatches}
+                disabled={loading}
+                className="w-full rounded-xl bg-white text-black font-semibold py-3 hover:opacity-90 disabled:opacity-60"
+              >
+                {loading ? "Searching..." : "Find pool matches"}
+              </button>
+            </div>
           </div>
+        </div>
+
+        {/* Map */}
+        <div className="col-span-12 lg:col-span-8">
+          <RouteMap pickup={pickup} dropoff={dropoff} routePoints={routePoints} />
         </div>
       </div>
     </div>

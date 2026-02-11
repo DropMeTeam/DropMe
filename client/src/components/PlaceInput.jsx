@@ -1,27 +1,23 @@
-import { Autocomplete } from "@react-google-maps/api";
-import { useRef } from "react";
+import PlaceSearch from "./PlaceSearch";
 
-export default function PlaceInput({ value, onChange, placeholder }) {
-  const acRef = useRef(null);
-
+/**
+ * PlaceInput (Free Maps Version)
+ * Keeps the old API:
+ *  - value: { address: string, point: { lat:number, lng:number } }
+ *  - onChange: (nextValue) => void
+ *  - placeholder: string
+ */
+export default function PlaceInput({ value, onChange, placeholder, label }) {
   return (
-    <Autocomplete
-      onLoad={(ac) => (acRef.current = ac)}
-      onPlaceChanged={() => {
-        const place = acRef.current?.getPlace();
-        if (!place?.geometry?.location) return;
-        onChange({
-          address: place.formatted_address || place.name || "",
-          point: { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() }
+    <PlaceSearch
+      label={label || "Location"}
+      placeholder={placeholder || "Search location"}
+      onSelect={(item) => {
+        onChange?.({
+          address: item.display,
+          point: { lat: item.lat, lng: item.lng },
         });
       }}
-    >
-      <input
-        className="input"
-        value={value?.address || ""}
-        placeholder={placeholder}
-        onChange={(e) => onChange({ ...value, address: e.target.value })}
-      />
-    </Autocomplete>
+    />
   );
 }

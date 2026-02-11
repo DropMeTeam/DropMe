@@ -5,6 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./state/AuthContext";
 import App from "./App";
 import "./styles.css";
+import "leaflet/dist/leaflet.css";
+import "./lib/leafletIcons";
+
 
 const qc = new QueryClient();
 

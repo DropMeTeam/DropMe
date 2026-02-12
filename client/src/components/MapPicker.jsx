@@ -75,7 +75,7 @@ export default function MapPicker({
         {busy && <div className="text-xs text-white/50">Resolving address…</div>}
       </div>
 
-      <div className="h-[520px]">
+      <div className="h-[600px]">
         <MapContainer center={center} zoom={12} style={{ height: "100%", width: "100%" }}>
           <TileLayer
             attribution="&copy; OpenStreetMap contributors"

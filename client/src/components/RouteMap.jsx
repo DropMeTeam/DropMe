@@ -1,20 +1,23 @@
-import { GoogleMap, DirectionsRenderer, Marker } from "@react-google-maps/api";
+import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
 
-const defaultCenter = { lat: 6.9271, lng: 79.8612 }; // Colombo
+export default function RouteMap({ pickup, dropoff, routePoints }) {
+  const center = pickup
+    ? [pickup.lat, pickup.lng]
+    : [6.9271, 79.8612]; // Colombo default
 
-export default function RouteMap({ origin, destination, directions }) {
   return (
-    <div className="h-[520px] w-full overflow-hidden rounded-2xl border border-zinc-800">
-      <GoogleMap
-        mapContainerStyle={{ width: "100%", height: "100%" }}
-        center={origin?.point ?? defaultCenter}
-        zoom={13}
-        options={{ disableDefaultUI: true, zoomControl: true }}
-      >
-        {origin?.point ? <Marker position={origin.point} /> : null}
-        {destination?.point ? <Marker position={destination.point} /> : null}
-        {directions ? <DirectionsRenderer directions={directions} /> : null}
-      </GoogleMap>
+    <div className="h-[520px] w-full overflow-hidden rounded-2xl border border-white/10">
+      <MapContainer center={center} zoom={12} className="h-full w-full">
+        <TileLayer
+          attribution="&copy; OpenStreetMap contributors"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+
+        {pickup && <Marker position={[pickup.lat, pickup.lng]} />}
+        {dropoff && <Marker position={[dropoff.lat, dropoff.lng]} />}
+
+        {routePoints?.length > 0 && <Polyline positions={routePoints} />}
+      </MapContainer>
     </div>
   );
 }

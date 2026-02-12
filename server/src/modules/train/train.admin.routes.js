@@ -5,7 +5,7 @@ import {
   updateStation,
   deleteStation,
 } from "./controllers/trainAdminStations.controller.js";
-import { requireAuth, requireRole } from "../../middleware/requireAuth.js";
+import { requireAuth, requireRole } from "../../middleware/auth.js";
 
 export const trainAdminRouter = express.Router();
 

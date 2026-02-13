@@ -6,17 +6,18 @@ export async function listStationsAdmin(req, res) {
 }
 
 export async function createStation(req, res) {
-  const { name, lat, lng, isActive } = req.body || {};
+  const { name, lat, lng, isActive, address } = req.body || {};
 
   if (!name || typeof lat !== "number" || typeof lng !== "number") {
     return res.status(400).json({ message: "name, lat, lng are required" });
   }
 
   const station = await Station.create({
-    name,
-    location: { lat, lng },
-    isActive: typeof isActive === "boolean" ? isActive : true,
-  });
+  name,
+  address: typeof address === "string" ? address : "",
+  location: { lat, lng },
+  isActive: typeof isActive === "boolean" ? isActive : true,
+});
 
   res.status(201).json({ station });
 }

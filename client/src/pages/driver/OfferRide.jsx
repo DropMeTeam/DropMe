@@ -1,95 +1,161 @@
-import { useMemo, useState } from "react";
-import { useLoadScript, DirectionsService } from "@react-google-maps/api";
-import PlaceInput from "../../components/PlaceInput";
+import { useState } from "react";
+import PlaceSearch from "../../components/PlaceSearch";
 import RouteMap from "../../components/RouteMap";
-import { api } from "../../lib/api";
-import { useNavigate } from "react-router-dom";
-
-const libraries = ["places"];
+import { getRoute } from "../../lib/osrm";
+import api from "../../lib/api";
 
 export default function OfferRide() {
-  const nav = useNavigate();
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-    libraries
-  });
+  const [from, setFrom] = useState(null);
+  const [to, setTo] = useState(null);
+  const [routePoints, setRoutePoints] = useState([]);
+  const [meta, setMeta] = useState(null);
 
-  const [origin, setOrigin] = useState(null);
-  const [destination, setDestination] = useState(null);
-  const [pickupTime, setPickupTime] = useState(() => new Date().toISOString().slice(0, 16));
-  const [timeWindowMins, setTimeWindowMins] = useState(15);
-  const [seatsTotal, setSeatsTotal] = useState(3);
+  const [departAt, setDepartAt] = useState("");
+  const [seats, setSeats] = useState(3);
+  const [priceLkr, setPriceLkr] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  const [directions, setDirections] = useState(null);
-
-  const canRoute = Boolean(origin?.point && destination?.point && isLoaded);
-
-  const dirRequest = useMemo(() => {
-    if (!canRoute) return null;
-    return { origin: origin.point, destination: destination.point, travelMode: "DRIVING" };
-  }, [canRoute, origin, destination]);
-
-  async function submit() {
-    if (!origin || !destination) return;
-
-    await api.post("/api/offers", {
-      origin,
-      destination,
-      pickupTime: new Date(pickupTime).toISOString(),
-      timeWindowMins: Number(timeWindowMins),
-      seatsTotal: Number(seatsTotal),
-      routePolyline: ""
-    });
-
-    nav("/driver");
+  async function buildRoute(nextFrom, nextTo) {
+    if (!nextFrom || !nextTo) return;
+    const r = await getRoute(nextFrom, nextTo);
+    setRoutePoints(r.pathLatLng);
+    setMeta(r);
   }
 
-  if (!isLoaded) return <div className="p-6">Loading Maps…</div>;
+  async function submit() {
+    if (!from || !to || !departAt) {
+      alert("Please set pickup, drop-off and departure time.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.post("/api/offers", {
+        origin: { lat: from.lat, lng: from.lng, label: from.display },
+        destination: { lat: to.lat, lng: to.lng, label: to.display },
+        departAt,
+        seats: Number(seats),
+        priceLkr: Number(priceLkr),
+        // store route summary for matching + display
+        distanceMeters: meta?.distanceMeters ?? null,
+        durationSeconds: meta?.durationSeconds ?? null,
+      });
+
+      alert("Ride offer published!");
+      // reset
+      setFrom(null);
+      setTo(null);
+      setRoutePoints([]);
+      setMeta(null);
+      setDepartAt("");
+      setSeats(3);
+      setPriceLkr(0);
+    } catch (e) {
+      alert(e?.response?.data?.message || "Failed to publish offer");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-5">
-      <div className="card p-5 lg:col-span-2">
-        <div className="text-lg font-semibold">Create ride offer</div>
-        <div className="mt-1 text-sm text-zinc-400">Post route + time window + seats.</div>
+    <div className="min-h-screen bg-[#060812] text-white">
+      <div className="mx-auto max-w-6xl px-6 py-8 grid grid-cols-12 gap-6">
+        {/* Left panel */}
+        <div className="col-span-12 lg:col-span-4 space-y-4">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <h1 className="text-xl font-semibold">Offer a ride</h1>
+            <p className="text-sm text-white/60 mt-1">
+              Publish your route. DropMe will match riders going the same way.
+            </p>
 
-        <div className="mt-5 grid gap-3">
-          <PlaceInput value={origin} onChange={setOrigin} placeholder="Start location" />
-          <PlaceInput value={destination} onChange={setDestination} placeholder="End location" />
+            <div className="mt-5 space-y-4">
+              <PlaceSearch
+                label="Start (pick-up area)"
+                placeholder="Search pickup location"
+                onSelect={(p) => {
+                  setFrom(p);
+                  if (to) buildRoute(p, to);
+                }}
+              />
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <div className="mb-1 text-xs text-zinc-400">Pickup time</div>
-              <input type="datetime-local" className="input" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} />
-            </div>
-            <div>
-              <div className="mb-1 text-xs text-zinc-400">Time window (mins)</div>
-              <input type="number" className="input" min={0} max={120} value={timeWindowMins} onChange={(e) => setTimeWindowMins(e.target.value)} />
+              <PlaceSearch
+                label="Destination"
+                placeholder="Search drop-off location"
+                onSelect={(d) => {
+                  setTo(d);
+                  if (from) buildRoute(from, d);
+                }}
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-white/70 mb-2">
+                    Departure time
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={departAt}
+                    onChange={(e) => setDepartAt(e.target.value)}
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-white/70 mb-2">
+                    Seats
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="6"
+                    value={seats}
+                    onChange={(e) => setSeats(e.target.value)}
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/30"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-white/70 mb-2">
+                  Price (LKR) (optional)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={priceLkr}
+                  onChange={(e) => setPriceLkr(e.target.value)}
+                  className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/30"
+                />
+              </div>
+
+              {meta && (
+                <div className="rounded-xl bg-black/30 border border-white/10 p-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Distance</span>
+                    <span>{(meta.distanceMeters / 1000).toFixed(1)} km</span>
+                  </div>
+                  <div className="flex justify-between mt-2">
+                    <span className="text-white/60">ETA</span>
+                    <span>{Math.round(meta.durationSeconds / 60)} min</span>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={submit}
+                disabled={loading}
+                className="w-full rounded-xl bg-white text-black font-semibold py-3 hover:opacity-90 disabled:opacity-60"
+              >
+                {loading ? "Publishing..." : "Publish Offer"}
+              </button>
             </div>
           </div>
-
-          <div>
-            <div className="mb-1 text-xs text-zinc-400">Seats available</div>
-            <input type="number" className="input" min={1} max={6} value={seatsTotal} onChange={(e) => setSeatsTotal(e.target.value)} />
-          </div>
-
-          <button className="btn-primary btn" type="button" disabled={!canRoute} onClick={submit}>
-            Publish offer
-          </button>
         </div>
-      </div>
 
-      <div className="lg:col-span-3">
-        <RouteMap origin={origin} destination={destination} directions={directions} />
-
-        {dirRequest ? (
-          <DirectionsService
-            options={dirRequest}
-            callback={(res, status) => {
-              if (status !== "OK" || !res) return;
-              setDirections(res);
-            }}
-          />
-        ) : null}
+        {/* Map */}
+        <div className="col-span-12 lg:col-span-8">
+          <RouteMap pickup={from} dropoff={to} routePoints={routePoints} />
+        </div>
       </div>
     </div>
   );

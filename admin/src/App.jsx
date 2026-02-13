@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate, Link } from "react-router-dom";
 import StationsPage from "./pages/train/StationsPage.jsx";
+import Login from "./pages/Login.jsx";
+import RequireAdmin from "./components/RequireAdmin.jsx";
 
 export default function App() {
   return (
@@ -14,7 +16,17 @@ export default function App() {
       <div style={{ marginTop: 16 }}>
         <Routes>
           <Route path="/" element={<Navigate to="/train/stations" replace />} />
-          <Route path="/train/stations" element={<StationsPage />} />
+          <Route path="/login" element={<Login />} />
+
+          <Route
+            path="/train/stations"
+            element={
+              <RequireAdmin>
+                <StationsPage />
+              </RequireAdmin>
+            }
+          />
+
           <Route path="*" element={<div>Not found</div>} />
         </Routes>
       </div>

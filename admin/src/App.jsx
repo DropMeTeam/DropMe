@@ -3,14 +3,16 @@ import AdminNav from "./components/AdminNav.jsx";
 import RequireAdmin from "./components/RequireAdmin.jsx";
 
 import Login from "./pages/Login.jsx";
+import RegisterAdmin from "./pages/RegisterAdmin.jsx";
+
+import TrainLayout from "./pages/train/TrainLayout.jsx";
 import StationsPage from "./pages/train/StationsPage.jsx";
+import TrainSchedulesPage from "./pages/train/TrainSchedulesPage.jsx";
 
 import BusHome from "./pages/bus/BusHome.jsx";
 import PrivateHome from "./pages/private/PrivateHome.jsx";
 import CreateAdminUser from "./pages/admin/CreateAdminUser.jsx";
-import RegisterAdmin from "./pages/RegisterAdmin.jsx";
 import SystemApprovals from "./pages/system/SystemApprovals.jsx";
-
 
 export default function App() {
   return (
@@ -19,19 +21,25 @@ export default function App() {
 
       <div style={{ marginTop: 16 }}>
         <Routes>
-          <Route path="/" element={<Navigate to="/train/stations" replace />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
+
+          {/* Public */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<RegisterAdmin />} />
 
-          {/* TRAIN */}
+          {/* TRAIN (with tabs via TrainLayout) */}
           <Route
-            path="/train/stations"
+            path="/train"
             element={
               <RequireAdmin section="train">
-                <StationsPage />
+                <TrainLayout />
               </RequireAdmin>
             }
-          />
+          >
+            <Route index element={<Navigate to="stations" replace />} />
+            <Route path="stations" element={<StationsPage />} />
+            <Route path="schedules" element={<TrainSchedulesPage />} />
+          </Route>
 
           {/* BUS (placeholder) */}
           <Route
@@ -53,7 +61,17 @@ export default function App() {
             }
           />
 
-          {/* Create Admin (SUPER_ADMIN only - enforced inside page too) */}
+          {/* System admin */}
+          <Route
+            path="/system/approvals"
+            element={
+              <RequireAdmin section="system">
+                <SystemApprovals />
+              </RequireAdmin>
+            }
+          />
+
+          {/* Optional */}
           <Route
             path="/admin/users/new"
             element={
@@ -62,16 +80,6 @@ export default function App() {
               </RequireAdmin>
             }
           />
-
-          <Route
-  path="/system/approvals"
-  element={
-    <RequireAdmin section="system">
-      <SystemApprovals />
-    </RequireAdmin>
-  }
-/>
-
 
           <Route path="*" element={<div style={{ padding: 16 }}>Not found</div>} />
         </Routes>

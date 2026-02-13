@@ -11,6 +11,7 @@ import { matchesRouter } from "./routes/matches.routes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { trainRouter } from "./modules/train/train.routes.js";
 import { trainAdminRouter } from "./modules/train/train.admin.routes.js";
+import { adminRouter } from "./routes/admin.routes.js";
 
 
 export function buildApp({ io }) {
@@ -55,6 +56,8 @@ app.use(
 
   app.use("/api/train", trainRouter);
 app.use("/api/admin/train", trainAdminRouter);
+app.use("/api/admin", adminRouter);
+
 
 
   app.use(errorHandler);

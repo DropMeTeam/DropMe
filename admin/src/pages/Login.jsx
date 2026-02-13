@@ -1,13 +1,26 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../state/AuthContext";
+import api from "../lib/api";
+
+function routeByRole(role) {
+  if (role === "ADMIN_TRAIN") return "/train/stations";
+  if (role === "ADMIN_BUS") return "/bus";
+  if (role === "ADMIN_PRIVATE") return "/private";
+  if (role === "SYSTEM_ADMIN") return "/system/approvals";
+  // if you still have SUPER_ADMIN in DB
+  if (role === "SUPER_ADMIN") return "/system/approvals";
+  return "/login";
+}
 
 export default function Login() {
   const nav = useNavigate();
-  const { login } = useAuth();
+  const { login: normalLogin, refresh } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [asSystemAdmin, setAsSystemAdmin] = useState(false);
+
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -15,9 +28,22 @@ export default function Login() {
     e.preventDefault();
     setMsg("");
     setLoading(true);
+
     try {
-      await login(email, password);
-      nav("/train/stations");
+      if (asSystemAdmin) {
+        // ✅ SYSTEM_ADMIN uses env-based endpoint
+        await api.post("/api/auth/system/login", { email, password });
+      } else {
+        // ✅ normal admins/users
+        await normalLogin(email, password);
+      }
+
+      // refresh context + get role
+      await refresh?.();
+
+      const meRes = await api.get("/api/auth/me");
+      const u = meRes.data?.user || meRes.data;
+      nav(routeByRole(u?.role), { replace: true });
     } catch (err) {
       setMsg(err?.response?.data?.message || "Login failed");
     } finally {
@@ -28,13 +54,31 @@ export default function Login() {
   return (
     <div style={{ maxWidth: 420, margin: "40px auto", padding: 16 }}>
       <h2 style={{ marginTop: 0 }}>Admin Login</h2>
+
       {msg && (
-        <div style={{ background: "#fff3cd", border: "1px solid #ffeeba", padding: 10, borderRadius: 8, marginBottom: 10 }}>
+        <div
+          style={{
+            background: "#fff3cd",
+            border: "1px solid #ffeeba",
+            padding: 10,
+            borderRadius: 8,
+            marginBottom: 10,
+          }}
+        >
           {msg}
         </div>
       )}
 
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={asSystemAdmin}
+            onChange={(e) => setAsSystemAdmin(e.target.checked)}
+          />
+          Login as <b>SYSTEM_ADMIN</b> (env credentials)
+        </label>
+
         <label>
           Email
           <input
@@ -67,7 +111,11 @@ export default function Login() {
       </form>
 
       <p style={{ marginTop: 14, opacity: 0.8 }}>
-        Use an account with role <b>ADMIN_TRAIN</b> (or adjust the required roles in code).
+        New admin? <Link to="/register">Request Admin Access</Link>
+      </p>
+
+      <p style={{ marginTop: 6, opacity: 0.7, fontSize: 13 }}>
+        Note: Train/Bus/Private admins may need SYSTEM_ADMIN approval before login.
       </p>
     </div>
   );

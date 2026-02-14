@@ -9,6 +9,10 @@ import { offersRouter } from "./routes/offers.routes.js";
 import { requestsRouter } from "./routes/requests.routes.js";
 import { matchesRouter } from "./routes/matches.routes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { trainRouter } from "./modules/train/train.routes.js";
+import { trainAdminRouter } from "./modules/train/train.admin.routes.js";
+import { adminRouter } from "./routes/admin.routes.js";
+
 
 export function buildApp({ io }) {
   const app = express();
@@ -18,8 +22,23 @@ export function buildApp({ io }) {
   app.use(cookieParser());
   app.use(morgan("dev"));
 
-  const origin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
-  app.use(cors({ origin, credentials: true }));
+  const allowedOrigins = [
+  process.env.CLIENT_ORIGIN || "http://localhost:5173",
+  process.env.ADMIN_ORIGIN || "http://localhost:5174",
+];
+
+// allowlist function to support credentials
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      // allow non-browser clients (no Origin)
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error(`CORS blocked origin: ${origin}`));
+    },
+    credentials: true,
+  })
+);
 
   app.use(rateLimit({ windowMs: 60 * 1000, limit: 120 }));
 
@@ -34,6 +53,12 @@ export function buildApp({ io }) {
   app.use("/api/offers", offersRouter);
   app.use("/api/requests", requestsRouter);
   app.use("/api/matches", matchesRouter);
+
+  app.use("/api/train", trainRouter);
+app.use("/api/admin/train", trainAdminRouter);
+app.use("/api/admin", adminRouter);
+
+
 
   app.use(errorHandler);
 

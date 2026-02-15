@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "../state/AuthContext";
 import PlaceInput from "../components/PlaceInput";
 import MapPicker from "../components/MapPicker";
@@ -7,39 +7,140 @@ import { api } from "../lib/api";
 import { startLiveLocation, stopLiveLocation } from "../lib/geolocate";
 import { reverseGeocode } from "../lib/reverseGeocode";
 
-
 export default function PlanTrip() {
   const { user } = useAuth();
 
-  // unified shape everywhere
-  const [pickup, setPickup] = useState(null);   // { label, lat, lng }
-  const [dropoff, setDropoff] = useState(null); // { label, lat, lng }
+  // Unified shape everywhere:
+  // { label: string, lat: number, lng: number }
+  const [pickup, setPickup] = useState(null);
+  const [dropoff, setDropoff] = useState(null);
 
-  // controlled input values
+  // Controlled input values
   const [pickupText, setPickupText] = useState("");
   const [dropoffText, setDropoffText] = useState("");
 
+  // Map click target
   const [activePin, setActivePin] = useState("pickup"); // pickup | dropoff
 
+  // Route view
   const [routePoints, setRoutePoints] = useState([]);
   const [meta, setMeta] = useState(null);
 
+  // Trip settings
   const [mode, setMode] = useState("pool");
   const [seats, setSeats] = useState(1);
   const [pickupTime, setPickupTime] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // GPS
+  const [myLoc, setMyLoc] = useState(null); // {lat,lng,accuracyMeters}
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState("");
   const [tracking, setTracking] = useState(false);
-  const watchIdRef = useState({ current: null })[0];
+  const watchIdRef = useRef(null);
 
+  // Fly-to
+  const [flyToKey, setFlyToKey] = useState(0);
+  const [flyToTarget, setFlyToTarget] = useState(null);
+  const flewRef = useRef(false);
 
   async function buildRoute(p, d) {
     if (!p || !d) return;
     const r = await getRoute(p, d);
     setRoutePoints(r.pathLatLng);
     setMeta(r);
+  }
+
+  async function setPickupFromCoords(lat, lng, accuracyMeters) {
+    const label = await reverseGeocode(lat, lng);
+    const p = { label, lat, lng };
+
+    setPickup(p);
+    setPickupText(label);
+    setActivePin("dropoff");
+
+    setMyLoc({ lat, lng, accuracyMeters });
+
+    // Fly to pickup
+    setFlyToTarget({ lat, lng });
+    setFlyToKey((k) => k + 1);
+
+    if (dropoff) buildRoute(p, dropoff);
+  }
+
+  async function useMyLocationOnce() {
+    setGpsError("");
+    setGpsLoading(true);
+
+    if (!("geolocation" in navigator)) {
+      setGpsLoading(false);
+      setGpsError("Geolocation not supported in this browser.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude, accuracy } = pos.coords;
+          setActivePin("pickup");
+          await setPickupFromCoords(latitude, longitude, accuracy);
+        } catch {
+          setGpsError("Failed to resolve your location address.");
+        } finally {
+          setGpsLoading(false);
+        }
+      },
+      (err) => {
+        setGpsLoading(false);
+        setGpsError(err?.message || "Location permission denied.");
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 2000 }
+    );
+  }
+
+  function startTracking() {
+    setGpsError("");
+    setTracking(true);
+    setActivePin("pickup");
+    flewRef.current = false;
+
+    const watchId = startLiveLocation({
+      onUpdate: ({ lat, lng, accuracyMeters }) => {
+        setMyLoc({ lat, lng, accuracyMeters });
+
+        // Keep pickup moving live
+        setPickup((prev) => ({
+          ...(prev || {}),
+          lat,
+          lng,
+          label: prev?.label || "My live location",
+        }));
+        setPickupText((prev) => prev || "My live location");
+
+        // Fly only the first time (prevents jumpy map)
+        if (!flewRef.current) {
+          setFlyToTarget({ lat, lng });
+          setFlyToKey((k) => k + 1);
+          flewRef.current = true;
+        }
+      },
+      onError: (err) => {
+        setGpsError(err?.message || "Live tracking failed.");
+        setTracking(false);
+      },
+      enableHighAccuracy: true,
+    });
+
+    watchIdRef.current = watchId;
+  }
+
+  function stopTracking() {
+    stopLiveLocation(watchIdRef.current);
+    watchIdRef.current = null;
+    setTracking(false);
+    flewRef.current = false;
+    // keep myLoc visible if you want; if not, clear it:
+    // setMyLoc(null);
   }
 
   async function findMatches() {
@@ -63,79 +164,13 @@ export default function PlanTrip() {
       const matchRes = await api.get(`/api/matches/find/${requestId}`);
       console.log("matches", matchRes.data);
 
-      alert("Matches fetched. (Check console) Next: build Matches UI.");
+      alert("Matches fetched. (Check console). Next: build Matches UI.");
     } catch (e) {
       alert(e?.response?.data?.message || "Failed to find matches");
     } finally {
       setLoading(false);
     }
   }
-
-  async function setPickupFromCoords(lat, lng) {
-  const label = await reverseGeocode(lat, lng);
-  const p = { label, lat, lng };
-  setPickup(p);
-  setPickupText(label);
-  setActivePin("dropoff");
-  if (dropoff) buildRoute(p, dropoff);
-}
-
-async function useMyLocationOnce() {
-  setGpsError("");
-  setGpsLoading(true);
-
-  if (!("geolocation" in navigator)) {
-    setGpsLoading(false);
-    setGpsError("Geolocation not supported in this browser.");
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    async (pos) => {
-      try {
-        const { latitude, longitude } = pos.coords;
-        await setPickupFromCoords(latitude, longitude);
-      } catch (e) {
-        setGpsError("Failed to resolve your location address.");
-      } finally {
-        setGpsLoading(false);
-      }
-    },
-    (err) => {
-      setGpsLoading(false);
-      setGpsError(err?.message || "Location permission denied.");
-    },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 2000 }
-  );
-}
-
-function startTracking() {
-  setGpsError("");
-  setTracking(true);
-
-  const watchId = startLiveLocation({
-    onUpdate: async ({ lat, lng }) => {
-      // Live updates: keep pickup point moving
-      // Reverse geocode only occasionally to avoid rate limits
-      setPickup((prev) => ({ ...(prev || {}), lat, lng, label: prev?.label || "My live location" }));
-      setPickupText((prev) => prev || "My live location");
-    },
-    onError: (err) => {
-      setGpsError(err?.message || "Live tracking failed.");
-      setTracking(false);
-    },
-    enableHighAccuracy: true,
-  });
-
-  watchIdRef.current = watchId;
-}
-
-function stopTracking() {
-  stopLiveLocation(watchIdRef.current);
-  watchIdRef.current = null;
-  setTracking(false);
-}
-
 
   return (
     <div className="min-h-screen bg-[#060812] text-white">
@@ -147,7 +182,7 @@ function stopTracking() {
               <div>
                 <h1 className="text-xl font-semibold">Plan your DropMe journey</h1>
                 <p className="text-sm text-white/60 mt-1">
-                  Type or click on map to select points.
+                  Type or click on map to select points + live location.
                 </p>
               </div>
               <div className="text-xs text-white/50 mt-1">
@@ -168,39 +203,38 @@ function stopTracking() {
                   if (dropoff) buildRoute(p, dropoff);
                 }}
               />
+
+              {/* GPS buttons */}
               <div className="flex gap-2">
-  <button
-    type="button"
-    onClick={useMyLocationOnce}
-    disabled={gpsLoading}
-    className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm hover:bg-white/10 disabled:opacity-60"
-  >
-    {gpsLoading ? "Getting location..." : "Use my location"}
-  </button>
+                <button
+                  type="button"
+                  onClick={useMyLocationOnce}
+                  disabled={gpsLoading}
+                  className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm hover:bg-white/10 disabled:opacity-60"
+                >
+                  {gpsLoading ? "Getting location..." : "Use my location"}
+                </button>
 
-  {!tracking ? (
-    <button
-      type="button"
-      onClick={startTracking}
-      className="rounded-xl bg-white text-black px-4 py-3 text-sm font-semibold hover:opacity-90"
-    >
-      Start live
-    </button>
-  ) : (
-    <button
-      type="button"
-      onClick={stopTracking}
-      className="rounded-xl border border-red-400/30 bg-red-500/10 text-red-200 px-4 py-3 text-sm font-semibold hover:bg-red-500/15"
-    >
-      Stop live
-    </button>
-  )}
-</div>
+                {!tracking ? (
+                  <button
+                    type="button"
+                    onClick={startTracking}
+                    className="rounded-xl bg-white text-black px-4 py-3 text-sm font-semibold hover:opacity-90"
+                  >
+                    Start live
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={stopTracking}
+                    className="rounded-xl border border-red-400/30 bg-red-500/10 text-red-200 px-4 py-3 text-sm font-semibold hover:bg-red-500/15"
+                  >
+                    Stop live
+                  </button>
+                )}
+              </div>
 
-{gpsError && (
-  <div className="text-xs text-red-300 mt-2">{gpsError}</div>
-)}
-
+              {gpsError && <div className="text-xs text-red-300">{gpsError}</div>}
 
               <PlaceInput
                 label="Drop-off"
@@ -214,7 +248,7 @@ function stopTracking() {
                 }}
               />
 
-              {/* Map set toggle */}
+              {/* Map click toggle */}
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setActivePin("pickup")}
@@ -236,8 +270,6 @@ function stopTracking() {
                       : "border-white/10 bg-white/5 hover:bg-white/10")
                   }
                 >
-
-                
                   Set Drop-off on map
                 </button>
               </div>
@@ -313,16 +345,21 @@ function stopTracking() {
           </div>
         </div>
 
-        {/* RIGHT: Map */}
+        {/* RIGHT */}
         <div className="col-span-12 lg:col-span-8">
           <MapPicker
             pickup={pickup}
             dropoff={dropoff}
+            myLoc={myLoc}
             active={activePin}
             routePoints={routePoints}
+            flyTo={flyToTarget}
+            flyToKey={flyToKey}
+            flyZoom={16}
             onChangePickup={(p) => {
               setPickup(p);
               setPickupText(p.label);
+              setActivePin("dropoff");
               if (dropoff) buildRoute(p, dropoff);
             }}
             onChangeDropoff={(d) => {

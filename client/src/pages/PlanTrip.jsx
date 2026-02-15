@@ -4,6 +4,9 @@ import PlaceInput from "../components/PlaceInput";
 import MapPicker from "../components/MapPicker";
 import { getRoute } from "../lib/osrm";
 import { api } from "../lib/api";
+import { startLiveLocation, stopLiveLocation } from "../lib/geolocate";
+import { reverseGeocode } from "../lib/reverseGeocode";
+
 
 export default function PlanTrip() {
   const { user } = useAuth();
@@ -25,6 +28,12 @@ export default function PlanTrip() {
   const [seats, setSeats] = useState(1);
   const [pickupTime, setPickupTime] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState("");
+  const [tracking, setTracking] = useState(false);
+  const watchIdRef = useState({ current: null })[0];
+
 
   async function buildRoute(p, d) {
     if (!p || !d) return;
@@ -62,6 +71,72 @@ export default function PlanTrip() {
     }
   }
 
+  async function setPickupFromCoords(lat, lng) {
+  const label = await reverseGeocode(lat, lng);
+  const p = { label, lat, lng };
+  setPickup(p);
+  setPickupText(label);
+  setActivePin("dropoff");
+  if (dropoff) buildRoute(p, dropoff);
+}
+
+async function useMyLocationOnce() {
+  setGpsError("");
+  setGpsLoading(true);
+
+  if (!("geolocation" in navigator)) {
+    setGpsLoading(false);
+    setGpsError("Geolocation not supported in this browser.");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      try {
+        const { latitude, longitude } = pos.coords;
+        await setPickupFromCoords(latitude, longitude);
+      } catch (e) {
+        setGpsError("Failed to resolve your location address.");
+      } finally {
+        setGpsLoading(false);
+      }
+    },
+    (err) => {
+      setGpsLoading(false);
+      setGpsError(err?.message || "Location permission denied.");
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 2000 }
+  );
+}
+
+function startTracking() {
+  setGpsError("");
+  setTracking(true);
+
+  const watchId = startLiveLocation({
+    onUpdate: async ({ lat, lng }) => {
+      // Live updates: keep pickup point moving
+      // Reverse geocode only occasionally to avoid rate limits
+      setPickup((prev) => ({ ...(prev || {}), lat, lng, label: prev?.label || "My live location" }));
+      setPickupText((prev) => prev || "My live location");
+    },
+    onError: (err) => {
+      setGpsError(err?.message || "Live tracking failed.");
+      setTracking(false);
+    },
+    enableHighAccuracy: true,
+  });
+
+  watchIdRef.current = watchId;
+}
+
+function stopTracking() {
+  stopLiveLocation(watchIdRef.current);
+  watchIdRef.current = null;
+  setTracking(false);
+}
+
+
   return (
     <div className="min-h-screen bg-[#060812] text-white">
       <div className="mx-auto max-w-6xl px-6 py-8 grid grid-cols-12 gap-6">
@@ -93,6 +168,39 @@ export default function PlanTrip() {
                   if (dropoff) buildRoute(p, dropoff);
                 }}
               />
+              <div className="flex gap-2">
+  <button
+    type="button"
+    onClick={useMyLocationOnce}
+    disabled={gpsLoading}
+    className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm hover:bg-white/10 disabled:opacity-60"
+  >
+    {gpsLoading ? "Getting location..." : "Use my location"}
+  </button>
+
+  {!tracking ? (
+    <button
+      type="button"
+      onClick={startTracking}
+      className="rounded-xl bg-white text-black px-4 py-3 text-sm font-semibold hover:opacity-90"
+    >
+      Start live
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={stopTracking}
+      className="rounded-xl border border-red-400/30 bg-red-500/10 text-red-200 px-4 py-3 text-sm font-semibold hover:bg-red-500/15"
+    >
+      Stop live
+    </button>
+  )}
+</div>
+
+{gpsError && (
+  <div className="text-xs text-red-300 mt-2">{gpsError}</div>
+)}
+
 
               <PlaceInput
                 label="Drop-off"
@@ -128,6 +236,8 @@ export default function PlanTrip() {
                       : "border-white/10 bg-white/5 hover:bg-white/10")
                   }
                 >
+
+                
                   Set Drop-off on map
                 </button>
               </div>

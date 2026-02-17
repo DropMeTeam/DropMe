@@ -1,4 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import api from "../lib/api";
+
+async function searchPlaces(q) {
+  const res = await api.get("/api/geo/nominatim/search", { params: { q } });
+  return res.data;
+}
+
 
 function useDebounce(value, delay = 400) {
   const [v, setV] = useState(value);

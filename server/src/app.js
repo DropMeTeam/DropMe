@@ -13,6 +13,8 @@ import { trainRouter } from "./modules/train/train.routes.js";
 import { trainAdminRouter } from "./modules/train/train.admin.routes.js";
 import { adminRouter } from "./routes/admin.routes.js";
 import busRouter from "./modules/bus/routes/bus.routes.js";
+import geoRouter from "./routes/geo.routes.js";
+
 
 
 
@@ -60,6 +62,8 @@ app.use(
 app.use("/api/admin/train", trainAdminRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/bus", busRouter);
+app.use("/api/geo", geoRouter);
+
 
 
 

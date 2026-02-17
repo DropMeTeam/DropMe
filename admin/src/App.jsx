@@ -10,7 +10,10 @@ import StationsPage from "./pages/train/StationsPage.jsx";
 import TrainSchedulesPage from "./pages/train/TrainSchedulesPage.jsx";
 
 import BusHome from "./pages/bus/BusHome.jsx";
+
 import PrivateHome from "./pages/private/PrivateHome.jsx";
+import AdminDrivers from "./pages/private/AdminDrivers.jsx";
+
 import CreateAdminUser from "./pages/admin/CreateAdminUser.jsx";
 import SystemApprovals from "./pages/system/SystemApprovals.jsx";
 
@@ -27,7 +30,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<RegisterAdmin />} />
 
-          {/* TRAIN (with tabs via TrainLayout) */}
+          {/* TRAIN (nested tabs) */}
           <Route
             path="/train"
             element={
@@ -41,7 +44,7 @@ export default function App() {
             <Route path="schedules" element={<TrainSchedulesPage />} />
           </Route>
 
-          {/* BUS (placeholder) */}
+          {/* BUS */}
           <Route
             path="/bus"
             element={
@@ -51,7 +54,7 @@ export default function App() {
             }
           />
 
-          {/* PRIVATE (placeholder) */}
+          {/* PRIVATE (✅ approvals live inside private dashboard area) */}
           <Route
             path="/private"
             element={
@@ -60,6 +63,18 @@ export default function App() {
               </RequireAdmin>
             }
           />
+
+          <Route
+            path="/private/drivers"
+            element={
+              <RequireAdmin section="private">
+                <AdminDrivers />
+              </RequireAdmin>
+            }
+          />
+
+          {/* Optional: if you want /private to always show approvals page by default */}
+          <Route path="/private/*" element={<Navigate to="/private/drivers" replace />} />
 
           {/* System admin */}
           <Route

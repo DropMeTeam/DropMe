@@ -8,6 +8,7 @@ import RiderDashboard from "./pages/rider/RiderDashboard";
 import DriverDashboard from "./pages/driver/DriverDashboard";
 import { useAuth } from "./state/AuthContext";
 import Shell from "./components/Shell";
+import DriverRegister from "./pages/driver/DriverRegister";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -51,6 +52,8 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/driver/register" element={<DriverRegister />} />
+      
     </Routes>
   );
 }

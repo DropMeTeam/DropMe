@@ -1,10 +1,24 @@
 import { Outlet, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../state/AuthContext";
-import { Car, LogOut, MapPinned, UserRound } from "lucide-react";
+import { Car, LogOut, MapPinned, UserRound, Shield } from "lucide-react";
+
+function isAdmin(role) {
+  return role === "ADMIN_TRAIN" || role === "ADMIN_BUS" || role === "ADMIN_PRIVATE";
+}
+
+function dashboardPath(role) {
+  if (role === "ADMIN_TRAIN") return "/train";
+  if (role === "ADMIN_BUS") return "/bus";
+  if (role === "ADMIN_PRIVATE") return "/private";
+  if (role === "driver") return "/driver";
+  return "/rider";
+}
 
 export default function Shell() {
   const { user, logout } = useAuth();
   const nav = useNavigate();
+
+  const showAdmin = !!user && isAdmin(user.role);
 
   return (
     <div className="min-h-screen">
@@ -24,17 +38,36 @@ export default function Shell() {
 
             {user ? (
               <>
-                <button className="pill" onClick={() => nav(user.role === "driver" ? "/driver" : "/rider")} type="button">
+                {showAdmin ? (
+                  <button
+                    className="pill"
+                    onClick={() => nav(dashboardPath(user.role))}
+                    type="button"
+                  >
+                    <Shield className="h-4 w-4" /> Admin
+                  </button>
+                ) : null}
+
+                <button
+                  className="pill"
+                  onClick={() => nav(dashboardPath(user.role))}
+                  type="button"
+                >
                   <UserRound className="h-4 w-4" /> Dashboard
                 </button>
+
                 <button className="pill" onClick={logout} type="button" title="Logout">
                   <LogOut className="h-4 w-4" />
                 </button>
               </>
             ) : (
               <>
-                <Link to="/login" className="pill">Log in</Link>
-                <Link to="/register" className="pill pill-active">Sign up</Link>
+                <Link to="/login" className="pill">
+                  Log in
+                </Link>
+                <Link to="/register" className="pill pill-active">
+                  Sign up
+                </Link>
               </>
             )}
           </nav>
@@ -47,7 +80,7 @@ export default function Shell() {
 
       <footer className="mx-auto max-w-6xl px-4 pb-10 pt-10 text-xs text-zinc-400">
         <div className="border-t border-zinc-800 pt-6">
-          Built for learning & prototyping. Do not copy third‑party branding.
+          Built for learning & prototyping. Do not copy third-party branding.
         </div>
       </footer>
     </div>

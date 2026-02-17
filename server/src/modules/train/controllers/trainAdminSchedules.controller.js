@@ -30,7 +30,6 @@ function validateStops(stops) {
     throw new HttpError(400, "At least 2 stops required");
   }
 
-  // Normalize types early (keeps controller deterministic)
   for (const s of stops) {
     if (s.order !== undefined) s.order = Number(s.order);
   }
@@ -53,16 +52,50 @@ function validateStops(stops) {
 }
 
 /**
+ * Weekly timetable validator (Mon–Sun)
+ * - must be object
+ * - each day must be array (can be empty)
+ * - if day array present: each row must have stationId + order + departureTime
+ */
+function validateWeeklyTimetable(weeklyTimetable) {
+  if (weeklyTimetable === null || typeof weeklyTimetable !== "object") {
+    throw new HttpError(400, "weeklyTimetable must be an object");
+  }
+
+  const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  for (const d of DAYS) {
+    const rows = weeklyTimetable[d];
+    if (rows === undefined) continue; // allow partial day updates if you want
+
+    if (!Array.isArray(rows)) {
+      throw new HttpError(400, `weeklyTimetable.${d} must be an array`);
+    }
+
+    for (const r of rows) {
+      if (!r.stationId) throw new HttpError(400, `weeklyTimetable.${d}: stationId required`);
+      if (!Number.isFinite(Number(r.order)))
+        throw new HttpError(400, `weeklyTimetable.${d}: order must be numeric`);
+      if (!r.departureTime)
+        throw new HttpError(400, `weeklyTimetable.${d}: departureTime required`);
+    }
+
+    // optional: order uniqueness per day
+    const orders = rows.map((x) => Number(x.order));
+    if (new Set(orders).size !== orders.length) {
+      throw new HttpError(400, `weeklyTimetable.${d}: order must be unique`);
+    }
+  }
+}
+
+/**
  * Computes segments + totalDistanceKm based on station coordinates.
- * Uses Station.location.{lat,lng} (your current Station model pattern).
  */
 async function computeSegments(stops) {
-  // ✅ FIX: was `[.stops]` which breaks and causes 400
   const ordered = [...stops].sort((a, b) => Number(a.order) - Number(b.order));
 
   const ids = ordered.map((s) => new mongoose.Types.ObjectId(s.stationId));
   const stationDocs = await Station.find({ _id: { $in: ids } }).lean();
-
   const stationById = new Map(stationDocs.map((s) => [String(s._id), s]));
 
   const segments = [];
@@ -86,10 +119,6 @@ async function computeSegments(stops) {
     }
 
     const d = haversineKm(aLat, aLng, bLat, bLng);
-    if (!Number.isFinite(d)) {
-      throw new HttpError(400, "Distance calculation failed (NaN). Check station coordinates.");
-    }
-
     const distanceKm = Math.round(d * 1000) / 1000;
 
     segments.push({
@@ -105,10 +134,6 @@ async function computeSegments(stops) {
   return { segments, totalDistanceKm: total };
 }
 
-/**
- * Optional: populate timetable paths if your schema has weeklyTimetable.
- * (If not present, Mongoose ignores it safely.)
- */
 function applyTimetablePopulate(q) {
   return q
     .populate("stops.stationId", "name location")
@@ -135,7 +160,6 @@ export async function getSchedule(req, res, next) {
   try {
     const q = TrainSchedule.findById(req.params.id);
     const schedule = await applyTimetablePopulate(q).lean();
-
     if (!schedule) throw new HttpError(404, "Schedule not found");
     res.json({ schedule });
   } catch (e) {
@@ -145,7 +169,7 @@ export async function getSchedule(req, res, next) {
 
 export async function createSchedule(req, res, next) {
   try {
-    const { trainName, trainNo, seatCapacity, stops, active } = req.body;
+    const { trainName, trainNo, seatCapacity, stops, active, weeklyTimetable } = req.body;
 
     if (!trainNo) throw new HttpError(400, "trainNo is required");
 
@@ -155,8 +179,11 @@ export async function createSchedule(req, res, next) {
     }
 
     validateStops(stops);
-
     const { segments, totalDistanceKm } = await computeSegments(stops);
+
+    if (weeklyTimetable !== undefined) {
+      validateWeeklyTimetable(weeklyTimetable);
+    }
 
     const schedule = await TrainSchedule.create({
       trainName: trainName || "",
@@ -166,6 +193,7 @@ export async function createSchedule(req, res, next) {
       segments,
       totalDistanceKm,
       active: active ?? true,
+      weeklyTimetable: weeklyTimetable ?? undefined,
       createdBy: req.user?.sub,
     });
 
@@ -180,8 +208,9 @@ export async function updateSchedule(req, res, next) {
     const doc = await TrainSchedule.findById(req.params.id);
     if (!doc) throw new HttpError(404, "Schedule not found");
 
-    const { trainName, trainNo, seatCapacity, stops, active } = req.body;
+    const { trainName, trainNo, seatCapacity, stops, active, weeklyTimetable } = req.body;
 
+    // ✅ allow partial updates (timetables page sends only weeklyTimetable)
     if (trainNo !== undefined) doc.trainNo = String(trainNo).trim();
     if (trainName !== undefined) doc.trainName = trainName || "";
 
@@ -201,6 +230,12 @@ export async function updateSchedule(req, res, next) {
       doc.stops = stops;
       doc.segments = segments;
       doc.totalDistanceKm = totalDistanceKm;
+    }
+
+    // ✅ THIS is the missing piece for TrainTimetablesPage
+    if (weeklyTimetable !== undefined) {
+      validateWeeklyTimetable(weeklyTimetable);
+      doc.weeklyTimetable = weeklyTimetable;
     }
 
     await doc.save();

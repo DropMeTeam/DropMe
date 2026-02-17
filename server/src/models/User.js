@@ -8,15 +8,8 @@ const UserSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["rider", "driver", "ADMIN_TRAIN", "ADMIN_BUS", "ADMIN_PRIVATE", "SUPER_ADMIN", "SYSTEM_ADMIN"],
+      enum: ["rider", "driver", "ADMIN_TRAIN", "ADMIN_BUS", "ADMIN_PRIVATE"],
       default: "rider",
-    },
-
-    // ✅ NEW: admin approval workflow
-    adminStatus: {
-      type: String,
-      enum: ["approved", "pending", "denied"],
-      default: "approved", // normal users are approved by default
     },
   },
   { timestamps: true }

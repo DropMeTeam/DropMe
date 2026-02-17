@@ -180,7 +180,7 @@ export default function PlanTrip() {
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h1 className="text-xl font-semibold">Plan your DropMe journey</h1>
+                <h1 className="text-xl font-semibold">Plan your DropMe Journey</h1>
                 <p className="text-sm text-white/60 mt-1">
                   Type or click on map to select points + live location.
                 </p>

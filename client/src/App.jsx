@@ -9,13 +9,16 @@ import DriverDashboard from "./pages/driver/DriverDashboard";
 import { useAuth } from "./state/AuthContext";
 import Shell from "./components/Shell";
 
-// ✅ Admin dashboards (NEW files you created in the client app)
+// ✅ NEW pages (create these)
+import DriverRegistrationPage from "./pages/driver/DriverRegistrationPage";
+import PrivateDriverApprovalsPage from "./pages/private/PrivateDriverApprovalsPage";
+
+// ✅ Admin dashboards
 import TrainAdminDashboard from "./pages/train/TrainAdminDashboard";
 import BusAdminDashboard from "./pages/bus/BusAdminDashboard";
 import PrivateAdminDashboard from "./pages/private/PrivateAdminDashboard";
 
-// ✅ Train management pages (your working module)
-// If your paths are different, re-upload those files and I’ll adjust imports.
+// ✅ Train pages
 import StationsPage from "./pages/train/StationsPage";
 import TrainSchedulesPage from "./pages/train/TrainSchedulesPage";
 import TrainTimetablesPage from "./pages/train/TrainTimetablesPage";
@@ -42,7 +45,7 @@ export default function App() {
         <Route index element={<Landing />} />
         <Route path="/plan" element={<PlanTrip />} />
 
-        {/* ✅ existing rider/driver flows (unchanged) */}
+        {/* rider/driver flows */}
         <Route
           path="/rider"
           element={
@@ -59,6 +62,18 @@ export default function App() {
             </Protected>
           }
         />
+
+        {/* ✅ Driver Registration */}
+        <Route
+          path="/driver/register"
+          element={
+            <Protected>
+              <DriverRegistrationPage />
+            </Protected>
+          }
+        />
+
+        {/* ✅ Add Ride (still your OfferRide) */}
         <Route
           path="/driver/offer"
           element={
@@ -68,7 +83,7 @@ export default function App() {
           }
         />
 
-        {/* ✅ ADMIN ROUTES (new) */}
+        {/* ADMIN ROUTES */}
         <Route
           path="/train"
           element={
@@ -116,6 +131,16 @@ export default function App() {
           element={
             <RequireRole allow={["ADMIN_PRIVATE"]}>
               <PrivateAdminDashboard />
+            </RequireRole>
+          }
+        />
+
+        {/* ✅ PRIVATE admin driver approvals */}
+        <Route
+          path="/private/driver-approvals"
+          element={
+            <RequireRole allow={["ADMIN_PRIVATE"]}>
+              <PrivateDriverApprovalsPage />
             </RequireRole>
           }
         />

@@ -87,9 +87,27 @@ export async function login(req, res, next) {
   }
 }
 
-export async function me(req, res) {
-  res.json({ user: req.user });
+export async function me(req, res, next) {
+  try {
+    const dbUser = await User.findById(req.user.sub).lean();
+    if (!dbUser) throw new HttpError(404, "User not found");
+
+    res.json({
+      user: {
+        sub: String(dbUser._id),
+        id: dbUser._id,
+        name: dbUser.name,
+        email: dbUser.email,
+        role: dbUser.role,
+        avatarUrl: dbUser.avatarUrl || "",
+        driverRegistration: dbUser.driverRegistration || null,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 }
+
 
 export async function logout(_req, res) {
   clearAuthCookies(res);

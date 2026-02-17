@@ -22,6 +22,10 @@ function RoleNav({ role }) {
         <NavLink to="/train/schedules" style={linkStyle}>
           Schedules
         </NavLink>
+        <NavLink to="/train/timetables" style={linkStyle}>
+          Timetables
+        </NavLink>
+
       </>
     );
   }

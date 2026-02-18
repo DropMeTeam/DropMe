@@ -8,6 +8,7 @@ import RegisterAdmin from "./pages/RegisterAdmin.jsx";
 import TrainLayout from "./pages/train/TrainLayout.jsx";
 import StationsPage from "./pages/train/StationsPage.jsx";
 import TrainSchedulesPage from "./pages/train/TrainSchedulesPage.jsx";
+import TrainTimetablesPage from "./pages/train/TrainTimetablesPage.jsx";
 
 import BusHome from "./pages/bus/BusHome.jsx";
 import PrivateHome from "./pages/private/PrivateHome.jsx";
@@ -39,6 +40,7 @@ export default function App() {
             <Route index element={<Navigate to="stations" replace />} />
             <Route path="stations" element={<StationsPage />} />
             <Route path="schedules" element={<TrainSchedulesPage />} />
+            <Route path="timetables" element={<TrainTimetablesPage />} />
           </Route>
 
           {/* BUS (placeholder) */}

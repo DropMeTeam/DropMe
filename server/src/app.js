@@ -10,6 +10,8 @@ import { requestsRouter } from "./routes/requests.routes.js";
 import { matchesRouter } from "./routes/matches.routes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
+import ticketRoutes from "./routes/ticketRoutes.js";
+
 export function buildApp({ io }) {
   const app = express();
 
@@ -34,6 +36,8 @@ export function buildApp({ io }) {
   app.use("/api/offers", offersRouter);
   app.use("/api/requests", requestsRouter);
   app.use("/api/matches", matchesRouter);
+
+  app.use("/api/tickets", ticketRoutes);
 
   app.use(errorHandler);
 

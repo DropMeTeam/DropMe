@@ -15,6 +15,10 @@ import { errorHandler } from "./middleware/errorHandler.js";
 import { trainRouter } from "./modules/train/train.routes.js";
 import { trainAdminRouter } from "./modules/train/train.admin.routes.js";
 import { adminRouter } from "./routes/admin.routes.js";
+import busRouter from "./modules/bus/routes/bus.routes.js";
+import geoRouter from "./routes/geo.routes.js";
+
+
 
 // ✅ NEW (you will create these files as I gave earlier)
 import { usersRouter } from "./routes/users.routes.js";
@@ -72,6 +76,13 @@ export function buildApp({ io }) {
   // train module
   app.use("/api/train", trainRouter);
   app.use("/api/admin/train", trainAdminRouter);
+app.use("/api/admin/train", trainAdminRouter);
+app.use("/api/admin", adminRouter);
+app.use("/api/bus", busRouter);
+app.use("/api/geo", geoRouter);
+
+
+
 
   // existing admin routes + driver approval routes
   app.use("/api/admin", adminRouter);

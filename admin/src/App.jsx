@@ -11,6 +11,11 @@ import TrainSchedulesPage from "./pages/train/TrainSchedulesPage.jsx";
 import TrainTimetablesPage from "./pages/train/TrainTimetablesPage.jsx";
 
 import BusHome from "./pages/bus/BusHome.jsx";
+import BusRoutesPage from "./pages/bus/BusRoutesPage.jsx";
+import EditBusRoute from "./pages/bus/EditBusRoute.jsx";
+import CreateBusRoute from "./pages/bus/CreateBusRoute.jsx";
+
+
 import PrivateHome from "./pages/private/PrivateHome.jsx";
 import CreateAdminUser from "./pages/admin/CreateAdminUser.jsx";
 import SystemApprovals from "./pages/system/SystemApprovals.jsx";
@@ -43,7 +48,7 @@ export default function App() {
             <Route path="timetables" element={<TrainTimetablesPage />} />
           </Route>
 
-          {/* BUS (placeholder) */}
+          {/* BUS */}
           <Route
             path="/bus"
             element={
@@ -52,6 +57,31 @@ export default function App() {
               </RequireAdmin>
             }
           />
+          <Route 
+            path="/bus/routes" 
+            element={
+              <RequireAdmin section="bus">
+                <BusRoutesPage />
+              </RequireAdmin>
+            }
+          />
+          <Route 
+            path="/bus/routes/new"
+            element={
+              <RequireAdmin section="bus">
+                <CreateBusRoute />
+              </RequireAdmin>
+            } 
+          />
+          <Route 
+            path="/bus/routes/:id" 
+            element={
+              <RequireAdmin section="bus">
+                <EditBusRoute />
+              </RequireAdmin>
+            } 
+          />
+
 
           {/* PRIVATE (placeholder) */}
           <Route

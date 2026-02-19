@@ -1,12 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../../lib/api";
+
+// ✅ Put these files in: client/src/pages/train/components/
 import RouteBuilder from "./components/RouteBuilder";
 import TimetableBuilder from "./components/TimetableBuilder";
 import RouteMapPanel from "./components/RouteMapPanel";
+
+// ✅ Put routing.js in: client/src/pages/train/lib/routing.js
 import { computeSegments } from "./lib/routing";
 
+function uid() {
+  // crypto.randomUUID may not exist in some environments
+  return (globalThis.crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function newStop(order) {
-  return { key: crypto.randomUUID(), stationId: "", order };
+  return { key: uid(), stationId: "", order };
 }
 
 export default function TrainSchedulesPage() {
@@ -32,7 +43,8 @@ export default function TrainSchedulesPage() {
   const [totalKm, setTotalKm] = useState(0);
   const [totalMin, setTotalMin] = useState(0);
 
-  const [generatedStopTimes, setGeneratedStopTimes] = useState([]); // filled by TimetableBuilder
+  // timetable rows generated from TimetableBuilder
+  const [generatedStopTimes, setGeneratedStopTimes] = useState([]);
 
   async function loadAll() {
     setMsg("");
@@ -48,7 +60,9 @@ export default function TrainSchedulesPage() {
     }
   }
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadAll();
+  }, []);
 
   const stationById = useMemo(() => {
     const m = new Map();
@@ -59,12 +73,16 @@ export default function TrainSchedulesPage() {
   const stopsOrdered = useMemo(() => {
     return [...stops]
       .sort((a, b) => a.order - b.order)
-      .map((s) => ({ ...s, station: s.stationId ? stationById.get(String(s.stationId)) : null }));
+      .map((s) => ({
+        ...s,
+        station: s.stationId ? stationById.get(String(s.stationId)) : null,
+      }));
   }, [stops, stationById]);
 
-  // enforce first/last station = A/B when selected
+  // enforce first/last station = start/end when selected
   useEffect(() => {
     if (!startId && !endId) return;
+
     setStops((prev) => {
       const ordered = [...prev].sort((a, b) => a.order - b.order);
       const base = ordered.length >= 2 ? ordered : [newStop(1), newStop(2)];
@@ -77,18 +95,39 @@ export default function TrainSchedulesPage() {
     });
   }, [startId, endId]);
 
-  // compute routing whenever ordered stations change
+  // compute route whenever station order changes
+  const stopsKey = useMemo(
+    () => stopsOrdered.map((s) => String(s.stationId || "")).join("|"),
+    [stopsOrdered]
+  );
+
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
-      const orderedStations = stopsOrdered.map((s) => s.station).filter(Boolean);
-      const r = await computeSegments(orderedStations);
-      setSegments(r.segments);
-      setRoutePolyline(r.polyline);
-      setTotalKm(r.totalKm);
-      setTotalMin(r.totalMin);
+      try {
+        const orderedStations = stopsOrdered.map((s) => s.station).filter(Boolean);
+        const r = await computeSegments(orderedStations);
+        if (cancelled) return;
+        setSegments(r.segments);
+        setRoutePolyline(r.polyline);
+        setTotalKm(r.totalKm);
+        setTotalMin(r.totalMin);
+      } catch {
+        // ignore routing failures (e.g., not enough stations selected yet)
+        if (!cancelled) {
+          setSegments([]);
+          setRoutePolyline([]);
+          setTotalKm(0);
+          setTotalMin(0);
+        }
+      }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stopsOrdered.map((s) => s.stationId).join("|")]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [stopsKey]); // ✅ stable dependency
 
   function addStop() {
     setStops((prev) => {
@@ -113,14 +152,19 @@ export default function TrainSchedulesPage() {
 
   function addIntermediateStation(stationId) {
     if (!stationId) return;
+
     setStops((prev) => {
       const ordered = [...prev].sort((a, b) => a.order - b.order);
       if (ordered.some((s) => String(s.stationId) === String(stationId))) return prev;
 
+      const first = ordered[0];
       const last = ordered[ordered.length - 1];
       const middle = ordered.slice(1, -1);
 
-      const next = [ordered[0], ...middle, { ...newStop(0), stationId }, last].map((s, idx) => ({ ...s, order: idx + 1 }));
+      const next = [first, ...middle, { ...newStop(0), stationId }, last].map((s, idx) => ({
+        ...s,
+        order: idx + 1,
+      }));
       return next;
     });
   }
@@ -141,31 +185,32 @@ export default function TrainSchedulesPage() {
   async function saveToBackend() {
     setMsg("");
     setBusy(true);
+
     try {
-      if (!trainNo) throw new Error("Train No is required");
+      if (!trainNo.trim()) throw new Error("Train No is required");
+
       const ordered = stopsOrdered;
       if (ordered.length < 2) throw new Error("At least 2 stops required");
       if (ordered.some((s) => !s.stationId)) throw new Error("Select station for every stop");
 
-      // IMPORTANT: backend expects arrivalTime/departureTime
-      // We generate them from Timetable tab so user never manually types
+      // timetable must be generated
       if (!generatedStopTimes || generatedStopTimes.length !== ordered.length) {
         throw new Error("Open Timetable tab and generate times before saving.");
       }
-      if (generatedStopTimes.some((s, idx) => idx !== generatedStopTimes.length - 1 && !s.departureTime)) {
+      if (generatedStopTimes.some((s) => !s.departureTime)) {
         throw new Error("Departure times missing. Generate timetable first.");
       }
 
       const payload = {
         trainName,
-        trainNo,
+        trainNo: trainNo.trim(),
         seatCapacity: Number(seatCapacity),
         active,
         stops: generatedStopTimes.map((s, idx) => ({
           stationId: s.stationId,
           order: idx + 1,
           arrivalTime: s.arrivalTime || "",
-          departureTime: idx === 0 ? (s.departureTime || "") : (s.departureTime || ""),
+          departureTime: s.departureTime || "",
         })),
       };
 
@@ -198,25 +243,26 @@ export default function TrainSchedulesPage() {
         .slice()
         .sort((a, b) => a.order - b.order)
         .map((s) => ({
-          key: crypto.randomUUID(),
-          stationId: String(s.stationId),
+          key: uid(),
+          stationId: String(s.stationId?._id || s.stationId),
           order: s.order,
-          station: stationById.get(String(s.stationId)) || null,
         })) || [];
 
     const safeStops = mappedStops.length >= 2 ? mappedStops : [newStop(1), newStop(2)];
-    setStops(safeStops.map((s, idx) => ({ key: s.key, stationId: s.stationId, order: idx + 1 })));
+    setStops(safeStops.map((s, idx) => ({ ...s, order: idx + 1 })));
     setStartId(safeStops?.[0]?.stationId || "");
     setEndId(safeStops?.[safeStops.length - 1]?.stationId || "");
 
-    // preload timetable values from DB stops (optional)
     setGeneratedStopTimes(
-      (item.stops || []).slice().sort((a,b)=>a.order-b.order).map((s) => ({
-        stationId: String(s.stationId),
-        order: s.order,
-        arrivalTime: s.arrivalTime || "",
-        departureTime: s.departureTime || "",
-      }))
+      (item.stops || [])
+        .slice()
+        .sort((a, b) => a.order - b.order)
+        .map((s) => ({
+          stationId: String(s.stationId?._id || s.stationId),
+          order: s.order,
+          arrivalTime: s.arrivalTime || "",
+          departureTime: s.departureTime || "",
+        }))
     );
 
     setMode("route");
@@ -225,6 +271,7 @@ export default function TrainSchedulesPage() {
 
   async function removeSchedule(id) {
     if (!confirm("Delete this route?")) return;
+
     setMsg("");
     setBusy(true);
     try {
@@ -245,10 +292,18 @@ export default function TrainSchedulesPage() {
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
           <h3 style={{ margin: 0 }}>{editingId ? "Edit Train Route" : "Create Train Route"}</h3>
           <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" onClick={() => setMode("route")} style={{ padding: "8px 12px", borderRadius: 10, border: mode === "route" ? "1px solid #111" : "1px solid #ddd" }}>
+            <button
+              type="button"
+              onClick={() => setMode("route")}
+              style={{ padding: "8px 12px", borderRadius: 10, border: mode === "route" ? "1px solid #111" : "1px solid #ddd" }}
+            >
               Route Builder
             </button>
-            <button type="button" onClick={() => setMode("timetable")} style={{ padding: "8px 12px", borderRadius: 10, border: mode === "timetable" ? "1px solid #111" : "1px solid #ddd" }}>
+            <button
+              type="button"
+              onClick={() => setMode("timetable")}
+              style={{ padding: "8px 12px", borderRadius: 10, border: mode === "timetable" ? "1px solid #111" : "1px solid #ddd" }}
+            >
               Timetable
             </button>
           </div>
@@ -286,8 +341,10 @@ export default function TrainSchedulesPage() {
           {mode === "route" ? (
             <RouteBuilder
               stations={stations}
-              startId={startId} setStartId={setStartId}
-              endId={endId} setEndId={setEndId}
+              startId={startId}
+              setStartId={setStartId}
+              endId={endId}
+              setEndId={setEndId}
               stopsOrdered={stopsOrdered}
               onAddIntermediate={addIntermediateStation}
               onAddStop={addStop}
@@ -306,15 +363,25 @@ export default function TrainSchedulesPage() {
           <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 10 }}>
             <div style={{ fontWeight: 900, marginBottom: 6 }}>Computed metrics</div>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13 }}>
-              <div>Total distance: <b>{totalKm} km</b></div>
-              <div>Total time: <b>{totalMin} min</b></div>
+              <div>
+                Total distance: <b>{totalKm} km</b>
+              </div>
+              <div>
+                Total time: <b>{totalMin} min</b>
+              </div>
             </div>
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button disabled={busy} type="button" onClick={saveToBackend} style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid #111" }}>
+            <button
+              disabled={busy}
+              type="button"
+              onClick={saveToBackend}
+              style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid #111" }}
+            >
               {busy ? "Saving..." : editingId ? "Update Route" : "Create Route"}
             </button>
+
             {editingId && (
               <button type="button" onClick={resetForm} style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid #ddd" }}>
                 Cancel
@@ -331,11 +398,15 @@ export default function TrainSchedulesPage() {
             <div key={sc._id} style={{ border: "1px solid #eee", borderRadius: 14, padding: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                 <div>
-                  <div style={{ fontWeight: 900 }}>{sc.trainNo} {sc.trainName ? `• ${sc.trainName}` : ""}</div>
+                  <div style={{ fontWeight: 900 }}>
+                    {sc.trainNo} {sc.trainName ? `• ${sc.trainName}` : ""}
+                  </div>
                   <div style={{ fontSize: 13, opacity: 0.8 }}>
-                    Seats: <b>{sc.seatCapacity}</b> • Stops: <b>{sc.stops?.length || 0}</b> • Distance: <b>{sc.totalDistanceKm ?? 0} km</b>
+                    Seats: <b>{sc.seatCapacity}</b> • Stops: <b>{sc.stops?.length || 0}</b> • Distance:{" "}
+                    <b>{sc.totalDistanceKm ?? 0} km</b>
                   </div>
                 </div>
+
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => startEdit(sc)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd" }}>
                     Edit
@@ -347,6 +418,7 @@ export default function TrainSchedulesPage() {
               </div>
             </div>
           ))}
+
           {schedules.length === 0 && (
             <div style={{ opacity: 0.7, border: "1px dashed #ddd", borderRadius: 14, padding: 12 }}>
               No routes yet.

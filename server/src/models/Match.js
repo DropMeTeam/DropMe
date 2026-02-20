@@ -5,7 +5,7 @@ const MatchSchema = new mongoose.Schema(
     offerId: { type: mongoose.Schema.Types.ObjectId, ref: "RideOffer", required: true, index: true },
     requestId: { type: mongoose.Schema.Types.ObjectId, ref: "RideRequest", required: true, index: true },
     score: { type: Number, required: true },
-    status: { type: String, enum: ["proposed", "accepted", "rejected", "expired"], default: "proposed", index: true }
+    status: { type: String, enum: ["proposed", "accepted", "completed", "rejected", "expired"], default: "proposed", index: true }
   },
   { timestamps: true }
 );

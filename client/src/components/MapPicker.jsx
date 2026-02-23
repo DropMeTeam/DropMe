@@ -4,6 +4,7 @@ import {
   Marker,
   Polyline,
   Circle,
+  Popup,
   useMapEvents,
   useMap,
 } from "react-leaflet";
@@ -32,6 +33,22 @@ const blueDotIcon = L.divIcon({
       border: 3px solid rgba(255,255,255,0.95);
       border-radius: 9999px;
       box-shadow: 0 0 0 6px rgba(59,130,246,0.25);
+    "></div>
+  `,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
+// ✅ NEW: offer marker icon
+const offerIcon = L.divIcon({
+  className: "",
+  html: `
+    <div style="
+      width: 14px; height: 14px;
+      background: #22c55e;
+      border: 3px solid rgba(255,255,255,0.95);
+      border-radius: 9999px;
+      box-shadow: 0 0 0 6px rgba(34,197,94,0.20);
     "></div>
   `,
   iconSize: [14, 14],
@@ -86,9 +103,12 @@ export default function MapPicker({
   routePoints = [],
 
   // Fly-to controls
-  flyTo = null,     // { lat, lng }
-  flyToKey = 0,     // increment to trigger
+  flyTo = null, // { lat, lng }
+  flyToKey = 0, // increment to trigger
   flyZoom = 16,
+
+  // ✅ NEW: offers to render on map
+  offers = [],
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -109,6 +129,14 @@ export default function MapPicker({
     } finally {
       setBusy(false);
     }
+  }
+
+  function getOfferLatLng(o) {
+    const coords = o?.origin?.point?.coordinates;
+    if (!coords || coords.length !== 2) return null;
+    const [lng, lat] = coords;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng };
   }
 
   return (
@@ -160,6 +188,42 @@ export default function MapPicker({
           {/* Markers */}
           {pickup?.lat && pickup?.lng && <Marker position={[pickup.lat, pickup.lng]} />}
           {dropoff?.lat && dropoff?.lng && <Marker position={[dropoff.lat, dropoff.lng]} />}
+
+          {/* ✅ NEW: Offer markers (green dots) */}
+          {(offers || []).map((o) => {
+            const ll = getOfferLatLng(o);
+            if (!ll) return null;
+
+            const driver = o?.driverSnapshot || {};
+            const vehicle = o?.vehicleSnapshot || {};
+
+            return (
+              <Marker key={o._id} position={[ll.lat, ll.lng]} icon={offerIcon}>
+                <Popup>
+                  <div style={{ minWidth: 240 }}>
+                    <div style={{ fontWeight: 700 }}>
+                      {driver?.name || "Driver"}
+                    </div>
+                    <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
+                      {o?.origin?.address || "Origin"} → {o?.destination?.address || "Destination"}
+                    </div>
+                    <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>
+                      Pickup: {o?.pickupTime ? new Date(o.pickupTime).toLocaleString() : "—"}
+                    </div>
+                    <div style={{ fontSize: 12, opacity: 0.8 }}>
+                      Seats: {o?.seatsAvailable}/{o?.seatsTotal}
+                    </div>
+                    <div style={{ fontSize: 12, opacity: 0.8 }}>
+                      Vehicle: {vehicle?.type || "—"} • {vehicle?.number || "—"} • {vehicle?.color || "—"}
+                    </div>
+                    <div style={{ fontSize: 12, opacity: 0.8 }}>
+                      Price: {o?.priceLkr ? `LKR ${o.priceLkr}` : "—"}
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
 
           {/* Route */}
           {routePoints?.length > 1 && <Polyline positions={routePoints} />}

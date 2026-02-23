@@ -32,6 +32,10 @@ export default function PlanTrip() {
   const [pickupTime, setPickupTime] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // ✅ NEW: offers for passenger view
+  const [offers, setOffers] = useState([]);
+  const [offersMsg, setOffersMsg] = useState("");
+
   // GPS
   const [myLoc, setMyLoc] = useState(null); // {lat,lng,accuracyMeters}
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -139,8 +143,34 @@ export default function PlanTrip() {
     watchIdRef.current = null;
     setTracking(false);
     flewRef.current = false;
-    // keep myLoc visible if you want; if not, clear it:
-    // setMyLoc(null);
+  }
+
+  // ✅ NEW helper: load offers that match passenger route
+  async function loadOffersForThisRoute() {
+    if (!pickup || !dropoff || !pickupTime) return;
+
+    setOffersMsg("");
+    try {
+      const { data } = await api.get("/api/offers/search", {
+        params: {
+          originLat: pickup.lat,
+          originLng: pickup.lng,
+          destLat: dropoff.lat,
+          destLng: dropoff.lng,
+          pickupTime,
+          seatsNeeded: Number(seats),
+          radiusMeters: 3000,
+          timeWindowMins: 30,
+        },
+      });
+
+      const list = data?.offers || [];
+      setOffers(list);
+      setOffersMsg(list.length ? "" : "No matching ride offers found for this route/time.");
+    } catch (e) {
+      setOffers([]);
+      setOffersMsg(e?.response?.data?.message || "Offer search failed.");
+    }
   }
 
   async function findMatches() {
@@ -148,7 +178,12 @@ export default function PlanTrip() {
     if (!pickupTime) return alert("Select pickup time.");
 
     setLoading(true);
+
+    // ✅ IMPORTANT: do offer-search regardless of your old /requests flow
+    await loadOffersForThisRoute();
+
     try {
+      // ---- KEEPING YOUR EXISTING FLOW (UNCHANGED) ----
       const reqRes = await api.post("/api/requests", {
         mode,
         seats: Number(seats),
@@ -166,10 +201,19 @@ export default function PlanTrip() {
 
       alert("Matches fetched. (Check console). Next: build Matches UI.");
     } catch (e) {
+      // request/matches can fail, but passenger can still see offers on map/list
       alert(e?.response?.data?.message || "Failed to find matches");
     } finally {
       setLoading(false);
     }
+  }
+
+  function offerLatLng(offer) {
+    const coords = offer?.origin?.point?.coordinates;
+    if (!coords || coords.length !== 2) return null;
+    const [lng, lat] = coords;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng };
   }
 
   return (
@@ -356,6 +400,8 @@ export default function PlanTrip() {
             flyTo={flyToTarget}
             flyToKey={flyToKey}
             flyZoom={16}
+            // ✅ NEW
+            offers={offers}
             onChangePickup={(p) => {
               setPickup(p);
               setPickupText(p.label);
@@ -368,6 +414,61 @@ export default function PlanTrip() {
               if (pickup) buildRoute(pickup, d);
             }}
           />
+
+          {/* ✅ NEW UI: results list under the map (does not replace your UI) */}
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold">Available rides on this route</div>
+              <div className="text-xs text-white/60">{offers?.length || 0} offers</div>
+            </div>
+
+            {offersMsg ? <div className="mt-2 text-xs text-white/60">{offersMsg}</div> : null}
+
+            {!offers?.length ? null : (
+              <div className="mt-3 grid gap-3">
+                {offers.map((o) => {
+                  const ll = offerLatLng(o);
+                  const vehicle = o?.vehicleSnapshot || {};
+                  const driver = o?.driverSnapshot || {};
+
+                  return (
+                    <div
+                      key={o._id}
+                      className="rounded-xl border border-white/10 bg-black/20 p-4 hover:bg-black/25 transition"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-semibold">{driver?.name || "Driver"}</div>
+                          <div className="text-xs text-white/60">
+                            {o?.origin?.address || "Origin"} → {o?.destination?.address || "Destination"}
+                          </div>
+                          <div className="text-xs text-white/60 mt-1">
+                            Pickup: {o?.pickupTime ? new Date(o.pickupTime).toLocaleString() : "—"}
+                          </div>
+                          {ll ? (
+                            <div className="text-[11px] text-white/50 mt-1">
+                              Offer pin: {ll.lat.toFixed(5)}, {ll.lng.toFixed(5)}
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="text-right text-xs text-white/70">
+                          <div>
+                            Seats: {o?.seatsAvailable}/{o?.seatsTotal}
+                          </div>
+                          <div>{o?.priceLkr ? `LKR ${o.priceLkr}` : "—"}</div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 text-xs text-white/70">
+                        Vehicle: {vehicle?.type || "—"} • {vehicle?.number || "—"} • {vehicle?.color || "—"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

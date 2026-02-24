@@ -3,19 +3,13 @@ import { HttpError } from "../utils/httpError.js";
 import { verifyToken } from "../utils/jwt.js";
 
 function getTokenFromCookies(req) {
+  // single-portal: always rely on client_token
   return req.cookies?.client_token || req.cookies?.token || null;
-}
-
-function getTokenFromHeader(req) {
-  const auth = req.headers.authorization || "";
-  if (!auth.startsWith("Bearer ")) return null;
-  return auth.slice(7).trim();
 }
 
 export function requireAuth(req, _res, next) {
   try {
-    // ✅ cookie OR bearer
-    const token = getTokenFromHeader(req) || getTokenFromCookies(req);
+    const token = getTokenFromCookies(req);
     if (!token) throw new HttpError(401, "Not authenticated");
 
     const decoded = verifyToken(token, process.env.JWT_SECRET);

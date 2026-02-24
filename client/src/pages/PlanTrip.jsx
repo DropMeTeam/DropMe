@@ -215,47 +215,46 @@ export default function PlanTrip() {
     }
   }
 
-  async function findMatches() {
-    if (!pickup || !dropoff) return alert("Select pickup & drop-off.");
-    if (!pickupTime) return alert("Select pickup time.");
+  
 
-    // ✅ SAFE: block past date/time searches
-    const tCheck = ensureFuturePickupTimeOrThrow();
-    if (!tCheck.ok) {
-      setOffers([]);
-      setOffersMsg(tCheck.message);
-      return alert(tCheck.message);
-    }
+async function findMatches() {
+  if (!pickup || !dropoff) return alert("Select pickup & drop-off.");
+  if (!pickupTime) return alert("Select pickup time.");
 
-    setLoading(true);
+  setLoading(true);
+  await loadOffersForThisRoute();
 
-    // offer-search
-    await loadOffersForThisRoute();
+  try {
+    const modeMap = { pool: "POOL", private: "PRIVATE", transit: "TRANSIT" };
 
-    try {
-      // KEEPING YOUR EXISTING FLOW (UNCHANGED)
-      const reqRes = await api.post("/api/requests", {
-        mode,
-        seats: Number(seats),
-        pickupTime,
-        origin: { lat: pickup.lat, lng: pickup.lng, label: pickup.label },
-        destination: { lat: dropoff.lat, lng: dropoff.lng, label: dropoff.label },
-        distanceMeters: meta?.distanceMeters ?? null,
-        durationSeconds: meta?.durationSeconds ?? null,
-      });
+    const reqRes = await api.post("/api/requests", {
+      mode: modeMap[mode] || "POOL",
+      seatsNeeded: Number(seats),
 
-      const requestId = reqRes.data?.request?._id || reqRes.data?._id;
+      pickupTime,
 
-      const matchRes = await api.get(`/api/matches/find/${requestId}`);
-      console.log("matches", matchRes.data);
+      origin: {
+        point: { lat: pickup.lat, lng: pickup.lng },
+        address: pickup.label,
+      },
+      destination: {
+        point: { lat: dropoff.lat, lng: dropoff.lng },
+        address: dropoff.label,
+      },
+    });
 
-      alert("Matches fetched. (Check console). Next: build Matches UI.");
-    } catch (e) {
-      alert(e?.response?.data?.message || "Failed to find matches");
-    } finally {
-      setLoading(false);
-    }
+    const requestId = reqRes.data?.request?._id || reqRes.data?._id;
+
+    const matchRes = await api.get(`/api/matches/find/${requestId}`);
+    console.log("matches", matchRes.data);
+
+    alert("Matches fetched. (Check console). Next: build Matches UI.");
+  } catch (e) {
+    alert(e?.response?.data?.message || "Failed to find matches");
+  } finally {
+    setLoading(false);
   }
+}
 
   function offerLatLng(offer) {
     const coords = offer?.origin?.point?.coordinates;

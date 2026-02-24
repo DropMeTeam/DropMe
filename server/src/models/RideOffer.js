@@ -67,4 +67,7 @@ completedAt: { type: Date, default: null },
 RideOfferSchema.index({ "origin.point": "2dsphere" });
 RideOfferSchema.index({ "destination.point": "2dsphere" });
 
+
+
+
 export const RideOffer = mongoose.model("RideOffer", RideOfferSchema);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import PlaceInput from "../../components/PlaceInput";
 import MapPicker from "../../components/MapPicker";
 import { getRoute } from "../../lib/osrm";
@@ -26,6 +26,29 @@ export default function OfferRide() {
   const [priceLkr, setPriceLkr] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  //  driver cannot publish past time
+  const FUTURE_BUFFER_MS = 60 * 1000; // +1 minute safety buffer
+
+  function toDatetimeLocalString(d) {
+    const pad = (n) => String(n).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  }
+
+  const minPickupTime = useMemo(() => {
+    return toDatetimeLocalString(new Date(Date.now() + FUTURE_BUFFER_MS));
+  }, []);
+
+  function parsePickupTime(value) {
+    const dt = new Date(value);
+    if (!value || Number.isNaN(dt.getTime())) return null;
+    return dt;
+  }
+
   async function buildRoute(nextFrom, nextTo) {
     if (!nextFrom || !nextTo) return;
     const r = await getRoute(nextFrom, nextTo);
@@ -36,6 +59,17 @@ export default function OfferRide() {
   async function submit() {
     if (!from || !to || !pickupTime) {
       alert("Please set pickup, drop-off and pickup time.");
+      return;
+    }
+
+    //  block past date/time (even if typed manually)
+    const dt = parsePickupTime(pickupTime);
+    if (!dt) {
+      alert("Please select a valid pick-up time.");
+      return;
+    }
+    if (dt.getTime() < Date.now() + FUTURE_BUFFER_MS) {
+      alert("Pick-up time must be in the future (not past date/time).");
       return;
     }
 
@@ -109,7 +143,7 @@ export default function OfferRide() {
                 }}
               />
 
-              {/* NEW: map click toggle buttons */}
+              {/* map click toggle buttons */}
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -143,6 +177,7 @@ export default function OfferRide() {
                   <input
                     type="datetime-local"
                     value={pickupTime}
+                    min={minPickupTime} // blocks past selection
                     onChange={(e) => setPickupTime(e.target.value)}
                     className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3"
                   />

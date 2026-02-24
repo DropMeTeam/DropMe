@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PlaceInput from "../../components/PlaceInput";
 import MapPicker from "../../components/MapPicker";
@@ -35,6 +35,9 @@ export default function EditOffer() {
     setMeta(r);
   }
 
+  // ✅ driver cannot set past time
+  const FUTURE_BUFFER_MS = 60 * 1000; // +1 minute safety buffer
+
   function toDatetimeLocalString(dateInput) {
     const d = new Date(dateInput);
     const pad = (n) => String(n).padStart(2, "0");
@@ -44,6 +47,18 @@ export default function EditOffer() {
     const hh = pad(d.getHours());
     const mi = pad(d.getMinutes());
     return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  }
+
+  // ✅ REQUIRED: minPickupTime used by input
+  const minPickupTime = useMemo(() => {
+    return toDatetimeLocalString(new Date(Date.now() + FUTURE_BUFFER_MS));
+  }, []);
+
+  // ✅ REQUIRED: parsePickupTime used by save()
+  function parsePickupTime(value) {
+    const dt = new Date(value);
+    if (!value || Number.isNaN(dt.getTime())) return null;
+    return dt;
   }
 
   useEffect(() => {
@@ -84,11 +99,22 @@ export default function EditOffer() {
         setBooting(false);
       }
     })();
-  }, [id]);
+  }, [id, nav]);
 
   async function save() {
     if (!from || !to || !pickupTime) {
       alert("Pickup, Drop-off and pickup time are required.");
+      return;
+    }
+
+    // ✅ block past date/time (even if typed manually)
+    const dt = parsePickupTime(pickupTime);
+    if (!dt) {
+      alert("Please select a valid pick-up time.");
+      return;
+    }
+    if (dt.getTime() < Date.now() + FUTURE_BUFFER_MS) {
+      alert("Pick-up time must be in the future (not past date/time).");
       return;
     }
 
@@ -201,6 +227,7 @@ export default function EditOffer() {
                   <input
                     type="datetime-local"
                     value={pickupTime}
+                    min={minPickupTime}
                     onChange={(e) => setPickupTime(e.target.value)}
                     className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3"
                   />
@@ -228,18 +255,6 @@ export default function EditOffer() {
                   onChange={(e) => setPriceLkr(e.target.value)}
                   className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm text-white/70 mb-2">Status</label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3"
-                >
-                  <option value="open">open</option>
-                  <option value="closed">closed</option>
-                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-2">

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useAuth } from "../state/AuthContext";
 import PlaceInput from "../components/PlaceInput";
 import MapPicker from "../components/MapPicker";
@@ -32,7 +32,7 @@ export default function PlanTrip() {
   const [pickupTime, setPickupTime] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ✅ NEW: offers for passenger view
+  // offers for passenger view
   const [offers, setOffers] = useState([]);
   const [offersMsg, setOffersMsg] = useState("");
 
@@ -47,6 +47,40 @@ export default function PlanTrip() {
   const [flyToKey, setFlyToKey] = useState(0);
   const [flyToTarget, setFlyToTarget] = useState(null);
   const flewRef = useRef(false);
+
+  //  passenger cannot search past time
+  const FUTURE_BUFFER_MS = 60 * 1000; // +1 minute safety buffer
+
+  function toDatetimeLocalString(d) {
+    const pad = (n) => String(n).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  }
+
+  const minPickupTime = useMemo(() => {
+    return toDatetimeLocalString(new Date(Date.now() + FUTURE_BUFFER_MS));
+  }, []);
+
+  function parsePickupTime(value) {
+    const dt = new Date(value);
+    if (!value || Number.isNaN(dt.getTime())) return null;
+    return dt;
+  }
+
+  function ensureFuturePickupTimeOrThrow() {
+    const dt = parsePickupTime(pickupTime);
+    if (!dt) return { ok: false, message: "Select a valid pick-up time." };
+
+    const minAllowed = Date.now() + FUTURE_BUFFER_MS;
+    if (dt.getTime() < minAllowed) {
+      return { ok: false, message: "Pick-up time must be in the future (not past date/time)." };
+    }
+    return { ok: true };
+  }
 
   async function buildRoute(p, d) {
     if (!p || !d) return;
@@ -145,9 +179,17 @@ export default function PlanTrip() {
     flewRef.current = false;
   }
 
-  // ✅ NEW helper: load offers that match passenger route
+  // helper: load offers that match passenger route
   async function loadOffersForThisRoute() {
     if (!pickup || !dropoff || !pickupTime) return;
+
+    // ✅ SAFE: don't query backend with past time
+    const tCheck = ensureFuturePickupTimeOrThrow();
+    if (!tCheck.ok) {
+      setOffers([]);
+      setOffersMsg(tCheck.message);
+      return;
+    }
 
     setOffersMsg("");
     try {
@@ -177,13 +219,21 @@ export default function PlanTrip() {
     if (!pickup || !dropoff) return alert("Select pickup & drop-off.");
     if (!pickupTime) return alert("Select pickup time.");
 
+    // ✅ SAFE: block past date/time searches
+    const tCheck = ensureFuturePickupTimeOrThrow();
+    if (!tCheck.ok) {
+      setOffers([]);
+      setOffersMsg(tCheck.message);
+      return alert(tCheck.message);
+    }
+
     setLoading(true);
 
-    // ✅ IMPORTANT: do offer-search regardless of your old /requests flow
+    // offer-search
     await loadOffersForThisRoute();
 
     try {
-      // ---- KEEPING YOUR EXISTING FLOW (UNCHANGED) ----
+      // KEEPING YOUR EXISTING FLOW (UNCHANGED)
       const reqRes = await api.post("/api/requests", {
         mode,
         seats: Number(seats),
@@ -201,7 +251,6 @@ export default function PlanTrip() {
 
       alert("Matches fetched. (Check console). Next: build Matches UI.");
     } catch (e) {
-      // request/matches can fail, but passenger can still see offers on map/list
       alert(e?.response?.data?.message || "Failed to find matches");
     } finally {
       setLoading(false);
@@ -347,6 +396,7 @@ export default function PlanTrip() {
                   <input
                     type="datetime-local"
                     value={pickupTime}
+                    min={minPickupTime}  //  blocks past date/time selection
                     onChange={(e) => setPickupTime(e.target.value)}
                     className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/30"
                   />
@@ -400,7 +450,6 @@ export default function PlanTrip() {
             flyTo={flyToTarget}
             flyToKey={flyToKey}
             flyZoom={16}
-            // ✅ NEW
             offers={offers}
             onChangePickup={(p) => {
               setPickup(p);
@@ -415,7 +464,7 @@ export default function PlanTrip() {
             }}
           />
 
-          {/* ✅ NEW UI: results list under the map (does not replace your UI) */}
+          {/* results list */}
           <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm font-semibold">Available rides on this route</div>
@@ -453,9 +502,7 @@ export default function PlanTrip() {
                         </div>
 
                         <div className="text-right text-xs text-white/70">
-                          <div>
-                            Seats: {o?.seatsAvailable}/{o?.seatsTotal}
-                          </div>
+                          <div>Seats: {o?.seatsAvailable}/{o?.seatsTotal}</div>
                           <div>{o?.priceLkr ? `LKR ${o.priceLkr}` : "—"}</div>
                         </div>
                       </div>

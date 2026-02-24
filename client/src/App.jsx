@@ -9,25 +9,22 @@ import DriverDashboard from "./pages/driver/DriverDashboard";
 import { useAuth } from "./state/AuthContext";
 import Shell from "./components/Shell";
 
-// NEW pages
+// ✅ NEW pages (create these)
 import DriverRegistrationPage from "./pages/driver/DriverRegistrationPage";
 import PrivateDriverApprovalsPage from "./pages/private/PrivateDriverApprovalsPage";
 
-// Edit offer page
+// ✅ NEW: Edit offer page
 import EditOffer from "./pages/driver/EditOffer";
 
-// Admin dashboards
+// ✅ Admin dashboards
 import TrainAdminDashboard from "./pages/train/TrainAdminDashboard";
 import BusAdminDashboard from "./pages/bus/BusAdminDashboard";
 import PrivateAdminDashboard from "./pages/private/PrivateAdminDashboard";
 
-// Train pages
+// ✅ Train pages
 import StationsPage from "./pages/train/StationsPage";
 import TrainSchedulesPage from "./pages/train/TrainSchedulesPage";
 import TrainTimetablesPage from "./pages/train/TrainTimetablesPage";
-
-// Booking page
-import BookRidePage from "./pages/rider/BookRidePage";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -51,7 +48,7 @@ export default function App() {
         <Route index element={<Landing />} />
         <Route path="/plan" element={<PlanTrip />} />
 
-        {/* rider */}
+        {/* rider/driver flows */}
         <Route
           path="/rider"
           element={
@@ -61,17 +58,7 @@ export default function App() {
           }
         />
 
-        {/* ✅ Booking route must be BEFORE "*" */}
-        <Route
-          path="/rider/book/:offerId"
-          element={
-            <Protected>
-              <BookRidePage />
-            </Protected>
-          }
-        />
-
-        {/* driver */}
+        {/* ✅ Driver dashboard - safe role guard */}
         <Route
           path="/driver"
           element={
@@ -81,6 +68,7 @@ export default function App() {
           }
         />
 
+        {/* ✅ Driver Registration - safe role guard */}
         <Route
           path="/driver/register"
           element={
@@ -90,6 +78,7 @@ export default function App() {
           }
         />
 
+        {/* ✅ Add Ride - safe role guard */}
         <Route
           path="/driver/offer"
           element={
@@ -99,6 +88,7 @@ export default function App() {
           }
         />
 
+        {/* ✅ NEW: Edit / Delete offer page */}
         <Route
           path="/driver/offers/:id/edit"
           element={
@@ -160,6 +150,7 @@ export default function App() {
           }
         />
 
+        {/* ✅ PRIVATE admin driver approvals */}
         <Route
           path="/private/driver-approvals"
           element={
@@ -168,14 +159,13 @@ export default function App() {
             </RequireRole>
           }
         />
-
-        {/* ✅ Catch-all MUST be last inside Shell */}
-        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
 
       {/* auth routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

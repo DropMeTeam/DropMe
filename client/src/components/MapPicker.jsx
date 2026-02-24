@@ -11,7 +11,6 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect, useMemo, useState } from "react";
-import { geoReverse } from "../lib/geoApi";
 
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -40,7 +39,7 @@ const blueDotIcon = L.divIcon({
   iconAnchor: [7, 7],
 });
 
-// Offer marker icon (optional; used if offers prop passed)
+// ✅ NEW: offer marker icon
 const offerIcon = L.divIcon({
   className: "",
   html: `
@@ -56,12 +55,21 @@ const offerIcon = L.divIcon({
   iconAnchor: [7, 7],
 });
 
-async function reverseGeocodeSafe(lat, lng) {
-  try {
-    return await geoReverse(lat, lng);
-  } catch {
-    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-  }
+// Reverse geocode (lat,lng -> address label) using free Nominatim
+async function reverseGeocode(lat, lng) {
+  const url =
+    "https://nominatim.openstreetmap.org/reverse?" +
+    new URLSearchParams({
+      format: "json",
+      lat: String(lat),
+      lon: String(lng),
+      zoom: "18",
+      addressdetails: "1",
+    }).toString();
+
+  const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+  const data = await res.json();
+  return data?.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
 function ClickHandler({ active, onPick }) {
@@ -94,11 +102,12 @@ export default function MapPicker({
 
   routePoints = [],
 
-  flyTo = null,
-  flyToKey = 0,
+  // Fly-to controls
+  flyTo = null, // { lat, lng }
+  flyToKey = 0, // increment to trigger
   flyZoom = 16,
 
-  // optional
+  // ✅ NEW: offers to render on map
   offers = [],
 }) {
   const [busy, setBusy] = useState(false);
@@ -112,7 +121,7 @@ export default function MapPicker({
   async function handlePick(which, latlng) {
     setBusy(true);
     try {
-      const label = await reverseGeocodeSafe(latlng.lat, latlng.lng);
+      const label = await reverseGeocode(latlng.lat, latlng.lng);
       const next = { label, lat: latlng.lat, lng: latlng.lng };
 
       if (which === "pickup") onChangePickup?.(next);
@@ -149,10 +158,12 @@ export default function MapPicker({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
+          {/* Fly to requested target */}
           {flyTo?.lat && flyTo?.lng && (
             <FlyToLocation target={flyTo} zoom={flyZoom} triggerKey={flyToKey} />
           )}
 
+          {/* Click to set pickup/dropoff */}
           <ClickHandler active={active} onPick={handlePick} />
 
           {/* Blue dot + accuracy circle */}
@@ -178,10 +189,11 @@ export default function MapPicker({
           {pickup?.lat && pickup?.lng && <Marker position={[pickup.lat, pickup.lng]} />}
           {dropoff?.lat && dropoff?.lng && <Marker position={[dropoff.lat, dropoff.lng]} />}
 
-          {/* Offers markers */}
+          {/* ✅ NEW: Offer markers (green dots) */}
           {(offers || []).map((o) => {
             const ll = getOfferLatLng(o);
             if (!ll) return null;
+
             const driver = o?.driverSnapshot || {};
             const vehicle = o?.vehicleSnapshot || {};
 
@@ -189,8 +201,10 @@ export default function MapPicker({
               <Marker key={o._id} position={[ll.lat, ll.lng]} icon={offerIcon}>
                 <Popup>
                   <div style={{ minWidth: 240 }}>
-                    <div style={{ fontWeight: 700 }}>{driver?.name || "Driver"}</div>
-                    <div style={{ fontSize: 12, opacity: 0.8 }}>
+                    <div style={{ fontWeight: 700 }}>
+                      {driver?.name || "Driver"}
+                    </div>
+                    <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
                       {o?.origin?.address || "Origin"} → {o?.destination?.address || "Destination"}
                     </div>
                     <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>
@@ -211,6 +225,7 @@ export default function MapPicker({
             );
           })}
 
+          {/* Route */}
           {routePoints?.length > 1 && <Polyline positions={routePoints} />}
         </MapContainer>
       </div>

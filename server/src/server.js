@@ -1,62 +1,48 @@
-// backend/server.js (PATCH EXAMPLE)
-import express from "express";
-import cors from "cors";
-import helmet from "helmet";
-import path from "path";
-import { fileURLToPath } from "url";
-import { ZodError } from "zod";
+import "dotenv/config";
+import http from "http";
+import { Server as SocketIOServer } from "socket.io";
+import { connectDB } from "./config/db.js";
+import { buildApp } from "./app.js";
 
-import { geoRouter } from "./routes/geo.routes.js"; // ✅ NEW
 
-const app = express();
+const PORT = Number(process.env.PORT || 5000);
 
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+async function main() {
+  await connectDB(process.env.MONGODB_URI);
 
-app.use(
-  cors({
-    origin: [CLIENT_ORIGIN],
-    credentials: true,
-  })
-);
+  // IMPORTANT: create the HTTP server with a single request handler that delegates to Express
+  let app; // will be assigned after io is created
+  const httpServer = http.createServer((req, res) => {
+    if (!app) {
+      res.statusCode = 503;
+      res.end("Server is starting...");
+      return;
+    }
+    return app(req, res);
+  });
 
-app.use(express.json());
+  const io = new SocketIOServer(httpServer, {
+    cors: {
+      origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+      credentials: true
+    }
+  });
 
-// ✅ Fix NotSameOrigin: allow images/resources to be loaded cross-origin
-app.use(
-  helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-  })
-);
+  io.on("connection", (socket) => {
+    socket.on("auth:identify", ({ role, userId }) => {
+      if (!userId) return;
+      if (role === "driver") socket.join(`driver:${userId}`);
+      socket.join(`rider:${userId}`);
+    });
+  });
 
-// ✅ uploads folder serve (with CORP header)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+  // now build express app (single handler)
+  app = buildApp({ io });
 
-app.use(
-  "/uploads",
-  (req, res, next) => {
-    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-    res.setHeader("Access-Control-Allow-Origin", CLIENT_ORIGIN);
-    next();
-  },
-  express.static(path.join(__dirname, "../uploads"))
-);
+  httpServer.listen(PORT, () => console.log(`[server] http://localhost:${PORT}`));
+}
 
-// ✅ NEW: mount geo proxy
-app.use("/api/geo", geoRouter);
-
-// ... your other routes here ...
-// app.use("/api/offers", offersRouter);
-// app.use("/api/requests", requestsRouter);
-// etc...
-
-// ✅ IMPORTANT: make Zod errors return 400 (not 500)
-app.use((err, req, res, next) => {
-  if (err instanceof ZodError) {
-    return res.status(400).json({ message: "Validation error", issues: err.issues });
-  }
+main().catch((err) => {
   console.error(err);
-  res.status(err.status || 500).json({ message: err.message || "Server error" });
+  process.exit(1);
 });
-
-export default app;

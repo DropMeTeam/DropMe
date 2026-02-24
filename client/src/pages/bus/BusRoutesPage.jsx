@@ -6,6 +6,7 @@ export default function BusRoutesPage() {
   const nav = useNavigate();
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState(null);
   const [err, setErr] = useState(null);
 
   async function load() {
@@ -26,19 +27,30 @@ export default function BusRoutesPage() {
   }, []);
 
   async function onDelete(id) {
-    if (!confirm("Delete this route?")) return;
+    if (!confirm("Delete this route? This cannot be undone.")) return;
+    setBusyId(id);
     try {
       await api.delete(`/api/bus/routes/${id}`);
       await load();
     } catch (e) {
       alert(e?.response?.data?.message || e.message || "Delete failed");
+    } finally {
+      setBusyId(null);
     }
   }
 
   return (
     <div style={{ padding: 16, display: "grid", gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <h2 style={{ margin: 0 }}>Bus Routes</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            onClick={() => nav("/bus")}
+            style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd", cursor: "pointer" }}
+          >
+            ← Back
+          </button>
+          <h2 style={{ margin: 0 }}>Bus Routes</h2>
+        </div>
 
         <div style={{ display: "flex", gap: 8 }}>
           <button
@@ -71,7 +83,7 @@ export default function BusRoutesPage() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "140px 110px 1fr 1fr 120px",
+              gridTemplateColumns: "140px 110px 1fr 1fr 90px 140px",
               padding: 10,
               fontWeight: 700,
               background: "#fafafa"
@@ -81,6 +93,7 @@ export default function BusRoutesPage() {
             <div>Type</div>
             <div>Start</div>
             <div>End</div>
+            <div>Stops</div>
             <div>Actions</div>
           </div>
 
@@ -89,7 +102,7 @@ export default function BusRoutesPage() {
               key={r._id}
               style={{
                 display: "grid",
-                gridTemplateColumns: "140px 110px 1fr 1fr 120px",
+                gridTemplateColumns: "140px 110px 1fr 1fr 90px 140px",
                 padding: 10,
                 borderTop: "1px solid #f2f2f2",
                 alignItems: "center"
@@ -97,15 +110,25 @@ export default function BusRoutesPage() {
             >
               <div style={{ fontWeight: 700 }}>{r.routeNumber}</div>
               <div>{r.routeType}</div>
-              <div title={r.start?.label}>{r.start?.label}</div>
-              <div title={r.end?.label}>{r.end?.label}</div>
+              <div title={r.start?.label} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {r.start?.label}
+              </div>
+              <div title={r.end?.label} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {r.end?.label}
+              </div>
+              <div>{Array.isArray(r.stops) ? r.stops.length : 0}</div>
 
               <div style={{ display: "flex", gap: 6 }}>
                 <button type="button" onClick={() => nav(`/bus/routes/${r._id}`)}>
                   View/Edit
                 </button>
-                <button type="button" onClick={() => onDelete(r._id)}>
-                  Delete
+                <button
+                  type="button"
+                  onClick={() => onDelete(r._id)}
+                  disabled={busyId === r._id}
+                  style={{ opacity: busyId === r._id ? 0.6 : 1 }}
+                >
+                  {busyId === r._id ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>

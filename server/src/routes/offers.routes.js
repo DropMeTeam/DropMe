@@ -1,14 +1,23 @@
-// routes/offers.routes.js
 import { Router } from "express";
-import { createOffer, myOffers } from "../controllers/offer.controller.js";
-import { searchOffers } from "../controllers/offer.search.controller.js";
+import {
+  createOffer,
+  myOffers,
+  getOfferById,
+  updateOffer,
+  deleteOffer,
+} from "../controllers/offer.controller.js";
+import { searchOffers } from "../controllers/offer.search.controller.js"; // if you created it
 import { requireAuth, requireRole } from "../middleware/auth.js";
 
 export const offersRouter = Router();
 
-// driver publish offer
 offersRouter.post("/", requireAuth, requireRole("driver", "admin"), createOffer);
 offersRouter.get("/my", requireAuth, requireRole("driver", "admin"), myOffers);
 
-// passenger search offers (public or requireAuth — your call)
+// passenger search (public)
 offersRouter.get("/search", searchOffers);
+
+// ✅ edit/delete lifecycle
+offersRouter.get("/:id", requireAuth, requireRole("driver", "admin"), getOfferById);
+offersRouter.patch("/:id", requireAuth, requireRole("driver", "admin"), updateOffer);
+offersRouter.delete("/:id", requireAuth, requireRole("driver", "admin"), deleteOffer);

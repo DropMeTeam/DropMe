@@ -13,6 +13,9 @@ import Shell from "./components/Shell";
 import DriverRegistrationPage from "./pages/driver/DriverRegistrationPage";
 import PrivateDriverApprovalsPage from "./pages/private/PrivateDriverApprovalsPage";
 
+// ✅ NEW: Edit offer page
+import EditOffer from "./pages/driver/EditOffer";
+
 // ✅ Admin dashboards
 import TrainAdminDashboard from "./pages/train/TrainAdminDashboard";
 import BusAdminDashboard from "./pages/bus/BusAdminDashboard";
@@ -54,32 +57,44 @@ export default function App() {
             </Protected>
           }
         />
+
+        {/* ✅ Driver dashboard - safe role guard */}
         <Route
           path="/driver"
           element={
-            <Protected>
+            <RequireRole allow={["driver"]}>
               <DriverDashboard />
-            </Protected>
+            </RequireRole>
           }
         />
 
-        {/* ✅ Driver Registration */}
+        {/* ✅ Driver Registration - safe role guard */}
         <Route
           path="/driver/register"
           element={
-            <Protected>
+            <RequireRole allow={["driver"]}>
               <DriverRegistrationPage />
-            </Protected>
+            </RequireRole>
           }
         />
 
-        {/* ✅ Add Ride (still your OfferRide) */}
+        {/* ✅ Add Ride - safe role guard */}
         <Route
           path="/driver/offer"
           element={
-            <Protected>
+            <RequireRole allow={["driver"]}>
               <OfferRide />
-            </Protected>
+            </RequireRole>
+          }
+        />
+
+        {/* ✅ NEW: Edit / Delete offer page */}
+        <Route
+          path="/driver/offers/:id/edit"
+          element={
+            <RequireRole allow={["driver"]}>
+              <EditOffer />
+            </RequireRole>
           }
         />
 

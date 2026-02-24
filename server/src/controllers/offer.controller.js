@@ -1,46 +1,21 @@
 // controllers/offer.controller.js
 import { RideOffer } from "../models/RideOffer.js";
-import { CreateOfferSchema } from "../validators/ride.validators.js";
+import { CreateOfferSchema, UpdateOfferSchema } from "../validators/ride.validators.js";
 
-// OPTIONAL if you have it:
-// import { DriverRegistration } from "../models/DriverRegistration.js";
-// import { User } from "../models/User.js";
+function isOwnerOrAdmin(req, offer) {
+  const isOwner = String(offer.driverId) === String(req.user.sub);
+  const isAdmin = req.user?.role === "admin";
+  return isOwner || isAdmin;
+}
 
 export async function createOffer(req, res, next) {
   try {
     const body = CreateOfferSchema.parse(req.body);
 
-    // ✅ snapshots (fallback to whatever auth middleware gives you)
-    const driverSnapshot = {
-      name: req.user?.name || "",
-      email: req.user?.email || "",
-      avatarUrl: req.user?.avatarUrl || "",
-    };
-
-    let vehicleSnapshot = {
-      type: "",
-      number: "",
-      color: "",
-      seatsTotal: null,
-      photoUrl: "",
-    };
-
-    // ✅ If you have driver registration model, uncomment and adjust:
-    // const reg = await DriverRegistration.findOne({ userId: req.user.sub });
-    // if (!reg || reg.status !== "approved") return res.status(403).json({ message: "Driver not approved." });
-    // vehicleSnapshot = {
-    //   type: reg.vehicle?.type || "",
-    //   number: reg.vehicle?.number || "",
-    //   color: reg.vehicle?.color || "",
-    //   seatsTotal: reg.vehicle?.seatsTotal ?? null,
-    //   photoUrl: reg.vehicle?.photoUrl || "",
-    // };
-
     const seatsTotal = body.seatsTotal ?? 3;
 
     const offer = await RideOffer.create({
       driverId: req.user.sub,
-
       origin: {
         point: { type: "Point", coordinates: [body.origin.point.lng, body.origin.point.lat] },
         address: body.origin.address ?? "",
@@ -49,18 +24,13 @@ export async function createOffer(req, res, next) {
         point: { type: "Point", coordinates: [body.destination.point.lng, body.destination.point.lat] },
         address: body.destination.address ?? "",
       },
-
       pickupTime: new Date(body.pickupTime),
       timeWindowMins: body.timeWindowMins ?? 15,
-
       seatsTotal,
       seatsAvailable: seatsTotal,
-
       routePolyline: body.routePolyline ?? "",
       priceLkr: body.priceLkr ?? 0,
-
-      driverSnapshot,
-      vehicleSnapshot,
+      status: "open",
     });
 
     res.status(201).json({ offer });
@@ -73,6 +43,89 @@ export async function myOffers(req, res, next) {
   try {
     const offers = await RideOffer.find({ driverId: req.user.sub }).sort({ createdAt: -1 });
     res.json({ offers });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ✅ NEW: get one offer (for edit screen)
+export async function getOfferById(req, res, next) {
+  try {
+    const offer = await RideOffer.findById(req.params.id);
+    if (!offer) return res.status(404).json({ message: "Offer not found" });
+
+    if (!isOwnerOrAdmin(req, offer)) {
+      return res.status(403).json({ message: "Not allowed" });
+    }
+
+    res.json({ offer });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ✅ NEW: update offer (edit)
+export async function updateOffer(req, res, next) {
+  try {
+    const body = UpdateOfferSchema.parse(req.body);
+
+    const offer = await RideOffer.findById(req.params.id);
+    if (!offer) return res.status(404).json({ message: "Offer not found" });
+
+    if (!isOwnerOrAdmin(req, offer)) {
+      return res.status(403).json({ message: "Not allowed" });
+    }
+
+    // update fields only if provided
+    if (body.origin) {
+      offer.origin = {
+        point: { type: "Point", coordinates: [body.origin.point.lng, body.origin.point.lat] },
+        address: body.origin.address ?? "",
+      };
+    }
+
+    if (body.destination) {
+      offer.destination = {
+        point: { type: "Point", coordinates: [body.destination.point.lng, body.destination.point.lat] },
+        address: body.destination.address ?? "",
+      };
+    }
+
+    if (body.pickupTime) offer.pickupTime = new Date(body.pickupTime);
+    if (typeof body.timeWindowMins === "number") offer.timeWindowMins = body.timeWindowMins;
+    if (typeof body.routePolyline === "string") offer.routePolyline = body.routePolyline;
+    if (typeof body.priceLkr === "number") offer.priceLkr = body.priceLkr;
+    if (body.status) offer.status = body.status;
+
+    if (typeof body.seatsTotal === "number") {
+      offer.seatsTotal = body.seatsTotal;
+
+      // keep seatsAvailable sane
+      // (no booking system yet, so safest: clamp)
+      offer.seatsAvailable = Math.min(offer.seatsAvailable, offer.seatsTotal);
+      // If you want "reset seats" behavior instead:
+      // offer.seatsAvailable = offer.seatsTotal;
+    }
+
+    await offer.save();
+    res.json({ offer });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ✅ NEW: delete offer
+export async function deleteOffer(req, res, next) {
+  try {
+    const offer = await RideOffer.findById(req.params.id);
+    if (!offer) return res.status(404).json({ message: "Offer not found" });
+
+    if (!isOwnerOrAdmin(req, offer)) {
+      return res.status(403).json({ message: "Not allowed" });
+    }
+
+    await RideOffer.deleteOne({ _id: offer._id });
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }

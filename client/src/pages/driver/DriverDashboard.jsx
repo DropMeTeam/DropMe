@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import api from "../../lib/api"; // <-- if your api is named export, use: import { api } from "../../lib/api";
@@ -50,6 +50,10 @@ export default function DriverDashboard() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
+  // ✅ Safe offer actions state
+  const [deletingId, setDeletingId] = useState(null);
+  const [offersMsg, setOffersMsg] = useState("");
+
   useEffect(() => {
     if (user?.name) setName(user.name);
   }, [user?.name]);
@@ -81,6 +85,26 @@ export default function DriverDashboard() {
       setMsg(err?.response?.data?.message || "Profile update failed");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function deleteOfferById(id) {
+    if (!id) return;
+
+    const ok = window.confirm("Delete this offer? This action cannot be undone.");
+    if (!ok) return;
+
+    setOffersMsg("");
+    setDeletingId(id);
+
+    try {
+      await api.delete(`/api/offers/${id}`);
+      await qc.invalidateQueries({ queryKey: ["my-offers"] });
+      setOffersMsg("Offer deleted ✅");
+    } catch (e) {
+      setOffersMsg(e?.response?.data?.message || "Delete failed");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -153,7 +177,12 @@ export default function DriverDashboard() {
 
             <div className="grid gap-1">
               <label className="text-xs text-zinc-400">Profile image</label>
-              <input className="input" type="file" accept="image/*" onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} />
+              <input
+                className="input"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
+              />
             </div>
 
             <div className="flex gap-3">
@@ -224,9 +253,7 @@ export default function DriverDashboard() {
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4 md:col-span-2">
             <div className="text-xs text-zinc-400">Vehicle</div>
             <div className="text-sm font-semibold">
-              {vehicle
-                ? `${vehicle.type} • ${vehicle.number} • ${vehicle.color} • Seats: ${vehicle.seatsTotal}`
-                : "—"}
+              {vehicle ? `${vehicle.type} • ${vehicle.number} • ${vehicle.color} • Seats: ${vehicle.seatsTotal}` : "—"}
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
@@ -251,24 +278,69 @@ export default function DriverDashboard() {
         </div>
       </div>
 
-      {/* Offers (unchanged) */}
+      {/* ✅ OFFERS */}
       <div className="card p-6">
-        <div className="text-sm font-semibold">Offers</div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-sm font-semibold">Offers</div>
+          <div className="text-xs text-zinc-400">
+            {offersQ.isLoading ? "Loading..." : `${offersQ.data?.offers?.length || 0} offers`}
+          </div>
+        </div>
+
+        {offersMsg ? <div className="mt-3 text-sm text-zinc-300">{offersMsg}</div> : null}
+
+        {/* Safe states */}
+        {offersQ.isError ? (
+          <div className="mt-3 text-sm text-red-300">
+            {offersQ.error?.response?.data?.message || "Failed to load offers"}
+          </div>
+        ) : null}
+
         <div className="mt-3 grid gap-2">
-          {(offersQ.data?.offers || []).map((o) => (
-            <div key={o._id} className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4">
-              <div className="text-sm font-medium">
-                Seats: {o.seatsAvailable}/{o.seatsTotal} • {o.status}
+          {offersQ.isLoading ? (
+            <div className="text-sm text-zinc-400">Loading offers...</div>
+          ) : (
+            (offersQ.data?.offers || []).map((o) => (
+              <div key={o._id} className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">
+                      Seats: {o?.seatsAvailable}/{o?.seatsTotal} • {o?.status}
+                    </div>
+                    <div className="mt-1 text-xs text-zinc-400">
+                      {o?.origin?.address || "Origin"} → {o?.destination?.address || "Destination"}
+                    </div>
+                    <div className="mt-1 text-xs text-zinc-400">
+                      Pickup: {o?.pickupTime ? new Date(o.pickupTime).toLocaleString() : "—"}
+                    </div>
+                  </div>
+
+                  {/*  NEW: Edit/Delete actions (safe mode) */}
+                  <div className="flex flex-col gap-2 min-w-[110px]">
+                    <Link to={`/driver/offers/${o._id}/edit`} className="btn btn-outline border-emerald-400/40 
+                    bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15">
+                      Edit
+                    </Link>
+
+                    <button
+                      type="button"
+                      className="btn btn-outline border-red-400/40 bg-red-500/10 
+                      text-red-200 hover:bg-red-500/15 disabled:opacity-60"
+                      disabled={deletingId === o._id}
+                      onClick={() => deleteOfferById(o._id)}
+                      title={deletingId === o._id ? "Deleting..." : "Delete this offer"}
+                    >
+                      {deletingId === o._id ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="mt-1 text-xs text-zinc-400">
-                {o.origin?.address || "Origin"} → {o.destination?.address || "Destination"}
-              </div>
-              <div className="mt-1 text-xs text-zinc-400">
-                Pickup: {o.pickupTime ? new Date(o.pickupTime).toLocaleString() : "—"}
-              </div>
-            </div>
-          ))}
-          {!offersQ.data?.offers?.length ? <div className="text-sm text-zinc-400">No offers yet.</div> : null}
+            ))
+          )}
+
+          {!offersQ.isLoading && !offersQ.data?.offers?.length ? (
+            <div className="text-sm text-zinc-400">No offers yet.</div>
+          ) : null}
         </div>
       </div>
     </div>

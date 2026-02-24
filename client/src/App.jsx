@@ -23,6 +23,9 @@ import StationsPage from "./pages/train/StationsPage";
 import TrainSchedulesPage from "./pages/train/TrainSchedulesPage";
 import TrainTimetablesPage from "./pages/train/TrainTimetablesPage";
 
+import BusOwnerDashboard from "./pages/owner/BusOwnerDashboard";
+
+
 function Protected({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="p-8">Loading…</div>;
@@ -145,6 +148,15 @@ export default function App() {
           }
         />
       </Route>
+
+      <Route
+  path="/owner"
+  element={
+    <RequireRole allow={["BUS_OWNER"]}>
+      <BusOwnerDashboard />
+    </RequireRole>
+  }
+/>
 
       {/* auth routes */}
       <Route path="/login" element={<Login />} />

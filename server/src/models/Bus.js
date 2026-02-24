@@ -4,16 +4,27 @@ const BusSchema = new mongoose.Schema(
   {
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
 
-    busName: { type: String, trim: true, default: "" },
+    // Bus core identity
     plateNumber: { type: String, required: true, trim: true, uppercase: true, index: true },
+
     busType: {
       type: String,
-      enum: ["AC", "Non-AC", "Luxury", "Normal"],
+      enum: ["Normal", "Semi-luxury", "Luxury", "Expressway"],
       default: "Normal",
     },
-    seatsTotal: { type: Number, required: true, min: 1 },
+
     color: { type: String, trim: true, default: "" },
-    photoUrl: { type: String, default: "" },
+
+    // enforce your operational limits
+    seatsTotal: { type: Number, required: true, min: 25, max: 60 },
+
+    // route binding: must be an admin-created route
+    routeId: { type: mongoose.Schema.Types.ObjectId, ref: "BusRoute", required: true, index: true },
+
+    // Photos / compliance artifacts
+    photoUrl: { type: String, default: "" },              // bus photo
+    registrationPhotoUrl: { type: String, default: "" },  // bus registration photo
+    permitPhotoUrl: { type: String, default: "" },        // bus permit photo
 
     // Governance lifecycle
     status: {

@@ -23,6 +23,8 @@ import StationsPage from "./pages/train/StationsPage";
 import TrainSchedulesPage from "./pages/train/TrainSchedulesPage";
 import TrainTimetablesPage from "./pages/train/TrainTimetablesPage";
 
+import BusOwnerDashboard from "./pages/owner/BusOwnerDashboard";
+
 // ✅ BUS pages (add these files into client/src/pages/bus/)
 import BusRoutesPage from "./pages/bus/BusRoutesPage";
 import CreateBusRoute from "./pages/bus/CreateBusRoute";
@@ -178,6 +180,15 @@ export default function App() {
           }
         />
       </Route>
+
+      <Route
+  path="/owner"
+  element={
+    <RequireRole allow={["BUS_OWNER"]}>
+      <BusOwnerDashboard />
+    </RequireRole>
+  }
+/>
 
       {/* auth routes */}
       <Route path="/login" element={<Login />} />

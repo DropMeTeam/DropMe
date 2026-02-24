@@ -25,6 +25,10 @@ import TrainTimetablesPage from "./pages/train/TrainTimetablesPage";
 
 import BusOwnerDashboard from "./pages/owner/BusOwnerDashboard";
 
+// ✅ BUS pages (add these files into client/src/pages/bus/)
+import BusRoutesPage from "./pages/bus/BusRoutesPage";
+import CreateBusRoute from "./pages/bus/CreateBusRoute";
+import EditBusRoute from "./pages/bus/EditBusRoute";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -76,7 +80,7 @@ export default function App() {
           }
         />
 
-        {/* ✅ Add Ride (still your OfferRide) */}
+        {/* ✅ Add Ride */}
         <Route
           path="/driver/offer"
           element={
@@ -120,6 +124,7 @@ export default function App() {
           }
         />
 
+        {/* ✅ BUS ADMIN */}
         <Route
           path="/bus"
           element={
@@ -129,6 +134,33 @@ export default function App() {
           }
         />
 
+        {/* ✅ BUS ROUTES CRUD */}
+        <Route
+          path="/bus/routes"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <BusRoutesPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/bus/routes/new"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <CreateBusRoute />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/bus/routes/:id"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <EditBusRoute />
+            </RequireRole>
+          }
+        />
+
+        {/* ✅ PRIVATE ADMIN */}
         <Route
           path="/private"
           element={

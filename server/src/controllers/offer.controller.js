@@ -41,7 +41,33 @@ export async function createOffer(req, res, next) {
 
 export async function myOffers(req, res, next) {
   try {
-    const offers = await RideOffer.find({ driverId: req.user.sub }).sort({ createdAt: -1 });
+    const view = String(req.query.view || "all"); // all | upcoming | past
+    const now = new Date();
+
+    const q = { driverId: req.user.sub };
+
+    if (view === "upcoming") {
+      // upcoming/open rides
+      q.pickupTime = { $gte: now };
+      // optional: only open
+      // q.status = "open";
+    } else if (view === "past") {
+      // past rides (time passed OR explicitly closed)
+      q.$or = [
+        { pickupTime: { $lt: now } },
+        { status: "closed" },
+      ];
+    } // "all" => no extra filter
+
+    // Sort strategy:
+    // - upcoming: nearest first
+    // - past: latest past first
+    // - all: latest created first (or by pickupTime desc)
+    let sort = { createdAt: -1 };
+    if (view === "upcoming") sort = { pickupTime: 1 };
+    if (view === "past") sort = { pickupTime: -1 };
+
+    const offers = await RideOffer.find(q).sort(sort);
     res.json({ offers });
   } catch (err) {
     next(err);

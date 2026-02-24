@@ -509,6 +509,13 @@ export default function PlanTrip() {
 
                       <div className="mt-3 text-xs text-white/70">
                         Vehicle: {vehicle?.type || "—"} • {vehicle?.number || "—"} • {vehicle?.color || "—"}
+
+                        <button
+                          onClick={() => (window.location.href = `/rider/book/${o._id}`)}
+                          className="mt-3 w-full rounded-xl bg-white text-black font-semibold py-2 hover:opacity-90"
+                         >
+                          Get
+                        </button>
                       </div>
                     </div>
                   );

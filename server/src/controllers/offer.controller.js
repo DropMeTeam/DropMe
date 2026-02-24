@@ -1,169 +1,234 @@
-// controllers/offer.controller.js
+// src/controllers/offer.controller.js
 import { RideOffer } from "../models/RideOffer.js";
-import { CreateOfferSchema, UpdateOfferSchema } from "../validators/ride.validators.js";
 
-function isOwnerOrAdmin(req, offer) {
-  const isOwner = String(offer.driverId) === String(req.user.sub);
-  const isAdmin = req.user?.role === "admin";
-  return isOwner || isAdmin;
+/**
+ * Assumptions about auth middleware:
+ * - requireAuth sets req.user = { _id, role, ... }
+ * - driver creates/owns offers via driverId
+ *
+ * If your req.user shape is different, update the few lines where driverId is taken.
+ */
+
+function isAdmin(user) {
+  return user?.role === "admin";
 }
 
+function getUserId(user) {
+  // Support common shapes
+  return user?._id || user?.id || user?.userId;
+}
+
+function toObjectIdString(v) {
+  if (!v) return "";
+  return String(v);
+}
+
+/**
+ * POST /api/offers
+ * driver/admin
+ */
 export async function createOffer(req, res, next) {
   try {
-    const body = CreateOfferSchema.parse(req.body);
+    const userId = getUserId(req.user);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const seatsTotal = body.seatsTotal ?? 3;
-
-    const offer = await RideOffer.create({
-      driverId: req.user.sub,
-      origin: {
-        point: { type: "Point", coordinates: [body.origin.point.lng, body.origin.point.lat] },
-        address: body.origin.address ?? "",
-      },
-      destination: {
-        point: { type: "Point", coordinates: [body.destination.point.lng, body.destination.point.lat] },
-        address: body.destination.address ?? "",
-      },
-      pickupTime: new Date(body.pickupTime),
-      timeWindowMins: body.timeWindowMins ?? 15,
+    const {
+      origin,
+      destination,
+      pickupTime,
       seatsTotal,
-      seatsAvailable: seatsTotal,
-      routePolyline: body.routePolyline ?? "",
-      priceLkr: body.priceLkr ?? 0,
-      status: "open",
+      priceLkr,
+      vehicleSnapshot, // optional snapshot object
+    } = req.body || {};
+
+    // Basic validation (keep it lightweight)
+    if (!origin || !destination || !pickupTime) {
+      return res.status(400).json({ message: "origin, destination, pickupTime are required" });
+    }
+
+    const total = Number(seatsTotal);
+    if (!Number.isFinite(total) || total <= 0) {
+      return res.status(400).json({ message: "seatsTotal must be a positive number" });
+    }
+
+    const created = await RideOffer.create({
+      driverId: userId,
+      origin,
+      destination,
+      pickupTime,
+      seatsTotal: total,
+      seatsAvailable: total, // start full
+      priceLkr: priceLkr ?? 0,
+      status: "active",
+      vehicleSnapshot: vehicleSnapshot || {}, // safe default
     });
 
-    res.status(201).json({ offer });
+    res.status(201).json({ ok: true, offer: created });
   } catch (err) {
     next(err);
   }
 }
 
+/**
+ * GET /api/offers/my
+ * driver/admin
+ */
 export async function myOffers(req, res, next) {
   try {
-    const view = String(req.query.view || "all"); // all | upcoming | past
-    const now = new Date();
+    const userId = getUserId(req.user);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const q = { driverId: req.user.sub };
+    // For drivers: only own offers. For admin: optionally allow ?driverId=
+    const filter = isAdmin(req.user) && req.query.driverId
+      ? { driverId: req.query.driverId }
+      : { driverId: userId };
 
-    if (view === "upcoming") {
-      // upcoming/open rides
-      q.pickupTime = { $gte: now };
-      // optional: only open
-      // q.status = "open";
-    } else if (view === "past") {
-      // past rides (time passed OR explicitly closed)
-      q.$or = [
-        { pickupTime: { $lt: now } },
-        { status: "closed" },
-      ];
-    } // "all" => no extra filter
+    const offers = await RideOffer.find(filter)
+      .sort({ createdAt: -1 })
+      .lean();
 
-    // Sort strategy:
-    // - upcoming: nearest first
-    // - past: latest past first
-    // - all: latest created first (or by pickupTime desc)
-    let sort = { createdAt: -1 };
-    if (view === "upcoming") sort = { pickupTime: 1 };
-    if (view === "past") sort = { pickupTime: -1 };
-
-    const offers = await RideOffer.find(q).sort(sort);
-    res.json({ offers });
+    res.json({ ok: true, offers });
   } catch (err) {
     next(err);
   }
 }
 
-// ✅ NEW: get one offer (for edit screen)
+/**
+ * GET /api/offers/:id
+ * driver/admin
+ */
 export async function getOfferById(req, res, next) {
   try {
-    const offer = await RideOffer.findById(req.params.id);
+    const userId = getUserId(req.user);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const offer = await RideOffer.findById(req.params.id).lean();
     if (!offer) return res.status(404).json({ message: "Offer not found" });
 
-    if (!isOwnerOrAdmin(req, offer)) {
-      return res.status(403).json({ message: "Not allowed" });
+    // Drivers can only read their own offers
+    if (!isAdmin(req.user) && toObjectIdString(offer.driverId) !== toObjectIdString(userId)) {
+      return res.status(403).json({ message: "Forbidden" });
     }
 
-    res.json({ offer });
+    res.json({ ok: true, offer });
   } catch (err) {
     next(err);
   }
 }
 
-// ✅ NEW: update offer (edit)
+/**
+ * PATCH /api/offers/:id
+ * driver/admin
+ */
 export async function updateOffer(req, res, next) {
   try {
-    const body = UpdateOfferSchema.parse(req.body);
+    const userId = getUserId(req.user);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
     const offer = await RideOffer.findById(req.params.id);
     if (!offer) return res.status(404).json({ message: "Offer not found" });
 
-    if (!isOwnerOrAdmin(req, offer)) {
-      return res.status(403).json({ message: "Not allowed" });
+    if (!isAdmin(req.user) && toObjectIdString(offer.driverId) !== toObjectIdString(userId)) {
+      return res.status(403).json({ message: "Forbidden" });
     }
 
-    // update fields only if provided
-    if (body.origin) {
-      offer.origin = {
-        point: { type: "Point", coordinates: [body.origin.point.lng, body.origin.point.lat] },
-        address: body.origin.address ?? "",
-      };
+    // Allow updating a controlled subset (avoid accidental overwrites)
+    const allowed = [
+      "origin",
+      "destination",
+      "pickupTime",
+      "status",
+      "priceLkr",
+      "seatsTotal",
+      "seatsAvailable",
+      "vehicleSnapshot",
+    ];
+
+    for (const key of allowed) {
+      if (key in (req.body || {})) offer[key] = req.body[key];
     }
 
-    if (body.destination) {
-      offer.destination = {
-        point: { type: "Point", coordinates: [body.destination.point.lng, body.destination.point.lat] },
-        address: body.destination.address ?? "",
-      };
+    // Optional sanity: seatsAvailable <= seatsTotal
+    if (
+      offer.seatsTotal != null &&
+      offer.seatsAvailable != null &&
+      Number(offer.seatsAvailable) > Number(offer.seatsTotal)
+    ) {
+      offer.seatsAvailable = offer.seatsTotal;
     }
 
-    if (body.pickupTime) offer.pickupTime = new Date(body.pickupTime);
-    if (typeof body.timeWindowMins === "number") offer.timeWindowMins = body.timeWindowMins;
-    if (typeof body.routePolyline === "string") offer.routePolyline = body.routePolyline;
-    if (typeof body.priceLkr === "number") offer.priceLkr = body.priceLkr;
-    if (body.status) offer.status = body.status;
-
-    if (typeof body.seatsTotal === "number") {
-      offer.seatsTotal = body.seatsTotal;
-
-      // keep seatsAvailable sane
-      // (no booking system yet, so safest: clamp)
-      offer.seatsAvailable = Math.min(offer.seatsAvailable, offer.seatsTotal);
-      // If you want "reset seats" behavior instead:
-      // offer.seatsAvailable = offer.seatsTotal;
-    }
-
-    if (body.status) {
-  offer.status = body.status;
-
-  if (body.status === "completed") {
-    offer.completedAt = new Date();
-  }
-  // optional: if they move back from completed → open/closed
-  if (body.status !== "completed") {
-    offer.completedAt = null;
-  }
-}
-
-    await offer.save();
-    res.json({ offer });
+    const saved = await offer.save();
+    res.json({ ok: true, offer: saved });
   } catch (err) {
     next(err);
   }
 }
 
-// ✅ NEW: delete offer
+/**
+ * DELETE /api/offers/:id
+ * driver/admin
+ */
 export async function deleteOffer(req, res, next) {
   try {
+    const userId = getUserId(req.user);
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
     const offer = await RideOffer.findById(req.params.id);
     if (!offer) return res.status(404).json({ message: "Offer not found" });
 
-    if (!isOwnerOrAdmin(req, offer)) {
-      return res.status(403).json({ message: "Not allowed" });
+    if (!isAdmin(req.user) && toObjectIdString(offer.driverId) !== toObjectIdString(userId)) {
+      return res.status(403).json({ message: "Forbidden" });
     }
 
-    await RideOffer.deleteOne({ _id: offer._id });
+    await offer.deleteOne();
     res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/offers/public/:id
+ * public
+ */
+export async function getOfferPublic(req, res, next) {
+  try {
+    const offer = await RideOffer.findById(req.params.id)
+      .populate("driverId", "name avatarUrl email")
+      .lean();
+
+    if (!offer) return res.status(404).json({ message: "Offer not found" });
+
+    const driver = offer?.driverId || {};
+    const driverSnapshot = {
+      name: driver?.name || "Driver",
+      avatarUrl: driver?.avatarUrl || "",
+      email: driver?.email || "",
+    };
+
+    const v = offer?.vehicleSnapshot || {};
+    const vehicleSnapshot = {
+      type: v?.type || "",
+      number: v?.number || "",
+      color: v?.color || "",
+      seatsTotal: v?.seatsTotal ?? null,
+      photoUrl: v?.photoUrl || "",
+    };
+
+    res.json({
+      offer: {
+        _id: offer._id,
+        status: offer.status,
+        pickupTime: offer.pickupTime,
+        seatsTotal: offer.seatsTotal,
+        seatsAvailable: offer.seatsAvailable,
+        priceLkr: offer.priceLkr,
+        origin: offer.origin,
+        destination: offer.destination,
+        driverSnapshot,
+        vehicleSnapshot,
+      },
+    });
   } catch (err) {
     next(err);
   }

@@ -27,7 +27,7 @@ export const CreateRequestSchema = z.object({
   mode: z.enum(["POOL", "PRIVATE", "TRANSIT"]).optional()
 });
 
-// ✅ NEW: Partial update schema for edit
+//  NEW: Partial update schema for edit
 export const UpdateOfferSchema = z.object({
   origin: Location.optional(),
   destination: Location.optional(),
@@ -36,5 +36,5 @@ export const UpdateOfferSchema = z.object({
   seatsTotal: z.coerce.number().int().min(1).max(6).optional(),
   routePolyline: z.string().optional(),
   priceLkr: z.coerce.number().min(0).optional(),
-  status: z.enum(["open", "closed"]).optional(),
+  status: z.enum(["open", "closed", "completed"]).optional(),
 });

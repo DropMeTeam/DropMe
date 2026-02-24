@@ -32,7 +32,7 @@ const RideOfferSchema = new mongoose.Schema(
 
     routePolyline: { type: String, default: "" },
 
-    // ✅ optional simple price
+    //  optional simple price
     priceLkr: { type: Number, default: 0, min: 0 },
 
     // your existing pricing block (keep)
@@ -42,9 +42,11 @@ const RideOfferSchema = new mongoose.Schema(
       poolDiscountPct: { type: Number, default: 20 },
     },
 
-    status: { type: String, enum: ["open", "closed"], default: "open", index: true },
+    // models/RideOffer.js (only the status part + new completedAt)
+status: { type: String, enum: ["open", "closed", "completed"], default: "open", index: true },
+completedAt: { type: Date, default: null },
 
-    // ✅ snapshot fields for passenger display
+    //  snapshot fields for passenger display
     driverSnapshot: {
       name: { type: String, default: "" },
       email: { type: String, default: "" },

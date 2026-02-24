@@ -22,24 +22,21 @@ function pretty(v) {
 export default function DriverDashboard() {
   const qc = useQueryClient();
 
-  // ✅ get full user profile
   const meQ = useQuery({
     queryKey: ["me"],
     queryFn: async () => (await api.get("/api/auth/me")).data,
     staleTime: 0,
   });
 
-  // ✅ get driver registration record
   const regQ = useQuery({
     queryKey: ["driver-registration-me"],
     queryFn: async () => (await api.get("/api/driver-registration/me")).data,
     staleTime: 0,
   });
 
-  // ✅ NEW: offers view filter
+  // ✅ offers filter
   const [offersView, setOffersView] = useState("upcoming"); // upcoming | past | all
 
-  // existing offers (now supports past)
   const offersQ = useQuery({
     queryKey: ["my-offers", offersView],
     queryFn: async () =>
@@ -62,8 +59,9 @@ export default function DriverDashboard() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  // ✅ Safe offer actions state
+  // ✅ offer actions
   const [deletingId, setDeletingId] = useState(null);
+  const [completingId, setCompletingId] = useState(null);
   const [offersMsg, setOffersMsg] = useState("");
 
   useEffect(() => {
@@ -111,15 +109,33 @@ export default function DriverDashboard() {
 
     try {
       await api.delete(`/api/offers/${id}`);
-
-      // invalidate all variants of offers query (upcoming/past/all)
       await qc.invalidateQueries({ queryKey: ["my-offers"] });
-
       setOffersMsg("Offer deleted ✅");
     } catch (e) {
       setOffersMsg(e?.response?.data?.message || "Delete failed");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function markCompleted(id) {
+    if (!id) return;
+
+    const ok = window.confirm("Mark this ride as COMPLETED?");
+    if (!ok) return;
+
+    setOffersMsg("");
+    setCompletingId(id);
+
+    try {
+      // ✅ uses your updateOffer endpoint
+      await api.patch(`/api/offers/${id}`, { status: "completed" });
+      await qc.invalidateQueries({ queryKey: ["my-offers"] });
+      setOffersMsg("Ride marked as completed ✅");
+    } catch (e) {
+      setOffersMsg(e?.response?.data?.message || "Failed to mark completed");
+    } finally {
+      setCompletingId(null);
     }
   }
 
@@ -173,12 +189,10 @@ export default function DriverDashboard() {
               {editing ? "Close" : "Update Profile"}
             </button>
 
-            {/* ✅ Register / Resubmit / Update */}
             <Link to="/driver/register" className="btn btn-primary">
               {registerCtaText}
             </Link>
 
-            {/* ✅ Add Ride gated */}
             {isApproved ? (
               <Link to="/driver/offer" className="btn btn-primary">
                 Add Ride
@@ -293,22 +307,12 @@ export default function DriverDashboard() {
 
             <div className="mt-3 flex flex-wrap gap-2">
               {reg?.licenseImageUrl ? (
-                <a
-                  className="btn btn-outline"
-                  href={reg.licenseImageUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a className="btn btn-outline" href={reg.licenseImageUrl} target="_blank" rel="noreferrer">
                   View License Image
                 </a>
               ) : null}
               {vehicle?.photoUrl ? (
-                <a
-                  className="btn btn-outline"
-                  href={vehicle.photoUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a className="btn btn-outline" href={vehicle.photoUrl} target="_blank" rel="noreferrer">
                   View Vehicle Photo
                 </a>
               ) : null}
@@ -332,7 +336,7 @@ export default function DriverDashboard() {
           </div>
         </div>
 
-        {/* ✅ NEW: filter tabs */}
+        {/* tabs */}
         <div className="mt-3 flex flex-wrap gap-2">
           {[
             { id: "upcoming", label: "Upcoming" },
@@ -371,33 +375,54 @@ export default function DriverDashboard() {
             <div className="text-sm text-zinc-400">Loading offers...</div>
           ) : (
             (offersQ.data?.offers || []).map((o) => {
-              const isPast =
-                o?.pickupTime ? new Date(o.pickupTime).getTime() < Date.now() : false;
+              const isPast = o?.pickupTime ? new Date(o.pickupTime).getTime() < Date.now() : false;
+              const isCompleted = o?.status === "completed";
+
+              const showCompletionUI = offersView === "past" || (offersView === "all" && isPast);
 
               return (
-                <div
-                  key={o._id}
-                  className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4"
-                >
+                <div key={o._id} className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-sm font-medium">
                         Seats: {o?.seatsAvailable}/{o?.seatsTotal} • {o?.status}
-                        {isPast ? (
-                          <span className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] border border-zinc-700 bg-zinc-950/30 text-zinc-300">
-                            Past
-                          </span>
+
+                        {showCompletionUI ? (
+                          isCompleted ? (
+                            <span className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] border border-emerald-400/40 bg-emerald-500/10 text-emerald-200">
+                              Completed
+                            </span>
+                          ) : (
+                            <span className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] border border-yellow-400/40 bg-yellow-500/10 text-yellow-200">
+                              Not completed
+                            </span>
+                          )
                         ) : null}
                       </div>
+
                       <div className="mt-1 text-xs text-zinc-400">
                         {o?.origin?.address || "Origin"} → {o?.destination?.address || "Destination"}
                       </div>
                       <div className="mt-1 text-xs text-zinc-400">
                         Pickup: {o?.pickupTime ? new Date(o.pickupTime).toLocaleString() : "—"}
                       </div>
+
+                      {/* ✅ Past view: show "Mark Completed" button if not completed */}
+                      {showCompletionUI && !isCompleted ? (
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            onClick={() => markCompleted(o._id)}
+                            disabled={completingId === o._id}
+                            className="btn btn-outline border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15 disabled:opacity-60"
+                          >
+                            {completingId === o._id ? "Marking..." : "Mark Completed"}
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
 
-                    {/* ✅ Edit/Delete actions */}
+                    {/* actions */}
                     <div className="flex flex-col gap-2 min-w-[110px]">
                       <Link
                         to={`/driver/offers/${o._id}/edit`}

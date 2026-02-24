@@ -133,6 +133,18 @@ export async function updateOffer(req, res, next) {
       // offer.seatsAvailable = offer.seatsTotal;
     }
 
+    if (body.status) {
+  offer.status = body.status;
+
+  if (body.status === "completed") {
+    offer.completedAt = new Date();
+  }
+  // optional: if they move back from completed → open/closed
+  if (body.status !== "completed") {
+    offer.completedAt = null;
+  }
+}
+
     await offer.save();
     res.json({ offer });
   } catch (err) {

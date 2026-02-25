@@ -15,31 +15,61 @@ const matcher = new RegExpMatcher({
 });
 const censor = new TextCensor().setStrategy(new AsteriskStrategy());
 
+// export const createReview = async (req, res) => {
+//   try {
+//     const { comment, rating, revieweeId, rideId, categories } = req.body;
+
+//     // 2. Check for matches
+//     const matches = matcher.getAllMatches(comment);
+//     const containsProfanity = matches.length > 0;
+    
+//     // 3. Censor the text (e.g., "" -> "****")
+//     const cleanComment = censor.applyTo(comment, matches);
+
+//     const newReview = new Review({
+//       rideId,
+//       reviewerId: req.user.id, 
+//       revieweeId,
+//       rating,
+//       comment: cleanComment,
+//       categories,
+//       isFlagged: containsProfanity 
+//     });
+
+//     await newReview.save();
+//     res.status(201).json({ message: "Review submitted successfully", review: newReview });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
 export const createReview = async (req, res) => {
   try {
     const { comment, rating, revieweeId, rideId, categories } = req.body;
 
-    // 2. Check for matches
-    const matches = matcher.getAllMatches(comment);
-    const containsProfanity = matches.length > 0;
-    
-    // 3. Censor the text (e.g., "" -> "****")
-    const cleanComment = censor.applyTo(comment, matches);
+    // Default to empty string if no comment provided
+    const rawComment = comment || "";
+    const matches = matcher.getAllMatches(rawComment);
+    const cleanComment = rawComment ? censor.applyTo(rawComment, matches) : "";
 
     const newReview = new Review({
       rideId,
       reviewerId: req.user.id, 
-      revieweeId,
+      revieweeId: new mongoose.Types.ObjectId(revieweeId),
       rating,
       comment: cleanComment,
-      categories,
-      isFlagged: containsProfanity 
+      categories: {
+        cleanliness: categories?.cleanliness || 5,
+        punctuality: categories?.punctuality || 5,
+        behavior: categories?.behavior || 5
+      },
+      isFlagged: matches.length > 0 
     });
 
     await newReview.save();
-    res.status(201).json({ message: "Review submitted successfully", review: newReview });
+    res.status(201).json({ message: "Review submitted", review: newReview });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Failed to save review" });
   }
 };
 

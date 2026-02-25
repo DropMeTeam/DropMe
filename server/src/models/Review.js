@@ -13,10 +13,10 @@ const reviewSchema = new mongoose.Schema({
   
   // Category ratings for detailed analytics
   categories: {
-    cleanliness: { type: Number, default: 5 },
-    punctuality: { type: Number, default: 5 },
-    behavior: { type: Number, default: 5 }
-  },
+    cleanliness: { type: Number, default: 5, min: 1, max: 5 },
+    punctuality: { type: Number, default: 5, min: 1, max: 5 },
+    behavior: { type: Number, default: 5, min: 1, max: 5 }
+},
   isFlagged: { type: Boolean, default: false }, // For Admin Moderation
   createdAt: { type: Date, default: Date.now }
 });

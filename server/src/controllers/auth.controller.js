@@ -4,19 +4,31 @@ import { HttpError } from "../utils/httpError.js";
 import { signToken } from "../utils/jwt.js";
 import { RegisterSchema, LoginSchema } from "../validators/auth.validators.js";
 
-
+/**
+ * Roles that require SYSTEM_ADMIN approval before login is allowed
+ */
 const ADMIN_ROLES = new Set(["ADMIN_TRAIN", "ADMIN_BUS", "ADMIN_PRIVATE"]);
 
-
+/**
+ * Helper: set JWT auth cookie in browser
+ */
 function setAuthCookie(res, token) {
   res.cookie("token", token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: false,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    httpOnly: true,   // cannot be accessed by frontend JS
+    sameSite: "lax",  // basic CSRF protection
+    secure: false,    // set true in production with HTTPS
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 }
 
+/**
+ * SYSTEM ADMIN LOGIN
+ *
+ * This login does NOT check database users.
+ * It only checks email/password stored in environment variables:
+ * - SYSTEM_ADMIN_EMAIL
+ * - SYSTEM_ADMIN_PASSWORD
+ */
 export async function systemLogin(req, res, next) {
   try {
     const { email, password } = req.body || {};
@@ -24,21 +36,26 @@ export async function systemLogin(req, res, next) {
     const sysEmail = process.env.SYSTEM_ADMIN_EMAIL;
     const sysPass = process.env.SYSTEM_ADMIN_PASSWORD;
 
+    // Ensure system admin credentials are configured
     if (!sysEmail || !sysPass) {
       return res.status(500).json({ message: "SYSTEM_ADMIN credentials not configured" });
     }
 
+    // Validate entered credentials
     if (email !== sysEmail || password !== sysPass) {
       return res.status(401).json({ message: "Invalid system admin credentials" });
     }
 
+    // Create token for system admin
     const token = signToken(
       { sub: "system-admin", role: "SYSTEM_ADMIN", email: sysEmail, name: "System Admin" },
       process.env.JWT_SECRET
     );
 
+    // Store token in cookie
     setAuthCookie(res, token);
 
+    // Return system admin user info
     res.json({
       user: { id: "system-admin", name: "System Admin", email: sysEmail, role: "SYSTEM_ADMIN" },
     });
@@ -47,23 +64,37 @@ export async function systemLogin(req, res, next) {
   }
 }
 
-
+/**
+ * USER REGISTRATION
+ *
+ * Flow:
+ * 1. Validate input using RegisterSchema
+ * 2. Check if email already exists
+ * 3. Hash password
+ * 4. Save user
+ * 5. If admin role requested -> keep as pending (no auto login)
+ * 6. If normal user -> auto login immediately
+ */
 export async function register(req, res, next) {
   try {
     const body = RegisterSchema.parse(req.body);
+
+    // Check for duplicate email
     const existing = await User.findOne({ email: body.email });
     if (existing) throw new HttpError(409, "Email already in use");
 
+    // Hash password before saving
     const passwordHash = await bcrypt.hash(body.password, 12);
 
     const requestedRole = body.role ?? "rider";
     const isAdminRequest = ADMIN_ROLES.has(requestedRole);
 
-    // block anyone trying to self-register SYSTEM_ADMIN (env-only)
+    // Prevent anyone from self-registering as SYSTEM_ADMIN
     if (requestedRole === "SYSTEM_ADMIN") {
       throw new HttpError(403, "SYSTEM_ADMIN cannot be self-registered");
     }
 
+    // Create user in database
     const user = await User.create({
       name: body.name,
       email: body.email,
@@ -72,59 +103,112 @@ export async function register(req, res, next) {
       adminStatus: isAdminRequest ? "pending" : "approved",
     });
 
-    // ✅ admin requests: do NOT login; wait for approval
+    /**
+     * If user requested an admin role:
+     * - account is created
+     * - status is pending
+     * - user cannot login until approved by SYSTEM_ADMIN
+     */
     if (isAdminRequest) {
       return res.status(201).json({
         ok: true,
         pending: true,
         message: "Admin request submitted. Wait for SYSTEM_ADMIN approval.",
-        user: { id: user._id, name: user.name, email: user.email, role: user.role, adminStatus: user.adminStatus },
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          adminStatus: user.adminStatus
+        },
       });
     }
 
-    // normal users: auto-login like before
+    /**
+     * Normal users:
+     * - auto login after registration
+     * - token is created and stored in cookie
+     */
     const token = signToken(
       { sub: user._id.toString(), role: user.role, name: user.name, email: user.email },
       process.env.JWT_SECRET
     );
 
     setAuthCookie(res, token);
-    res.status(201).json({ user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+
+    res.status(201).json({
+      user: { id: user._id, name: user.name, email: user.email, role: user.role }
+    });
   } catch (err) {
     next(err);
   }
 }
 
+/**
+ * USER LOGIN
+ *
+ * Flow:
+ * 1. Validate input using LoginSchema
+ * 2. Find user by email
+ * 3. Compare password
+ * 4. If admin user is pending/denied -> block login
+ * 5. If valid -> create token and set cookie
+ */
 export async function login(req, res, next) {
   try {
     const body = LoginSchema.parse(req.body);
+
+    // Find user and include passwordHash field
     const user = await User.findOne({ email: body.email }).select("+passwordHash");
     if (!user) throw new HttpError(401, "Invalid credentials");
 
+    // Compare entered password with hashed password
     const ok = await bcrypt.compare(body.password, user.passwordHash);
     if (!ok) throw new HttpError(401, "Invalid credentials");
 
-    // ✅ block pending/denied admins
+    // Block admin users until approved
     if (ADMIN_ROLES.has(user.role) && user.adminStatus !== "approved") {
       throw new HttpError(403, `Admin ${user.adminStatus}. Wait for SYSTEM_ADMIN approval.`);
     }
 
+    // Create JWT token
     const token = signToken(
       { sub: user._id.toString(), role: user.role, name: user.name, email: user.email },
       process.env.JWT_SECRET
     );
 
+    // Save token in cookie
     setAuthCookie(res, token);
-    res.json({ user: { id: user._id, name: user.name, email: user.email, role: user.role, adminStatus: user.adminStatus } });
+
+    // Return logged-in user info
+    res.json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        adminStatus: user.adminStatus
+      }
+    });
   } catch (err) {
     next(err);
   }
 }
 
+/**
+ * GET CURRENT LOGGED-IN USER
+ *
+ * req.user is expected to be set by auth middleware
+ */
 export async function me(req, res) {
   res.json({ user: req.user });
 }
 
+/**
+ * LOGOUT USER
+ *
+ * Clears the auth cookie from browser
+ */
 export async function logout(_req, res) {
   res.clearCookie("token");
   res.json({ ok: true });

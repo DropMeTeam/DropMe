@@ -1,7 +1,13 @@
 // client/src/pages/bus/BusSchedulesPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import api from "../../lib/api";
-import { CalendarClock, ArrowRightLeft, Save, RefreshCw } from "lucide-react";
+import {
+  CalendarClock,
+  ArrowRightLeft,
+  Save,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 
 const DAYS = [
   { k: 1, label: "Mon" },
@@ -35,6 +41,113 @@ function scheduleKey({ busId, direction, dayOfWeek }) {
   return `${busId}::${direction}::${dayOfWeek}`;
 }
 
+function timeToNumber(t) {
+  // "08:30" -> 830 for sorting
+  if (typeof t !== "string") return 9999;
+  const m = t.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  if (!m) return 9999;
+  return Number(m[1]) * 100 + Number(m[2]);
+}
+
+function isMeaningfulRange(start, end) {
+  // ignore default "00:00 → 00:00"
+  return !(start === "00:00" && end === "00:00");
+}
+
+// ✅ READ-ONLY timetable: days as columns, entries sorted by start-point time
+function WeeklyTimetable({ title, direction, schedules, buses }) {
+  const busLabelById = useMemo(() => {
+    const m = new Map();
+    (buses || []).forEach((b) => {
+      m.set(b._id, b.busNumber || b.plateNumber || b._id);
+    });
+    return m;
+  }, [buses]);
+
+  const byDay = useMemo(() => {
+    const map = new Map(); // day -> entries[]
+    for (const s of schedules || []) {
+      if (s.direction !== direction) continue;
+
+      const busId = s?.busId?._id || s?.busId;
+      const label =
+        s?.busId?.busNumber ||
+        s?.busId?.plateNumber ||
+        busLabelById.get(busId) ||
+        busId ||
+        "—";
+
+      const first = s?.stopTimes?.[0]?.time || "00:00";
+      const last = s?.stopTimes?.[s.stopTimes.length - 1]?.time || "00:00";
+      if (!isMeaningfulRange(first, last)) continue;
+
+      const day = s.dayOfWeek; // 0..6
+      if (!map.has(day)) map.set(day, []);
+      map.get(day).push({ first, last, label });
+    }
+
+    for (const [day, arr] of map.entries()) {
+      arr.sort((a, b) => timeToNumber(a.first) - timeToNumber(b.first));
+      map.set(day, arr);
+    }
+
+    return map;
+  }, [schedules, direction, busLabelById]);
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="font-semibold mb-3">{title}</div>
+
+      <div className="overflow-x-auto rounded-xl border border-white/10">
+        <table className="min-w-[900px] w-full text-sm">
+          <thead className="bg-white/5">
+            <tr className="text-left">
+              {DAYS.map((d) => (
+                <th key={d.k} className="p-3">
+                  {d.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr className="border-t border-white/10 align-top">
+              {DAYS.map((d) => {
+                const entries = byDay.get(d.k) || [];
+                return (
+                  <td key={d.k} className="p-3">
+                    {entries.length === 0 ? (
+                      <div className="text-zinc-500">Not set</div>
+                    ) : (
+                      <div className="grid gap-2">
+                        {entries.map((e, idx) => (
+                          <div
+                            key={idx}
+                            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+                          >
+                            <div className="text-zinc-200 font-semibold">
+                              {e.first} – {e.last}
+                            </div>
+                            <div className="text-zinc-400 text-xs">{e.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-2 text-xs text-zinc-400">
+        Ordered by start-point departure time.
+      </div>
+    </div>
+  );
+}
+
 export default function BusSchedulesPage() {
   const [routes, setRoutes] = useState([]);
   const [routeId, setRouteId] = useState("");
@@ -49,7 +162,7 @@ export default function BusSchedulesPage() {
   const [msg, setMsg] = useState(null);
 
   const [schedules, setSchedules] = useState([]);
-  const [openEditor, setOpenEditor] = useState(null); // {direction, dayOfWeek}
+  const [openEditor, setOpenEditor] = useState(null); // {direction, dayOfWeek, busId}
   const [draftTimes, setDraftTimes] = useState([]); // {stopIndex,time}
 
   const schedulesMap = useMemo(() => {
@@ -65,11 +178,16 @@ export default function BusSchedulesPage() {
     return m;
   }, [schedules]);
 
+  async function refreshSchedules() {
+    if (!routeId) return;
+    const sres = await api.get(`/api/bus/routes/${routeId}/schedules`);
+    setSchedules(sres.data?.schedules || []);
+  }
+
   async function loadRoutes() {
     setLoading(true);
     setMsg(null);
     try {
-      // ✅ IMPORTANT: backend is mounted at /api/bus
       const res = await api.get("/api/bus/routes");
       const list = res.data?.routes || [];
       setRoutes(list);
@@ -94,7 +212,6 @@ export default function BusSchedulesPage() {
     setDraftTimes([]);
 
     try {
-      // ✅ IMPORTANT: all /api/bus
       const [routeRes, busesRes, schedulesRes] = await Promise.all([
         api.get(`/api/bus/routes/${rid}`),
         api.get(`/api/bus/routes/${rid}/buses`),
@@ -136,8 +253,26 @@ export default function BusSchedulesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeId]);
 
-  function openDayEditor(direction, dayOfWeek) {
-    const selectedBus = direction === "A_TO_B" ? busA : busB;
+  function closeEditor() {
+    setOpenEditor(null);
+    setDraftTimes([]);
+  }
+
+  function setTimeAt(index, time) {
+    setDraftTimes((prev) =>
+      prev.map((t) => (t.stopIndex === index ? { ...t, time } : t))
+    );
+  }
+
+  function openDayEditor(direction, dayOfWeek, busIdOverride) {
+    if (!route) {
+      setMsg({ type: "error", text: "Select a route first" });
+      return;
+    }
+
+    const selectedBus =
+      busIdOverride || (direction === "A_TO_B" ? busA : busB);
+
     if (!selectedBus) {
       setMsg({ type: "error", text: "Select a bus first" });
       return;
@@ -158,27 +293,19 @@ export default function BusSchedulesPage() {
     }));
 
     setDraftTimes(draft);
-    setOpenEditor({ direction, dayOfWeek });
+    setOpenEditor({ direction, dayOfWeek, busId: selectedBus });
     setMsg(null);
-  }
-
-  function closeEditor() {
-    setOpenEditor(null);
-    setDraftTimes([]);
-  }
-
-  function setTimeAt(index, time) {
-    setDraftTimes((prev) =>
-      prev.map((t) => (t.stopIndex === index ? { ...t, time } : t))
-    );
   }
 
   async function saveEditor() {
     if (!openEditor) return;
 
-    const { direction, dayOfWeek } = openEditor;
-    const selectedBus = direction === "A_TO_B" ? busA : busB;
-    if (!selectedBus) return setMsg({ type: "error", text: "Select a bus first" });
+    const { direction, dayOfWeek, busId } = openEditor;
+    const selectedBus = busId;
+
+    if (!selectedBus) {
+      return setMsg({ type: "error", text: "Select a bus first" });
+    }
 
     for (const row of draftTimes) {
       if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(row.time)) {
@@ -199,11 +326,8 @@ export default function BusSchedulesPage() {
         times: draftTimes,
       };
 
-      // ✅ IMPORTANT
       await api.post(`/api/bus/routes/${routeId}/schedules`, payload);
-
-      const sres = await api.get(`/api/bus/routes/${routeId}/schedules`);
-      setSchedules(sres.data?.schedules || []);
+      await refreshSchedules();
 
       setMsg({ type: "success", text: "Schedule saved successfully" });
       closeEditor();
@@ -215,9 +339,56 @@ export default function BusSchedulesPage() {
     }
   }
 
-  function summaryFor(direction, dayOfWeek) {
-    const busId = direction === "A_TO_B" ? busA : busB;
+  function getSchedule(direction, dayOfWeek, busIdOverride) {
+    const busId =
+      busIdOverride || (direction === "A_TO_B" ? busA : busB);
+    if (!busId) return null;
+
+    const key = scheduleKey({ busId, direction, dayOfWeek });
+    return schedulesMap.get(key) || null;
+  }
+
+  function canDelete(direction, dayOfWeek, busIdOverride) {
+    return !!getSchedule(direction, dayOfWeek, busIdOverride)?._id;
+  }
+
+  async function deleteScheduleEntry(direction, dayOfWeek, busIdOverride) {
+    const s = getSchedule(direction, dayOfWeek, busIdOverride);
+    if (!s?._id) {
+      return setMsg({ type: "error", text: "No schedule to delete for this bus/day." });
+    }
+
+    const ok = window.confirm("Delete this schedule? This cannot be undone.");
+    if (!ok) return;
+
+    try {
+      setMsg(null);
+      await api.delete(`/api/bus/schedules/${s._id}`);
+      await refreshSchedules();
+
+      if (
+        openEditor &&
+        openEditor.direction === direction &&
+        openEditor.dayOfWeek === dayOfWeek &&
+        openEditor.busId === (busIdOverride || openEditor.busId)
+      ) {
+        closeEditor();
+      }
+
+      setMsg({ type: "success", text: "Schedule deleted." });
+    } catch (e) {
+      setMsg({
+        type: "error",
+        text: e?.response?.data?.message || e.message || "Delete failed",
+      });
+    }
+  }
+
+  function summaryFor(direction, dayOfWeek, busIdOverride) {
+    const busId =
+      busIdOverride || (direction === "A_TO_B" ? busA : busB);
     if (!busId) return "—";
+
     const key = scheduleKey({ busId, direction, dayOfWeek });
     const s = schedulesMap.get(key);
     if (!s?.stopTimes?.length) return "Not set";
@@ -231,6 +402,12 @@ export default function BusSchedulesPage() {
   const routeHeader = route
     ? `${route.routeNumber} • ${route.routeType}`
     : "Select a route";
+
+  const openBusLabel = useMemo(() => {
+    if (!openEditor?.busId) return "";
+    const b = (buses || []).find((x) => x._id === openEditor.busId);
+    return b ? b.busNumber || b.plateNumber || b._id : openEditor.busId;
+  }, [openEditor?.busId, buses]);
 
   return (
     <div className="p-6">
@@ -246,8 +423,7 @@ export default function BusSchedulesPage() {
         </div>
 
         <p className="mt-2 text-sm text-zinc-400">
-          Governance rule: schedules are defined per <b>Route + Direction + Day + Bus</b>.
-          Stop times are captured for every stop in sequence.
+          Schedules are defined per <b>Route + Direction + Day + Bus</b>.
         </p>
 
         {msg && (
@@ -264,6 +440,7 @@ export default function BusSchedulesPage() {
         )}
 
         <div className="mt-5 grid gap-4">
+          {/* Route selector */}
           <div className="grid gap-2 max-w-2xl">
             <div className="text-sm text-white/70">Route</div>
             <div className="flex gap-2 items-center flex-wrap">
@@ -286,13 +463,34 @@ export default function BusSchedulesPage() {
                 disabled={!routeId || loadingRoute}
               >
                 <RefreshCw className="h-4 w-4" />
-                <span className="ml-2">{loadingRoute ? "Refreshing..." : "Refresh"}</span>
+                <span className="ml-2">
+                  {loadingRoute ? "Refreshing..." : "Refresh"}
+                </span>
               </button>
 
               <div className="text-sm text-zinc-400">{routeHeader}</div>
             </div>
           </div>
 
+          {/* ✅ READ-ONLY TIMETABLE (NO EDIT/DELETE HERE) */}
+          {route && (
+            <div className="grid gap-4">
+              <WeeklyTimetable
+                title="Timetable (A → B) • All buses"
+                direction="A_TO_B"
+                schedules={schedules}
+                buses={buses}
+              />
+              <WeeklyTimetable
+                title="Timetable (B → A) • All buses"
+                direction="B_TO_A"
+                schedules={schedules}
+                buses={buses}
+              />
+            </div>
+          )}
+
+          {/* Editors (create/update/delete schedules) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <DirectionPanel
               title="Direction A → B"
@@ -303,6 +501,8 @@ export default function BusSchedulesPage() {
               setBusId={setBusA}
               summaryFor={summaryFor}
               openDayEditor={openDayEditor}
+              canDelete={canDelete}
+              deleteScheduleEntry={deleteScheduleEntry}
             />
 
             <DirectionPanel
@@ -314,17 +514,22 @@ export default function BusSchedulesPage() {
               setBusId={setBusB}
               summaryFor={summaryFor}
               openDayEditor={openDayEditor}
+              canDelete={canDelete}
+              deleteScheduleEntry={deleteScheduleEntry}
             />
           </div>
 
+          {/* Editor panel */}
           {openEditor && route && (
             <div className="mt-2 rounded-2xl border border-white/10 bg-white/5 p-5">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <ArrowRightLeft className="h-4 w-4" />
                   <div className="font-semibold">
-                    Edit: {openEditor.direction === "A_TO_B" ? "A → B" : "B → A"} •{" "}
-                    {DAYS.find((d) => d.k === openEditor.dayOfWeek)?.label}
+                    Edit:{" "}
+                    {openEditor.direction === "A_TO_B" ? "A → B" : "B → A"} •{" "}
+                    {DAYS.find((d) => d.k === openEditor.dayOfWeek)?.label} •{" "}
+                    {openBusLabel}
                   </div>
                 </div>
 
@@ -332,6 +537,28 @@ export default function BusSchedulesPage() {
                   <button className="btn" onClick={closeEditor}>
                     Cancel
                   </button>
+
+                  <button
+                    className="btn"
+                    onClick={() =>
+                      deleteScheduleEntry(
+                        openEditor.direction,
+                        openEditor.dayOfWeek,
+                        openEditor.busId
+                      )
+                    }
+                    disabled={
+                      !canDelete(
+                        openEditor.direction,
+                        openEditor.dayOfWeek,
+                        openEditor.busId
+                      )
+                    }
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="ml-2">Delete</span>
+                  </button>
+
                   <button className="btn-primary btn" onClick={saveEditor}>
                     <Save className="h-4 w-4" />
                     <span className="ml-2">Save</span>
@@ -365,6 +592,8 @@ function DirectionPanel({
   setBusId,
   summaryFor,
   openDayEditor,
+  canDelete,
+  deleteScheduleEntry,
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
@@ -406,11 +635,21 @@ function DirectionPanel({
             className="grid grid-cols-3 px-4 py-3 border-t border-white/10 text-sm items-center"
           >
             <div className="font-semibold">{d.label}</div>
-            <div className="text-zinc-300">{summaryFor(direction, d.k)}</div>
+            <div className="text-zinc-300">{summaryFor(direction, d.k, busId)}</div>
             <div className="text-right">
-              <button className="btn" onClick={() => openDayEditor(direction, d.k)}>
-                Edit
-              </button>
+              <div className="flex justify-end gap-2">
+                <button className="btn" onClick={() => openDayEditor(direction, d.k, busId)}>
+                  Edit
+                </button>
+
+                <button
+                  className="btn"
+                  disabled={!canDelete(direction, d.k, busId)}
+                  onClick={() => deleteScheduleEntry(direction, d.k, busId)}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         ))}

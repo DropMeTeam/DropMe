@@ -31,8 +31,8 @@ export default function BusAdminDashboard() {
           </button>
 
           {/* Keep schedules as future-ready if page not built yet */}
-          <button className="btn" disabled title="Coming next">
-            Manage Schedules (Next)
+          <button className="btn" onClick={() => nav("/bus/schedules")}>
+            Manage Schedules
           </button>
         </div>
 

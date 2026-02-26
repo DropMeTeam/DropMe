@@ -30,6 +30,7 @@ import BusRoutesPage from "./pages/bus/BusRoutesPage";
 import CreateBusRoute from "./pages/bus/CreateBusRoute";
 import EditBusRoute from "./pages/bus/EditBusRoute";
 import BusApprovals from "./pages/bus/BusApprovals";
+import BusSchedulesPage from "./pages/bus/BusSchedulesPage";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -168,6 +169,15 @@ export default function App() {
               <BusApprovals />
             </RequireRole>
             } 
+        />
+
+        <Route
+          path="/bus/schedules"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <BusSchedulesPage />
+            </RequireRole>
+          }
         />
 
         {/* ✅ PRIVATE ADMIN */}

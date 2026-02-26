@@ -5,11 +5,9 @@ const reviewSchema = new mongoose.Schema({
   reviewerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   revieweeId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   rating: { type: Number, required: true, min: 1, max: 5 },
-  comment: { 
-  type: String, 
-  required: false, // This is the default, so it's technically optional to write
-  default: ""      // Ensures your profanity filter doesn't crash on 'undefined'
-  },
+
+  originalComment: { type: String, default: "" },   // ← NEW
+  displayComment: { type: String, default: "" },    // ← NEW (what public sees)
   
   // Category ratings for detailed analytics
   categories: {
@@ -18,6 +16,11 @@ const reviewSchema = new mongoose.Schema({
     behavior: { type: Number, default: 5, min: 1, max: 5 }
 },
   isFlagged: { type: Boolean, default: false }, // For Admin Moderation
+  moderationStatus: { 
+    type: String, 
+    enum: ['pending', 'approved', 'rejected'], 
+    default: 'approved' 
+  },
   createdAt: { type: Date, default: Date.now }
 });
 

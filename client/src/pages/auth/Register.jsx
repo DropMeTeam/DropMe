@@ -10,9 +10,6 @@ function routeByRole(role) {
   return "/plan";
 }
 
-  if (role === "BUS_OWNER") return "/owner";
-  return "/plan";
-}
 export default function Register() {
   const { setUser } = useAuth();
   const nav = useNavigate();
@@ -55,7 +52,6 @@ export default function Register() {
             <option value="ADMIN_TRAIN">Train Admin</option>
             <option value="ADMIN_BUS">Bus Admin</option>
             <option value="ADMIN_PRIVATE">Private Vehicle Admin</option>
-            <option value="BUS_OWNER">Bus Owner</option>
           </select>
 
           <input

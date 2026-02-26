@@ -1,8 +1,24 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Users, TrainFront, ShieldCheck } from "lucide-react";
+import { useAuth } from "../state/AuthContext";
+
+function routeByRole(role) {
+  if (role === "ADMIN_TRAIN") return "/train";
+  if (role === "ADMIN_BUS") return "/bus";
+  if (role === "ADMIN_PRIVATE") return "/private";
+  if (role === "driver") return "/driver";
+  if (role === "rider") return "/rider";
+  return "/plan";
+}
 
 export default function Landing() {
+  const { user, loading } = useAuth();
+
+  if (!loading && user) {
+    return <Navigate to={routeByRole(user.role)} replace />;
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="card p-7 lg:p-10">
@@ -24,7 +40,9 @@ export default function Landing() {
           <Link to="/plan" className="btn-primary btn">
             Plan a trip <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
-          <Link to="/register" className="btn-ghost btn">Create account</Link>
+          <Link to="/register" className="btn-ghost btn">
+            Create account
+          </Link>
         </div>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -58,7 +76,7 @@ export default function Landing() {
               { t: "Pickup & destination", d: "Autocomplete + map validation." },
               { t: "Schedule", d: "Pick now or choose a time window." },
               { t: "Mode select", d: "Pool, Private, or Transit." },
-              { t: "Execution", d: "Match offers or render transit directions." }
+              { t: "Execution", d: "Match offers or render transit directions." },
             ].map((x, i) => (
               <li key={x.t} className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4">
                 <div className="text-xs text-zinc-400">Step {i + 1}</div>

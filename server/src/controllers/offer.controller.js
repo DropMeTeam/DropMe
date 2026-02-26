@@ -13,11 +13,20 @@ export async function createOffer(req, res, next) {
   try {
     const body = CreateOfferSchema.parse(req.body);
 
-    const seatsTotal = body.seatsTotal ?? 3;
-
-    // ✅ pull driver + vehicle from DB
     const driver = await User.findById(req.user.sub).lean();
-    const regVehicle = driver?.driverRegistration?.vehicle || {};
+    const regVehicle = driver?.driverRegistration?.vehicle;
+
+    if (!regVehicle?.seatsTotal) {
+      return res.status(400).json({ message: "Driver vehicle seats not found. Submit driver registration first." });
+    }
+
+    const vehicleSeats = Number(regVehicle.seatsTotal);
+    if (!Number.isFinite(vehicleSeats) || vehicleSeats < 1 || vehicleSeats > 6) {
+      return res.status(400).json({ message: "Invalid vehicle seatsTotal in driver registration." });
+    }
+
+    // ✅ RULE: offer seatsTotal = vehicle seats
+    const seatsTotal = vehicleSeats;
 
     const offer = await RideOffer.create({
       driverId: req.user.sub,
@@ -31,13 +40,15 @@ export async function createOffer(req, res, next) {
       },
       pickupTime: new Date(body.pickupTime),
       timeWindowMins: body.timeWindowMins ?? 15,
+
       seatsTotal,
       seatsAvailable: seatsTotal,
+
       routePolyline: body.routePolyline ?? "",
       priceLkr: body.priceLkr ?? 0,
       status: "open",
 
-      // ✅ snapshots for rider UI
+      // ✅ snapshots (rider UI)
       driverSnapshot: {
         name: driver?.name || "",
         email: driver?.email || "",
@@ -47,7 +58,7 @@ export async function createOffer(req, res, next) {
         type: regVehicle?.type || "",
         number: regVehicle?.number || "",
         color: regVehicle?.color || "",
-        seatsTotal: Number(regVehicle?.seatsTotal || seatsTotal),
+        seatsTotal,
         photoUrl: regVehicle?.photoUrl || "",
       },
     });

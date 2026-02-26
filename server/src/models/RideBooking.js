@@ -1,4 +1,3 @@
-// models/RideBooking.js
 import mongoose from "mongoose";
 
 const RideBookingSchema = new mongoose.Schema(
@@ -16,19 +15,29 @@ const RideBookingSchema = new mongoose.Schema(
       index: true,
     },
 
-    // ✅ payment fields
     paymentStatus: {
       type: String,
-      enum: ["unpaid", "paid", "failed", "refunded"],
+      enum: ["unpaid", "paid", "failed"],
       default: "unpaid",
       index: true,
     },
-    amount: { type: Number, default: 0 }, // store in LKR or your chosen currency
+    amount: { type: Number, default: 0 },
     currency: { type: String, default: "lkr" },
     stripeSessionId: { type: String, default: "" },
     paidAt: { type: Date, default: null },
 
-    note: { type: String, default: "" },
+    // ✅ snapshot for dashboard/receipt even if offer changes
+    offerSnapshot: {
+      originAddress: { type: String, default: "" },
+      destinationAddress: { type: String, default: "" },
+      pickupTime: { type: Date, default: null },
+      priceLkr: { type: Number, default: 0 },
+      driverName: { type: String, default: "" },
+      driverEmail: { type: String, default: "" },
+      vehicleType: { type: String, default: "" },
+      vehicleNumber: { type: String, default: "" },
+      vehicleColor: { type: String, default: "" },
+    },
   },
   { timestamps: true }
 );

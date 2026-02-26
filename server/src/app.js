@@ -20,9 +20,10 @@ import { usersRouter } from "./routes/users.routes.js";
 import { driverRegistrationRouter } from "./routes/driverRegistration.routes.js";
 import { driverApprovalsRouter } from "./routes/driverApprovals.routes.js";
 
-// ✅ if you already have these routers, keep them:
+
 import { bookingsRouter } from "./routes/bookings.routes.js";
 // import { paymentsRouter } from "./routes/payments.routes.js";
+import { paymentsRouter } from "./routes/payments.routes.js";
 
 export function buildApp({ io }) {
   const app = express();
@@ -73,11 +74,11 @@ export function buildApp({ io }) {
   app.use("/api/requests", requestsRouter);
   app.use("/api/matches", matchesRouter);
 
-  // ✅ bookings
+  //  bookings
   app.use("/api/bookings", bookingsRouter);
 
-  // ✅ payments (only if created)
-  // app.use("/api/payments", paymentsRouter);
+  // payments 
+   app.use("/api/payments", paymentsRouter);
 
   app.use("/api/train", trainRouter);
   app.use("/api/admin/train", trainAdminRouter);

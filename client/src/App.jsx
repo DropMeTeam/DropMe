@@ -9,22 +9,22 @@ import DriverDashboard from "./pages/driver/DriverDashboard";
 import { useAuth } from "./state/AuthContext";
 import Shell from "./components/Shell";
 
-// ✅ NEW pages (create these)
 import DriverRegistrationPage from "./pages/driver/DriverRegistrationPage";
 import PrivateDriverApprovalsPage from "./pages/private/PrivateDriverApprovalsPage";
-
-// ✅ NEW: Edit offer page
 import EditOffer from "./pages/driver/EditOffer";
 
-// ✅ Admin dashboards
 import TrainAdminDashboard from "./pages/train/TrainAdminDashboard";
 import BusAdminDashboard from "./pages/bus/BusAdminDashboard";
 import PrivateAdminDashboard from "./pages/private/PrivateAdminDashboard";
 
-// ✅ Train pages
 import StationsPage from "./pages/train/StationsPage";
 import TrainSchedulesPage from "./pages/train/TrainSchedulesPage";
 import TrainTimetablesPage from "./pages/train/TrainTimetablesPage";
+
+// ✅ ADD checkout pages
+import CheckoutPage from "./pages/rides/CheckoutPage";
+import CheckoutSuccess from "./pages/rides/CheckoutSuccess";
+import CheckoutCancel from "./pages/rides/CheckoutCancel";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -48,7 +48,33 @@ export default function App() {
         <Route index element={<Landing />} />
         <Route path="/plan" element={<PlanTrip />} />
 
-        {/* rider/driver flows */}
+        {/* ✅ CHECKOUT ROUTES (MISSING BEFORE) */}
+        <Route
+          path="/checkout/:offerId"
+          element={
+            <Protected>
+              <CheckoutPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/checkout/success"
+          element={
+            <Protected>
+              <CheckoutSuccess />
+            </Protected>
+          }
+        />
+        <Route
+          path="/checkout/cancel"
+          element={
+            <Protected>
+              <CheckoutCancel />
+            </Protected>
+          }
+        />
+
+        {/* rider */}
         <Route
           path="/rider"
           element={
@@ -58,7 +84,7 @@ export default function App() {
           }
         />
 
-        {/* ✅ Driver dashboard - safe role guard */}
+        {/* driver */}
         <Route
           path="/driver"
           element={
@@ -68,7 +94,6 @@ export default function App() {
           }
         />
 
-        {/* ✅ Driver Registration - safe role guard */}
         <Route
           path="/driver/register"
           element={
@@ -78,7 +103,6 @@ export default function App() {
           }
         />
 
-        {/* ✅ Add Ride - safe role guard */}
         <Route
           path="/driver/offer"
           element={
@@ -88,7 +112,6 @@ export default function App() {
           }
         />
 
-        {/* ✅ NEW: Edit / Delete offer page */}
         <Route
           path="/driver/offers/:id/edit"
           element={
@@ -150,7 +173,6 @@ export default function App() {
           }
         />
 
-        {/* ✅ PRIVATE admin driver approvals */}
         <Route
           path="/private/driver-approvals"
           element={

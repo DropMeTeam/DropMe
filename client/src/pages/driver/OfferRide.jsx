@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import PlaceInput from "../../components/PlaceInput";
 import MapPicker from "../../components/MapPicker";
 import { getRoute } from "../../lib/osrm";
@@ -22,12 +23,19 @@ export default function OfferRide() {
 
   // form
   const [pickupTime, setPickupTime] = useState("");
-  const [seatsTotal, setSeatsTotal] = useState(3);
   const [priceLkr, setPriceLkr] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  //  driver cannot publish past time
-  const FUTURE_BUFFER_MS = 60 * 1000; // +1 minute safety buffer
+  // ✅ load driver registration to get seatsTotal
+  const { data: regData } = useQuery({
+    queryKey: ["driver-registration-me"],
+    queryFn: async () => (await api.get("/api/driver-registration/me")).data,
+  });
+
+  const vehicleSeats = Number(regData?.driverRegistration?.vehicle?.seatsTotal || 0);
+
+  // driver cannot publish past time
+  const FUTURE_BUFFER_MS = 60 * 1000; // +1 minute
 
   function toDatetimeLocalString(d) {
     const pad = (n) => String(n).padStart(2, "0");
@@ -62,7 +70,11 @@ export default function OfferRide() {
       return;
     }
 
-    //  block past date/time (even if typed manually)
+    if (!vehicleSeats || vehicleSeats < 1) {
+      alert("Vehicle seats not found. Please submit driver registration first.");
+      return;
+    }
+
     const dt = parsePickupTime(pickupTime);
     if (!dt) {
       alert("Please select a valid pick-up time.");
@@ -75,14 +87,12 @@ export default function OfferRide() {
 
     setLoading(true);
     try {
+      // ✅ seatsTotal NOT sent (server will set from driver registration)
       await api.post("/api/offers", {
         origin: { point: { lat: from.lat, lng: from.lng }, address: from.label },
         destination: { point: { lat: to.lat, lng: to.lng }, address: to.label },
-
         pickupTime,
-        seatsTotal: Number(seatsTotal),
         priceLkr: Number(priceLkr),
-
         routePolyline: meta?.polyline || "",
       });
 
@@ -97,7 +107,6 @@ export default function OfferRide() {
       setRoutePoints([]);
       setMeta(null);
       setPickupTime("");
-      setSeatsTotal(3);
       setPriceLkr(0);
     } catch (e) {
       alert(e?.response?.data?.message || "Failed to publish offer");
@@ -171,33 +180,35 @@ export default function OfferRide() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm text-white/70 mb-2">Pick-up time</label>
-                  <input
-                    type="datetime-local"
-                    value={pickupTime}
-                    min={minPickupTime} // blocks past selection
-                    onChange={(e) => setPickupTime(e.target.value)}
-                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm text-white/70 mb-2">Pick-up time</label>
+                <input
+                  type="datetime-local"
+                  value={pickupTime}
+                  min={minPickupTime}
+                  onChange={(e) => setPickupTime(e.target.value)}
+                  className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3"
+                />
+              </div>
 
-                <div>
-                  <label className="block text-sm text-white/70 mb-2">Seats</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="6"
-                    value={seatsTotal}
-                    onChange={(e) => setSeatsTotal(e.target.value)}
-                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3"
-                  />
-                </div>
+              {/* ✅ Seats (read-only from vehicle registration) */}
+              <div>
+                <label className="block text-sm text-white/70 mb-2">Seats (from your vehicle)</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={vehicleSeats ? String(vehicleSeats) : "Not set"}
+                  className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 opacity-80"
+                />
+                {!vehicleSeats ? (
+                  <div className="mt-2 text-xs text-red-300">
+                    Submit driver registration first to set vehicle seats.
+                  </div>
+                ) : null}
               </div>
 
               <div>
-                <label className="block text-sm text-white/70 mb-2">Price (LKR) (optional)</label>
+                <label className="block text-sm text-white/70 mb-2">Price (LKR)</label>
                 <input
                   type="number"
                   min="0"
@@ -209,7 +220,7 @@ export default function OfferRide() {
 
               <button
                 onClick={submit}
-                disabled={loading}
+                disabled={loading || !vehicleSeats}
                 className="w-full rounded-xl bg-white text-black font-semibold py-3 disabled:opacity-60"
               >
                 {loading ? "Publishing..." : "Publish Offer"}

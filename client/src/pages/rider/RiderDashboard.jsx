@@ -15,6 +15,23 @@ export default function RiderDashboard() {
 
   const bookings = bData?.bookings || [];
 
+  function bookingRoute(b) {
+    const offer = b.offerId;
+    if (offer?.origin?.address || offer?.destination?.address) {
+      return `${offer.origin?.address || "Origin"} → ${offer.destination?.address || "Destination"}`;
+    }
+    const s = b.offerSnapshot || {};
+    return `${s.originAddress || "Origin"} → ${s.destinationAddress || "Destination"}`;
+  }
+
+  function bookingPickup(b) {
+    const offer = b.offerId;
+    if (offer?.pickupTime) return new Date(offer.pickupTime).toLocaleString();
+    const s = b.offerSnapshot || {};
+    if (s.pickupTime) return new Date(s.pickupTime).toLocaleString();
+    return "—";
+  }
+
   return (
     <div className="grid gap-6">
       <div className="card p-6">
@@ -57,17 +74,10 @@ export default function RiderDashboard() {
         <div className="text-sm font-semibold">My bookings</div>
         <div className="mt-3 grid gap-2">
           {bookings.map((b) => {
-            const offer = b.offerId; // populated offer
-            const route = offer
-              ? `${offer.origin?.address || "Origin"} → ${offer.destination?.address || "Destination"}`
-              : "—";
+            const route = bookingRoute(b);
+            const pickup = bookingPickup(b);
 
-            const pickup = offer?.pickupTime
-              ? new Date(offer.pickupTime).toLocaleString()
-              : "—";
-
-            const canReceipt =
-              b.status === "confirmed" || b.paymentStatus === "paid";
+            const canReceipt = b.status === "confirmed" || b.paymentStatus === "paid";
 
             return (
               <div
@@ -77,9 +87,7 @@ export default function RiderDashboard() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-medium">{route}</div>
-                    <div className="mt-1 text-xs text-zinc-400">
-                      Pickup: {pickup}
-                    </div>
+                    <div className="mt-1 text-xs text-zinc-400">Pickup: {pickup}</div>
                     <div className="mt-1 text-xs text-zinc-400">
                       Seats: {b.seatsBooked} • Status: {b.status}
                       {b.paymentStatus ? ` • Payment: ${b.paymentStatus}` : ""}

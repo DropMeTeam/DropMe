@@ -5,19 +5,48 @@ import {
   myBookings,
   offerBookings,
   updateBookingStatus,
+  cancelBooking,
+  downloadReceipt, // ✅ only this
 } from "../controllers/booking.controller.js";
 
 export const bookingsRouter = Router();
 
-bookingsRouter.post("/offers/:id/book", requireAuth, requireRole("rider", "admin"), createBooking);
-bookingsRouter.get("/my", requireAuth, requireRole("rider", "admin"), myBookings);
-bookingsRouter.get("/offers/:id", requireAuth, requireRole("driver", "admin"), offerBookings);
-bookingsRouter.patch("/:bookingId/status", requireAuth, requireRole("driver", "admin"), updateBookingStatus);
+// ⚠️ OLD immediate-book endpoint (do NOT call from UI if you use Stripe checkout flow)
+bookingsRouter.post(
+  "/offers/:id/book",
+  requireAuth,
+  requireRole("rider", "admin"),
+  createBooking
+);
 
-bookingsRouter.get("/:bookingId/receipt", requireAuth, async (req, res, next) => {
-  try {
-    // implement PDF response using pdfkit (I can give full file if you want)
-  } catch (e) {
-    next(e);
-  }
-});
+bookingsRouter.get("/my", requireAuth, requireRole("rider", "admin"), myBookings);
+
+bookingsRouter.get(
+  "/offers/:id",
+  requireAuth,
+  requireRole("driver", "admin"),
+  offerBookings
+);
+
+bookingsRouter.patch(
+  "/:bookingId/status",
+  requireAuth,
+  requireRole("driver", "admin"),
+  updateBookingStatus
+);
+
+// cancel checkout (pending/unpaid)
+bookingsRouter.post(
+  "/:bookingId/cancel",
+  requireAuth,
+  requireRole("rider", "admin"),
+  cancelBooking
+);
+
+// ✅ PDF receipt (ONLY ONE)
+bookingsRouter.get(
+  "/:bookingId/receipt",
+  requireAuth,
+  requireRole("rider", "driver", "admin"),
+  downloadReceipt
+);

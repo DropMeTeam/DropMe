@@ -6,43 +6,33 @@ import { getRoute } from "../lib/osrm";
 import { api } from "../lib/api";
 import { startLiveLocation, stopLiveLocation } from "../lib/geolocate";
 import { reverseGeocode } from "../lib/reverseGeocode";
+import { useNavigate } from "react-router-dom"; // ✅ ADD
 
 export default function PlanTrip() {
   const { user } = useAuth();
+  const nav = useNavigate(); // ✅ ADD
 
-  // Unified shape everywhere:
-  // { label: string, lat: number, lng: number }
   const [pickup, setPickup] = useState(null);
   const [dropoff, setDropoff] = useState(null);
 
-  // Controlled input values
   const [pickupText, setPickupText] = useState("");
   const [dropoffText, setDropoffText] = useState("");
 
-  // Map click target
-  const [activePin, setActivePin] = useState("pickup"); // pickup | dropoff
+  const [activePin, setActivePin] = useState("pickup");
 
-  // Route view
   const [routePoints, setRoutePoints] = useState([]);
   const [meta, setMeta] = useState(null);
 
-  // Trip settings
   const [mode, setMode] = useState("pool");
   const [seats, setSeats] = useState(1);
   const [pickupTime, setPickupTime] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // offers for passenger view
   const [offers, setOffers] = useState([]);
   const [offersMsg, setOffersMsg] = useState("");
 
-  // ✅ booking UI state
-  const [bookingOfferId, setBookingOfferId] = useState(null);
-  const [bookingMsg, setBookingMsg] = useState("");
-  const [bookingErr, setBookingErr] = useState("");
-
   // GPS
-  const [myLoc, setMyLoc] = useState(null); // {lat,lng,accuracyMeters}
+  const [myLoc, setMyLoc] = useState(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState("");
   const [tracking, setTracking] = useState(false);
@@ -53,8 +43,7 @@ export default function PlanTrip() {
   const [flyToTarget, setFlyToTarget] = useState(null);
   const flewRef = useRef(false);
 
-  // passenger cannot search past time
-  const FUTURE_BUFFER_MS = 60 * 1000; // +1 minute safety buffer
+  const FUTURE_BUFFER_MS = 60 * 1000;
 
   function toDatetimeLocalString(d) {
     const pad = (n) => String(n).padStart(2, "0");
@@ -104,7 +93,6 @@ export default function PlanTrip() {
 
     setMyLoc({ lat, lng, accuracyMeters });
 
-    // Fly to pickup
     setFlyToTarget({ lat, lng });
     setFlyToKey((k) => k + 1);
 
@@ -151,7 +139,6 @@ export default function PlanTrip() {
       onUpdate: ({ lat, lng, accuracyMeters }) => {
         setMyLoc({ lat, lng, accuracyMeters });
 
-        // Keep pickup moving live
         setPickup((prev) => ({
           ...(prev || {}),
           lat,
@@ -160,7 +147,6 @@ export default function PlanTrip() {
         }));
         setPickupText((prev) => prev || "My live location");
 
-        // Fly only the first time (prevents jumpy map)
         if (!flewRef.current) {
           setFlyToTarget({ lat, lng });
           setFlyToKey((k) => k + 1);
@@ -184,11 +170,9 @@ export default function PlanTrip() {
     flewRef.current = false;
   }
 
-  // helper: load offers that match passenger route
   async function loadOffersForThisRoute() {
     if (!pickup || !dropoff || !pickupTime) return;
 
-    // ✅ SAFE: don't query backend with past time
     const tCheck = ensureFuturePickupTimeOrThrow();
     if (!tCheck.ok) {
       setOffers([]);
@@ -220,42 +204,10 @@ export default function PlanTrip() {
     }
   }
 
-  // ✅ NEW: book an offer
-  async function bookOffer(o) {
-    setBookingMsg("");
-    setBookingErr("");
-
-    const seatsToBook = Number(seats) || 1;
-    if (!Number.isFinite(seatsToBook) || seatsToBook < 1 || seatsToBook > 6) {
-      setBookingErr("Seats must be between 1 and 6.");
-      return;
-    }
-
-    // optional: keep UX consistent with your time validation
-    const tCheck = ensureFuturePickupTimeOrThrow();
-    if (!tCheck.ok) {
-      setBookingErr(tCheck.message);
-      return;
-    }
-
-    setBookingOfferId(o._id);
-    try {
-      await api.post(`/api/bookings/offers/${o._id}/book`, { seatsBooked: seatsToBook });
-
-      setBookingMsg("Booked successfully! ✅");
-      await loadOffersForThisRoute(); // refresh seatsAvailable
-    } catch (e) {
-      setBookingErr(e?.response?.data?.message || "Booking failed.");
-    } finally {
-      setBookingOfferId(null);
-    }
-  }
-
   async function findMatches() {
     if (!pickup || !dropoff) return alert("Select pickup & drop-off.");
     if (!pickupTime) return alert("Select pickup time.");
 
-    // ✅ SAFE: block past date/time searches
     const tCheck = ensureFuturePickupTimeOrThrow();
     if (!tCheck.ok) {
       setOffers([]);
@@ -264,13 +216,10 @@ export default function PlanTrip() {
     }
 
     setLoading(true);
-
-    // offer-search
     await loadOffersForThisRoute();
 
     try {
-      // KEEPING YOUR EXISTING FLOW (UNCHANGED)
-      const reqRes = await api.post("/api/requests", {
+      await api.post("/api/requests", {
         mode,
         seats: Number(seats),
         pickupTime,
@@ -280,12 +229,7 @@ export default function PlanTrip() {
         durationSeconds: meta?.durationSeconds ?? null,
       });
 
-      const requestId = reqRes.data?.request?._id || reqRes.data?._id;
-
-      const matchRes = await api.get(`/api/matches/find/${requestId}`);
-      console.log("matches", matchRes.data);
-
-      alert("Matches fetched. (Check console). Next: build Matches UI.");
+      alert("Offers loaded. Choose one and click Book.");
     } catch (e) {
       alert(e?.response?.data?.message || "Failed to find matches");
     } finally {
@@ -333,7 +277,6 @@ export default function PlanTrip() {
                 }}
               />
 
-              {/* GPS buttons */}
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -377,7 +320,6 @@ export default function PlanTrip() {
                 }}
               />
 
-              {/* Map click toggle */}
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setActivePin("pickup")}
@@ -403,7 +345,6 @@ export default function PlanTrip() {
                 </button>
               </div>
 
-              {/* Trip mode */}
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { id: "pool", title: "Pool", desc: "Share ride" },
@@ -432,7 +373,7 @@ export default function PlanTrip() {
                   <input
                     type="datetime-local"
                     value={pickupTime}
-                    min={minPickupTime} // blocks past date/time selection
+                    min={minPickupTime}
                     onChange={(e) => setPickupTime(e.target.value)}
                     className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/30"
                   />
@@ -500,7 +441,6 @@ export default function PlanTrip() {
             }}
           />
 
-          {/* results list */}
           <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm font-semibold">Available rides on this route</div>
@@ -508,10 +448,6 @@ export default function PlanTrip() {
             </div>
 
             {offersMsg ? <div className="mt-2 text-xs text-white/60">{offersMsg}</div> : null}
-
-            {/* ✅ booking messages */}
-            {bookingErr ? <div className="mt-2 text-xs text-red-300">{bookingErr}</div> : null}
-            {bookingMsg ? <div className="mt-2 text-xs text-emerald-300">{bookingMsg}</div> : null}
 
             {!offers?.length ? null : (
               <div className="mt-3 grid gap-3">
@@ -526,10 +462,7 @@ export default function PlanTrip() {
                   const canBook = isOpen && available >= seatsToBook && seatsToBook >= 1;
 
                   return (
-                    <div
-                      key={o._id}
-                      className="rounded-xl border border-white/10 bg-black/20 p-4 hover:bg-black/25 transition"
-                    >
+                    <div key={o._id} className="rounded-xl border border-white/10 bg-black/20 p-4 hover:bg-black/25 transition">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="font-semibold">{driver?.name || "Driver"}</div>
@@ -544,44 +477,28 @@ export default function PlanTrip() {
                               Offer pin: {ll.lat.toFixed(5)}, {ll.lng.toFixed(5)}
                             </div>
                           ) : null}
+                          <div className="mt-3 text-xs text-white/70">
+                            Vehicle: {vehicle?.type || "—"} • {vehicle?.number || "—"} • {vehicle?.color || "—"}
+                          </div>
                         </div>
 
                         <div className="text-right text-xs text-white/70">
                           <div>Seats: {o?.seatsAvailable}/{o?.seatsTotal}</div>
                           <div>{o?.priceLkr ? `LKR ${o.priceLkr}` : "—"}</div>
 
-                          {/* ✅ BOOK button */}
+                          {/* ✅ redirect to checkout */}
                           <button
                             type="button"
-                            disabled={!canBook || bookingOfferId === o._id}
-                            onClick={() => bookOffer(o)}
+                            disabled={!canBook}
+                            onClick={() => nav(`/checkout/${o._id}?seats=${seatsToBook}`)}
                             className={
                               "mt-3 rounded-xl px-3 py-2 text-sm font-semibold transition " +
-                              (canBook && bookingOfferId !== o._id
-                                ? "bg-white text-black hover:opacity-90"
-                                : "bg-white/10 text-white/40 cursor-not-allowed")
-                            }
-                            title={
-                              !isOpen
-                                ? "Offer is not open"
-                                : available < seatsToBook
-                                ? "Not enough seats available"
-                                : "Book this ride"
+                              (canBook ? "bg-white text-black hover:opacity-90" : "bg-white/10 text-white/40 cursor-not-allowed")
                             }
                           >
-                            {bookingOfferId === o._id
-                              ? "Booking..."
-                              : !isOpen
-                              ? "Closed"
-                              : available < seatsToBook
-                              ? "Not enough seats"
-                              : "Book"}
+                            Proceed
                           </button>
                         </div>
-                      </div>
-
-                      <div className="mt-3 text-xs text-white/70">
-                        Vehicle: {vehicle?.type || "—"} • {vehicle?.number || "—"} • {vehicle?.color || "—"}
                       </div>
                     </div>
                   );

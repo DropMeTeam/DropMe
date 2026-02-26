@@ -36,6 +36,11 @@ export default function PlanTrip() {
   const [offers, setOffers] = useState([]);
   const [offersMsg, setOffersMsg] = useState("");
 
+  // ✅ booking UI state
+  const [bookingOfferId, setBookingOfferId] = useState(null);
+  const [bookingMsg, setBookingMsg] = useState("");
+  const [bookingErr, setBookingErr] = useState("");
+
   // GPS
   const [myLoc, setMyLoc] = useState(null); // {lat,lng,accuracyMeters}
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -48,7 +53,7 @@ export default function PlanTrip() {
   const [flyToTarget, setFlyToTarget] = useState(null);
   const flewRef = useRef(false);
 
-  //  passenger cannot search past time
+  // passenger cannot search past time
   const FUTURE_BUFFER_MS = 60 * 1000; // +1 minute safety buffer
 
   function toDatetimeLocalString(d) {
@@ -212,6 +217,37 @@ export default function PlanTrip() {
     } catch (e) {
       setOffers([]);
       setOffersMsg(e?.response?.data?.message || "Offer search failed.");
+    }
+  }
+
+  // ✅ NEW: book an offer
+  async function bookOffer(o) {
+    setBookingMsg("");
+    setBookingErr("");
+
+    const seatsToBook = Number(seats) || 1;
+    if (!Number.isFinite(seatsToBook) || seatsToBook < 1 || seatsToBook > 6) {
+      setBookingErr("Seats must be between 1 and 6.");
+      return;
+    }
+
+    // optional: keep UX consistent with your time validation
+    const tCheck = ensureFuturePickupTimeOrThrow();
+    if (!tCheck.ok) {
+      setBookingErr(tCheck.message);
+      return;
+    }
+
+    setBookingOfferId(o._id);
+    try {
+      await api.post(`/api/bookings/offers/${o._id}/book`, { seatsBooked: seatsToBook });
+
+      setBookingMsg("Booked successfully! ✅");
+      await loadOffersForThisRoute(); // refresh seatsAvailable
+    } catch (e) {
+      setBookingErr(e?.response?.data?.message || "Booking failed.");
+    } finally {
+      setBookingOfferId(null);
     }
   }
 
@@ -396,7 +432,7 @@ export default function PlanTrip() {
                   <input
                     type="datetime-local"
                     value={pickupTime}
-                    min={minPickupTime}  //  blocks past date/time selection
+                    min={minPickupTime} // blocks past date/time selection
                     onChange={(e) => setPickupTime(e.target.value)}
                     className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/30"
                   />
@@ -409,7 +445,7 @@ export default function PlanTrip() {
                     min="1"
                     max="6"
                     value={seats}
-                    onChange={(e) => setSeats(e.target.value)}
+                    onChange={(e) => setSeats(Number(e.target.value))}
                     className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/30"
                   />
                 </div>
@@ -473,12 +509,21 @@ export default function PlanTrip() {
 
             {offersMsg ? <div className="mt-2 text-xs text-white/60">{offersMsg}</div> : null}
 
+            {/* ✅ booking messages */}
+            {bookingErr ? <div className="mt-2 text-xs text-red-300">{bookingErr}</div> : null}
+            {bookingMsg ? <div className="mt-2 text-xs text-emerald-300">{bookingMsg}</div> : null}
+
             {!offers?.length ? null : (
               <div className="mt-3 grid gap-3">
                 {offers.map((o) => {
                   const ll = offerLatLng(o);
                   const vehicle = o?.vehicleSnapshot || {};
                   const driver = o?.driverSnapshot || {};
+
+                  const seatsToBook = Number(seats) || 1;
+                  const available = Number(o?.seatsAvailable ?? 0);
+                  const isOpen = o?.status === "open";
+                  const canBook = isOpen && available >= seatsToBook && seatsToBook >= 1;
 
                   return (
                     <div
@@ -504,6 +549,34 @@ export default function PlanTrip() {
                         <div className="text-right text-xs text-white/70">
                           <div>Seats: {o?.seatsAvailable}/{o?.seatsTotal}</div>
                           <div>{o?.priceLkr ? `LKR ${o.priceLkr}` : "—"}</div>
+
+                          {/* ✅ BOOK button */}
+                          <button
+                            type="button"
+                            disabled={!canBook || bookingOfferId === o._id}
+                            onClick={() => bookOffer(o)}
+                            className={
+                              "mt-3 rounded-xl px-3 py-2 text-sm font-semibold transition " +
+                              (canBook && bookingOfferId !== o._id
+                                ? "bg-white text-black hover:opacity-90"
+                                : "bg-white/10 text-white/40 cursor-not-allowed")
+                            }
+                            title={
+                              !isOpen
+                                ? "Offer is not open"
+                                : available < seatsToBook
+                                ? "Not enough seats available"
+                                : "Book this ride"
+                            }
+                          >
+                            {bookingOfferId === o._id
+                              ? "Booking..."
+                              : !isOpen
+                              ? "Closed"
+                              : available < seatsToBook
+                              ? "Not enough seats"
+                              : "Book"}
+                          </button>
                         </div>
                       </div>
 

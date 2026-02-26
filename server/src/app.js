@@ -16,19 +16,21 @@ import { trainRouter } from "./modules/train/train.routes.js";
 import { trainAdminRouter } from "./modules/train/train.admin.routes.js";
 import { adminRouter } from "./routes/admin.routes.js";
 
-// ✅ NEW (you will create these files as I gave earlier)
 import { usersRouter } from "./routes/users.routes.js";
 import { driverRegistrationRouter } from "./routes/driverRegistration.routes.js";
 import { driverApprovalsRouter } from "./routes/driverApprovals.routes.js";
+
+// ✅ ADD THIS
+import { bookingsRouter } from "./routes/bookings.routes.js";
 
 export function buildApp({ io }) {
   const app = express();
 
   app.use(
-  helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-  })
-);
+    helmet({
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    })
+  );
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());
   app.use(morgan("dev"));
@@ -68,16 +70,19 @@ export function buildApp({ io }) {
   // ✅ driver registration submit + status
   app.use("/api/driver-registration", driverRegistrationRouter);
 
-  // existing modules
+  // ✅ existing modules
   app.use("/api/offers", offersRouter);
   app.use("/api/requests", requestsRouter);
   app.use("/api/matches", matchesRouter);
+
+  // ✅ ADD THIS (booking routes)
+  app.use("/api/bookings", bookingsRouter);
 
   // train module
   app.use("/api/train", trainRouter);
   app.use("/api/admin/train", trainAdminRouter);
 
-  // existing admin routes + driver approval routes
+  // admin routes
   app.use("/api/admin", adminRouter);
   app.use("/api/admin", driverApprovalsRouter);
 

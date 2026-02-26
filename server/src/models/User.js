@@ -49,6 +49,12 @@ const UserSchema = new mongoose.Schema(
       enum: ["rider", "driver", "ADMIN_TRAIN", "ADMIN_BUS", "ADMIN_PRIVATE"],
       default: "rider",
     },
+    // role enum: add BUS_OWNER
+role: {
+  type: String,
+  enum: ["rider", "driver", "BUS_OWNER", "ADMIN_TRAIN", "ADMIN_BUS", "ADMIN_PRIVATE"],
+  default: "rider",
+},
 
     avatarUrl: { type: String, default: "" },
 

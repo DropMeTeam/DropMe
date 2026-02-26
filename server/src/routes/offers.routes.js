@@ -18,7 +18,7 @@ offersRouter.get("/my", requireAuth, requireRole("driver", "admin"), myOffers);
 // passenger search (public)
 offersRouter.get("/search", searchOffers);
 
-// ✅ MUST be BEFORE "/:id"
+
 offersRouter.get("/public/:id", requireAuth, async (req, res, next) => {
   try {
     const offer = await RideOffer.findById(req.params.id).lean();
@@ -29,7 +29,7 @@ offersRouter.get("/public/:id", requireAuth, async (req, res, next) => {
   }
 });
 
-// ✅ edit/delete lifecycle (keep AFTER /public/:id)
+// edit/delete lifecycle 
 offersRouter.get("/:id", requireAuth, requireRole("driver", "admin"), getOfferById);
 offersRouter.patch("/:id", requireAuth, requireRole("driver", "admin"), updateOffer);
 offersRouter.delete("/:id", requireAuth, requireRole("driver", "admin"), deleteOffer);

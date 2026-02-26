@@ -4,7 +4,7 @@ import { createReview, getDriverStats } from '../controllers/reviewController.js
 
 const router = express.Router();
 
-router.post('/', createReview); // Add 'protect' middleware here later
+router.post('/submit', createReview); // Add 'protect' middleware here later
 router.get('/stats/:driverId', getDriverStats);
 
 export default router;

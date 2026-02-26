@@ -21,7 +21,9 @@
     "multer": "^2.0.2",
     "nanoid": "^5.0.7",
     "nodemailer": "^8.0.1",
+    "pdfkit": "^0.17.2",
     "socket.io": "^4.7.5",
+    "stripe": "^20.4.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

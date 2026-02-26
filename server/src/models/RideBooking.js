@@ -1,3 +1,4 @@
+// models/RideBooking.js
 import mongoose from "mongoose";
 
 const RideBookingSchema = new mongoose.Schema(
@@ -15,12 +16,23 @@ const RideBookingSchema = new mongoose.Schema(
       index: true,
     },
 
+    // ✅ payment fields
+    paymentStatus: {
+      type: String,
+      enum: ["unpaid", "paid", "failed", "refunded"],
+      default: "unpaid",
+      index: true,
+    },
+    amount: { type: Number, default: 0 }, // store in LKR or your chosen currency
+    currency: { type: String, default: "lkr" },
+    stripeSessionId: { type: String, default: "" },
+    paidAt: { type: Date, default: null },
+
     note: { type: String, default: "" },
   },
   { timestamps: true }
 );
 
-// Prevent duplicate active bookings for same rider+offer
 RideBookingSchema.index(
   { offerId: 1, riderId: 1 },
   { unique: true, partialFilterExpression: { status: { $in: ["pending", "confirmed"] } } }

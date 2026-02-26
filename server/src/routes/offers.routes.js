@@ -21,3 +21,13 @@ offersRouter.get("/search", searchOffers);
 offersRouter.get("/:id", requireAuth, requireRole("driver", "admin"), getOfferById);
 offersRouter.patch("/:id", requireAuth, requireRole("driver", "admin"), updateOffer);
 offersRouter.delete("/:id", requireAuth, requireRole("driver", "admin"), deleteOffer);
+
+offersRouter.get("/public/:id", requireAuth, async (req, res, next) => {
+  try {
+    const offer = await RideOffer.findById(req.params.id).lean();
+    if (!offer) return res.status(404).json({ message: "Offer not found" });
+    res.json({ offer });
+  } catch (e) {
+    next(e);
+  }
+});

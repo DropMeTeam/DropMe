@@ -20,8 +20,9 @@ import { usersRouter } from "./routes/users.routes.js";
 import { driverRegistrationRouter } from "./routes/driverRegistration.routes.js";
 import { driverApprovalsRouter } from "./routes/driverApprovals.routes.js";
 
-// ✅ ADD THIS
+// ✅ if you already have these routers, keep them:
 import { bookingsRouter } from "./routes/bookings.routes.js";
+// import { paymentsRouter } from "./routes/payments.routes.js";
 
 export function buildApp({ io }) {
   const app = express();
@@ -31,6 +32,7 @@ export function buildApp({ io }) {
       crossOriginResourcePolicy: { policy: "cross-origin" },
     })
   );
+
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());
   app.use(morgan("dev"));
@@ -60,29 +62,26 @@ export function buildApp({ io }) {
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
 
-  // ✅ serve uploaded images
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-  // ✅ auth + user profile
   app.use("/api/auth", authRouter);
   app.use("/api/users", usersRouter);
 
-  // ✅ driver registration submit + status
   app.use("/api/driver-registration", driverRegistrationRouter);
 
-  // ✅ existing modules
   app.use("/api/offers", offersRouter);
   app.use("/api/requests", requestsRouter);
   app.use("/api/matches", matchesRouter);
 
-  // ✅ ADD THIS (booking routes)
+  // ✅ bookings
   app.use("/api/bookings", bookingsRouter);
 
-  // train module
+  // ✅ payments (only if created)
+  // app.use("/api/payments", paymentsRouter);
+
   app.use("/api/train", trainRouter);
   app.use("/api/admin/train", trainAdminRouter);
 
-  // admin routes
   app.use("/api/admin", adminRouter);
   app.use("/api/admin", driverApprovalsRouter);
 

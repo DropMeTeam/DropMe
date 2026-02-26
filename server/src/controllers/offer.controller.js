@@ -1,6 +1,7 @@
 // controllers/offer.controller.js
 import { RideOffer } from "../models/RideOffer.js";
 import { CreateOfferSchema, UpdateOfferSchema } from "../validators/ride.validators.js";
+import { User } from "../models/User.js";
 
 function isOwnerOrAdmin(req, offer) {
   const isOwner = String(offer.driverId) === String(req.user.sub);
@@ -13,6 +14,10 @@ export async function createOffer(req, res, next) {
     const body = CreateOfferSchema.parse(req.body);
 
     const seatsTotal = body.seatsTotal ?? 3;
+
+    // ✅ pull driver + vehicle from DB
+    const driver = await User.findById(req.user.sub).lean();
+    const regVehicle = driver?.driverRegistration?.vehicle || {};
 
     const offer = await RideOffer.create({
       driverId: req.user.sub,
@@ -31,6 +36,20 @@ export async function createOffer(req, res, next) {
       routePolyline: body.routePolyline ?? "",
       priceLkr: body.priceLkr ?? 0,
       status: "open",
+
+      // ✅ snapshots for rider UI
+      driverSnapshot: {
+        name: driver?.name || "",
+        email: driver?.email || "",
+        avatarUrl: driver?.avatarUrl || "",
+      },
+      vehicleSnapshot: {
+        type: regVehicle?.type || "",
+        number: regVehicle?.number || "",
+        color: regVehicle?.color || "",
+        seatsTotal: Number(regVehicle?.seatsTotal || seatsTotal),
+        photoUrl: regVehicle?.photoUrl || "",
+      },
     });
 
     res.status(201).json({ offer });
@@ -74,7 +93,7 @@ export async function myOffers(req, res, next) {
   }
 }
 
-// ✅ NEW: get one offer (for edit screen)
+// get one offer (for edit screen)
 export async function getOfferById(req, res, next) {
   try {
     const offer = await RideOffer.findById(req.params.id);
@@ -90,7 +109,7 @@ export async function getOfferById(req, res, next) {
   }
 }
 
-// ✅ NEW: update offer (edit)
+//  update offer (edit)
 export async function updateOffer(req, res, next) {
   try {
     const body = UpdateOfferSchema.parse(req.body);

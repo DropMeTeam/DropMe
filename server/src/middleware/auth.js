@@ -31,15 +31,9 @@ export function requireRole(...roles) {
   return (req, _res, next) => {
     if (!req.user) return next(new HttpError(401, "Not authenticated"));
     if (!roles.includes(req.user.role)) {
-      //  clearer error message (helps debugging)
+      // clearer error message (helps debugging)
       return next(new HttpError(403, `Forbidden. Need: ${roles.join(", ")}. Got: ${req.user.role}`));
     }
-
-    if (!roles.includes(req.user.role)) {
-      // ✅ clearer error message (helps debugging)
-      return next(new HttpError(403, `Forbidden. Need: ${roles.join(", ")}. Got: ${req.user.role}`));
-    }
-
     next();
   };
 }

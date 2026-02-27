@@ -24,4 +24,7 @@ const reviewSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// 🚫 Prevent duplicate reviews per ride
+reviewSchema.index({ rideId: 1, reviewerId: 1 }, { unique: true });
+
 export const Review = mongoose.model('Review', reviewSchema);

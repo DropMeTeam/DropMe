@@ -149,6 +149,7 @@ export const createReview = async (req, res) => {
   }
 };
 
+// update review
 export const updateReview = async (req, res) => {
   try {
     const { id } = req.params;
@@ -278,7 +279,7 @@ export const updateReview = async (req, res) => {
   }
 };
 
-
+// delete Review
 export const deleteReview = async (req, res) => {
   try {
     const { id } = req.params;
@@ -326,7 +327,7 @@ export const deleteReview = async (req, res) => {
   }
 };
 
-
+// getDriverReviews
 export const getDriverReviews = async (driverId) => {
   try {
     const results = await Review.aggregate([

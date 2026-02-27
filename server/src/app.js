@@ -11,7 +11,7 @@ import { matchesRouter } from "./routes/matches.routes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 import ticketRoutes from "./routes/ticketRoutes.js";
-
+import reviewRoutes from "./routes/reviewRoutes.js";
 export function buildApp({ io }) {
   const app = express();
 
@@ -38,6 +38,7 @@ export function buildApp({ io }) {
   app.use("/api/matches", matchesRouter);
 
   app.use("/api/tickets", ticketRoutes);
+  app.use("/api/reviews", reviewRoutes);
 
   app.use(errorHandler);
 

@@ -1,4 +1,5 @@
 import { Router } from "express";
+
 import {
   createRoute,
   getRoutes,
@@ -6,6 +7,8 @@ import {
   updateRoute,
   deleteRoute
 } from "../controllers/busRoute.controller.js";
+
+import scheduleRouter from "./bus.schedules.routes.js";
 
 const router = Router();
 
@@ -15,5 +18,6 @@ router.post("/routes", createRoute);
 router.get("/routes/:id", getRouteById);
 router.patch("/routes/:id", updateRoute);
 router.delete("/routes/:id", deleteRoute);
+router.use(scheduleRouter);
 
 export default router;

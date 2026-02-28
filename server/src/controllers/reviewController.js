@@ -281,7 +281,7 @@ export const updateReview = async (req, res) => {
 }; 
 
 // delete Review
-/*export const deleteReview = async (req, res) => {
+export const deleteReview = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
@@ -326,65 +326,12 @@ export const updateReview = async (req, res) => {
     console.error("DeleteReview Error:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
-}; */
+}; 
 
-export const deleteReview = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // ✅ Allow Postman testing without auth
-    const userId = req.user?.id || req.user?._id || req.body?.reviewerId;
-
-    if (!userId) {
-      return res.status(401).json({ error: "User not authenticated" });
-    }
-
-    const review = await Review.findById(id);
-    if (!review) return res.status(404).json({ error: "Review not found" });
-
-    // ✅ Robust compare
-    if (String(review.reviewerId) !== String(userId)) {
-      return res.status(403).json({ error: "Unauthorized" });
-    }
-
-    // 24-hour delete window
-    const hoursSinceCreation =
-      (Date.now() - review.createdAt.getTime()) / (1000 * 60 * 60);
-    if (hoursSinceCreation > 24) {
-      return res.status(400).json({ error: "Delete window closed" });
-    }
-
-    // Strike restoration if flagged review removed
-    if (review.isFlagged) {
-      const dbUser = await User.findById(userId);
-      if (dbUser) {
-        dbUser.profanityStrikeCount = Math.max(
-          0,
-          (dbUser.profanityStrikeCount || 0) - 1
-        );
-
-        const lifetimeThreshold = Date.now() + 50 * 365 * 24 * 60 * 60 * 1000;
-        if (
-          dbUser.reviewBanUntil?.getTime() > lifetimeThreshold &&
-          dbUser.profanityStrikeCount < 20
-        ) {
-          dbUser.reviewBanUntil = null;
-        }
-
-        await dbUser.save();
-      }
-    }
-
-    await Review.findByIdAndDelete(id);
-
-    return res.status(200).json({ message: "Review deleted successfully" });
-  } catch (error) {
-    console.error("DeleteReview Error:", error);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-};
 // getDriverReviews
-export const getDriverReviews = async (driverId) => {
+/*export const getDriverReviews = async (driverId) => {
+
+
   try {
     const results = await Review.aggregate([
       // 1. Filter reviews for the specific driver
@@ -435,5 +382,73 @@ export const getDriverReviews = async (driverId) => {
   } catch (error) {
     console.error("Aggregation Error:", error);
     throw error;
+  }
+}; */
+
+// GET /api/reviews/driver/:driverId
+export const getDriverReviews = async (req, res, next) => {
+  try {
+    const { driverId } = req.params;
+
+    // ✅ Guardrail: prevent BSON crash
+    if (!mongoose.isValidObjectId(driverId)) {
+      return res.status(400).json({ error: "Invalid driverId" });
+    }
+
+    const driverObjectId = new mongoose.Types.ObjectId(driverId);
+
+    // IMPORTANT:
+    // In your createReview you store revieweeId (the person being reviewed)
+    // So we match on revieweeId, not driverId.
+    const results = await Review.aggregate([
+      { $match: { revieweeId: driverObjectId } },
+
+      {
+        $facet: {
+          stats: [
+            {
+              $group: {
+                _id: null,
+                averageRating: { $avg: "$rating" },
+                totalReviews: { $sum: 1 },
+              },
+            },
+          ],
+          latestReviews: [
+            { $sort: { createdAt: -1 } },
+            { $limit: 20 },
+            {
+              $project: {
+                rating: 1,
+                displayComment: 1,
+                originalComment: 1,
+                reviewerId: 1,
+                createdAt: 1,
+                categories: 1,
+                moderationStatus: 1,
+                isFlagged: 1,
+              },
+            },
+          ],
+        },
+      },
+
+      {
+        $project: {
+          averageRating: {
+            $ifNull: [{ $arrayElemAt: ["$stats.averageRating", 0] }, 0],
+          },
+          totalReviews: {
+            $ifNull: [{ $arrayElemAt: ["$stats.totalReviews", 0] }, 0],
+          },
+          reviews: "$latestReviews",
+        },
+      },
+    ]);
+
+    return res.json(results[0] || { averageRating: 0, totalReviews: 0, reviews: [] });
+  } catch (err) {
+    console.error("Aggregation Error:", err);
+    return next(err);
   }
 };

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import api from "../lib/api"; // ✅ uses your axios instance
 
 export default function PlaceSearch({
   label = "Location",
@@ -19,20 +20,18 @@ export default function PlaceSearch({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [err, setErr] = useState(null);
+
   const rootRef = useRef(null);
   const abortRef = useRef(null);
 
   const q = value || "";
   const canSearch = q.trim().length >= minChars;
 
+  // keep same params (so backend can forward them)
   const queryParams = useMemo(() => {
-    const p = {
-      q,
-      format: "json",
-      addressdetails: "1",
-      limit: String(limit),
-    };
-    if (countryCodes) p.countrycodes = countryCodes;
+    const p = { q, limit: String(limit) };
+    if (countryCodes) p.countryCodes = countryCodes;
     if (viewbox) p.viewbox = viewbox;
     if (bounded) p.bounded = "1";
     return p;
@@ -51,6 +50,8 @@ export default function PlaceSearch({
   }, []);
 
   useEffect(() => {
+    setErr(null);
+
     if (!canSearch) {
       setItems([]);
       setOpen(false);
@@ -68,26 +69,26 @@ export default function PlaceSearch({
         const controller = new AbortController();
         abortRef.current = controller;
 
-        const url =
-          "https://nominatim.openstreetmap.org/search?" +
-          new URLSearchParams(queryParams).toString();
-
-        const res = await fetch(url, {
+        // ✅ IMPORTANT: call YOUR backend proxy (no CORS issues)
+        // server must have: app.use("/api/geo", geoRouter)
+        const res = await api.get("/api/geo/search", {
+          params: queryParams,
           signal: controller.signal,
-          headers: { "Accept-Language": "en" },
         });
 
-        const data = await res.json();
-        const mapped = (data || []).map((d) => ({
-          label: d.display_name,
+        const mapped = (res.data?.results || []).map((d) => ({
+          label: d.label,
           lat: Number(d.lat),
-          lng: Number(d.lon),
+          lng: Number(d.lng),
         }));
 
         setItems(mapped);
         setActiveIndex(mapped.length ? 0 : -1);
       } catch (e) {
+        if (e?.name === "CanceledError") return; // axios cancel
         if (e?.name === "AbortError") return;
+
+        setErr(e?.response?.data?.message || e.message || "Search failed");
         setItems([]);
         setActiveIndex(-1);
       } finally {
@@ -149,6 +150,12 @@ export default function PlaceSearch({
         {loading && (
           <div className="absolute right-3 top-3 text-xs text-white/50">
             Searching...
+          </div>
+        )}
+
+        {err && !loading && (
+          <div className="mt-2 text-xs text-red-300">
+            {err}
           </div>
         )}
 

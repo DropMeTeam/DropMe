@@ -7,16 +7,18 @@ export const RegisterSchema = z.object({
 
   // ✅ allow admin roles to be submitted during register
   // (SYSTEM_ADMIN will still be blocked in controller)
-  role: z
-    .enum([
-      "rider",
-      "driver",
-      "ADMIN_TRAIN",
-      "ADMIN_BUS",
-      "ADMIN_PRIVATE",
-      "SYSTEM_ADMIN",
-    ])
-    .optional(),
+  // auth.validators.js
+role: z
+  .enum([
+    "rider",
+    "driver",
+    "BUS_OWNER",      // ✅ add this
+    "ADMIN_TRAIN",
+    "ADMIN_BUS",
+    "ADMIN_PRIVATE",
+    "SYSTEM_ADMIN",
+  ])
+  .optional(),
 });
 
 export const LoginSchema = z.object({

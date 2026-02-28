@@ -13,6 +13,6 @@ router.post('/submit', createReview); // Add 'protect' middleware here later
 router.get('/driver/:driverId', getDriverReviews);
 router.patch('/update/:id', updateReview);
 router.delete('/delete/:id', deleteReview);
-router.get('/stats/:driverId', getDriverStats);
+// router.get('/stats/:driverId', getDriverStats);
 
 export default router;

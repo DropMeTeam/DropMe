@@ -9,10 +9,39 @@ import DriverDashboard from "./pages/driver/DriverDashboard";
 import { useAuth } from "./state/AuthContext";
 import Shell from "./components/Shell";
 
+// ✅ NEW pages (create these)
+import DriverRegistrationPage from "./pages/driver/DriverRegistrationPage";
+import PrivateDriverApprovalsPage from "./pages/private/PrivateDriverApprovalsPage";
+
+// ✅ Admin dashboards
+import TrainAdminDashboard from "./pages/train/TrainAdminDashboard";
+import BusAdminDashboard from "./pages/bus/BusAdminDashboard";
+import PrivateAdminDashboard from "./pages/private/PrivateAdminDashboard";
+
+// ✅ Train pages
+import StationsPage from "./pages/train/StationsPage";
+import TrainSchedulesPage from "./pages/train/TrainSchedulesPage";
+import TrainTimetablesPage from "./pages/train/TrainTimetablesPage";
+
+import BusOwnerDashboard from "./pages/owner/BusOwnerDashboard";
+
+// ✅ BUS pages (add these files into client/src/pages/bus/)
+import BusRoutesPage from "./pages/bus/BusRoutesPage";
+import CreateBusRoute from "./pages/bus/CreateBusRoute";
+import EditBusRoute from "./pages/bus/EditBusRoute";
+
 function Protected({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="p-8">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function RequireRole({ allow, children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="p-8">Loading…</div>;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!allow.includes(user.role)) return <Navigate to="/" replace />;
   return children;
 }
 
@@ -22,6 +51,8 @@ export default function App() {
       <Route element={<Shell />}>
         <Route index element={<Landing />} />
         <Route path="/plan" element={<PlanTrip />} />
+
+        {/* rider/driver flows */}
         <Route
           path="/rider"
           element={
@@ -38,6 +69,18 @@ export default function App() {
             </Protected>
           }
         />
+
+        {/* ✅ Driver Registration */}
+        <Route
+          path="/driver/register"
+          element={
+            <Protected>
+              <DriverRegistrationPage />
+            </Protected>
+          }
+        />
+
+        {/* ✅ Add Ride */}
         <Route
           path="/driver/offer"
           element={
@@ -46,10 +89,111 @@ export default function App() {
             </Protected>
           }
         />
+
+        {/* ADMIN ROUTES */}
+        <Route
+          path="/train"
+          element={
+            <RequireRole allow={["ADMIN_TRAIN"]}>
+              <TrainAdminDashboard />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/train/stations"
+          element={
+            <RequireRole allow={["ADMIN_TRAIN"]}>
+              <StationsPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/train/schedules"
+          element={
+            <RequireRole allow={["ADMIN_TRAIN"]}>
+              <TrainSchedulesPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/train/timetables"
+          element={
+            <RequireRole allow={["ADMIN_TRAIN"]}>
+              <TrainTimetablesPage />
+            </RequireRole>
+          }
+        />
+
+        {/* ✅ BUS ADMIN */}
+        <Route
+          path="/bus"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <BusAdminDashboard />
+            </RequireRole>
+          }
+        />
+
+        {/* ✅ BUS ROUTES CRUD */}
+        <Route
+          path="/bus/routes"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <BusRoutesPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/bus/routes/new"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <CreateBusRoute />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/bus/routes/:id"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <EditBusRoute />
+            </RequireRole>
+          }
+        />
+
+        {/* ✅ PRIVATE ADMIN */}
+        <Route
+          path="/private"
+          element={
+            <RequireRole allow={["ADMIN_PRIVATE"]}>
+              <PrivateAdminDashboard />
+            </RequireRole>
+          }
+        />
+
+        {/* ✅ PRIVATE admin driver approvals */}
+        <Route
+          path="/private/driver-approvals"
+          element={
+            <RequireRole allow={["ADMIN_PRIVATE"]}>
+              <PrivateDriverApprovalsPage />
+            </RequireRole>
+          }
+        />
       </Route>
 
+      <Route
+  path="/owner"
+  element={
+    <RequireRole allow={["BUS_OWNER"]}>
+      <BusOwnerDashboard />
+    </RequireRole>
+  }
+/>
+
+      {/* auth routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

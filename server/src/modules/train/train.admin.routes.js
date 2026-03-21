@@ -19,9 +19,7 @@ import { requireAuth, requireRole } from "../../middleware/auth.js";
 export const trainAdminRouter = express.Router();
 
 // Only train admins (optionally SYSTEM_ADMIN too)
-// server/src/modules/train/train.admin.routes.js
-// ...
-trainAdminRouter.use(requireAuth, requireRole("ADMIN_TRAIN")); 
+trainAdminRouter.use(requireAuth, requireRole("ADMIN_TRAIN", "SYSTEM_ADMIN"));
 
 /* Stations CRUD */
 trainAdminRouter.get("/stations", listStationsAdmin);

@@ -21,36 +21,20 @@ export function AuthProvider({ children }) {
     }
   }
 
-  useEffect(() => {
-    refresh();
-  }, []);
+  useEffect(() => { refresh(); }, []);
 
   useEffect(() => {
-    if (!user) {
-      socket.disconnect();
-      return;
-    }
+    if (!user) { socket.disconnect(); return; }
     socket.connect();
-    socket.emit("auth:identify", { role: user.role, userId: user.sub || user.id });
+    socket.emit("auth:identify", { role: user.role, userId: user.sub });
   }, [user]);
 
-  const value = useMemo(
-    () => ({
-      user,
-      loading,
-      setUser,
-      refresh,
-      async logout() {
-        await api.post("/api/auth/logout");
-        setUser(null);
-      },
-    }),
-    [user, loading]
-  );
+  const value = useMemo(() => ({
+    user, loading, setUser, refresh,
+    async logout() { await api.post("/api/auth/logout"); setUser(null); }
+  }), [user, loading]);
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }
 
-export function useAuth() {
-  return useContext(AuthCtx);
-}
+export function useAuth() { return useContext(AuthCtx); }

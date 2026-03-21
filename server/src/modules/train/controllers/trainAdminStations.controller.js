@@ -11,14 +11,25 @@ export async function listStationsAdmin(req, res) {
 
 /**
  * POST: Create a new station
+ *
+ * Required:
+ * - name
+ * - lat
+ * - lng
+ *
+ * Optional:
+ * - isActive
+ * - address
  */
 export async function createStation(req, res) {
   const { name, lat, lng, isActive, address } = req.body || {};
 
+  // Basic validation
   if (!name || typeof lat !== "number" || typeof lng !== "number") {
     return res.status(400).json({ message: "name, lat, lng are required" });
   }
 
+  // Create station document
   const station = await Station.create({
     name,
     address: typeof address === "string" ? address : "",
@@ -31,6 +42,12 @@ export async function createStation(req, res) {
 
 /**
  * PATCH/PUT: Update an existing station
+ *
+ * Can update:
+ * - name
+ * - isActive
+ * - location.lat
+ * - location.lng
  */
 export async function updateStation(req, res) {
   const { id } = req.params;
@@ -38,14 +55,17 @@ export async function updateStation(req, res) {
 
   const patch = {};
 
+  // Update name if valid
   if (typeof name === "string" && name.trim()) {
     patch.name = name.trim();
   }
 
+  // Update status if provided
   if (typeof isActive === "boolean") {
     patch.isActive = isActive;
   }
 
+  // Update location partially or fully
   if (typeof lat === "number" || typeof lng === "number") {
     patch.location = {};
 

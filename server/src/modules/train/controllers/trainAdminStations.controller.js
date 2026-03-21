@@ -1,8 +1,8 @@
 import { Station } from "../models/Station.js";
 
 /**
- * GET: List all stations for admin panel
- * Sorted by newest created first
+ * GET: List all stations for admin
+ * Sorted by newest first
  */
 export async function listStationsAdmin(req, res) {
   const stations = await Station.find().sort({ createdAt: -1 });
@@ -11,6 +11,15 @@ export async function listStationsAdmin(req, res) {
 
 /**
  * POST: Create a new station
+ *
+ * Required:
+ * - name
+ * - lat
+ * - lng
+ *
+ * Optional:
+ * - isActive
+ * - address
  */
 export async function createStation(req, res) {
   const { name, lat, lng, isActive, address } = req.body || {};
@@ -31,6 +40,12 @@ export async function createStation(req, res) {
 
 /**
  * PATCH/PUT: Update an existing station
+ *
+ * Can update:
+ * - name
+ * - lat
+ * - lng
+ * - isActive
  */
 export async function updateStation(req, res) {
   const { id } = req.params;
@@ -38,14 +53,17 @@ export async function updateStation(req, res) {
 
   const patch = {};
 
+  // Update station name if valid string
   if (typeof name === "string" && name.trim()) {
     patch.name = name.trim();
   }
 
+  // Update active status if boolean
   if (typeof isActive === "boolean") {
     patch.isActive = isActive;
   }
 
+  // Update location partially or fully
   if (typeof lat === "number" || typeof lng === "number") {
     patch.location = {};
 

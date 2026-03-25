@@ -9,26 +9,27 @@ import DriverDashboard from "./pages/driver/DriverDashboard";
 import { useAuth } from "./state/AuthContext";
 import Shell from "./components/Shell";
 
-// ✅ NEW pages (create these)
 import DriverRegistrationPage from "./pages/driver/DriverRegistrationPage";
 import PrivateDriverApprovalsPage from "./pages/private/PrivateDriverApprovalsPage";
 
-// ✅ Admin dashboards
 import TrainAdminDashboard from "./pages/train/TrainAdminDashboard";
 import BusAdminDashboard from "./pages/bus/BusAdminDashboard";
 import PrivateAdminDashboard from "./pages/private/PrivateAdminDashboard";
 
-// ✅ Train pages
 import StationsPage from "./pages/train/StationsPage";
 import TrainSchedulesPage from "./pages/train/TrainSchedulesPage";
 import TrainTimetablesPage from "./pages/train/TrainTimetablesPage";
 
 import BusOwnerDashboard from "./pages/owner/BusOwnerDashboard";
 
-// ✅ BUS pages (add these files into client/src/pages/bus/)
 import BusRoutesPage from "./pages/bus/BusRoutesPage";
 import CreateBusRoute from "./pages/bus/CreateBusRoute";
 import EditBusRoute from "./pages/bus/EditBusRoute";
+
+// NEW passenger train pages
+import TrainSearchPage from "./pages/train-passenger/TrainSearchPage";
+import TrainScheduleDetailsPage from "./pages/train-passenger/TrainScheduleDetailsPage";
+import MyTrainBookingsPage from "./pages/train-passenger/MyTrainBookingsPage";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -52,6 +53,18 @@ export default function App() {
         <Route index element={<Landing />} />
         <Route path="/plan" element={<PlanTrip />} />
 
+        {/* passenger train routes */}
+        <Route path="/train-service" element={<TrainSearchPage />} />
+        <Route path="/train-service/:id" element={<TrainScheduleDetailsPage />} />
+        <Route
+          path="/train-service/bookings"
+          element={
+            <Protected>
+              <MyTrainBookingsPage />
+            </Protected>
+          }
+        />
+
         {/* rider/driver flows */}
         <Route
           path="/rider"
@@ -70,7 +83,6 @@ export default function App() {
           }
         />
 
-        {/* ✅ Driver Registration */}
         <Route
           path="/driver/register"
           element={
@@ -80,7 +92,6 @@ export default function App() {
           }
         />
 
-        {/* ✅ Add Ride */}
         <Route
           path="/driver/offer"
           element={
@@ -90,7 +101,7 @@ export default function App() {
           }
         />
 
-        {/* ADMIN ROUTES */}
+        {/* admin routes */}
         <Route
           path="/train"
           element={
@@ -124,7 +135,6 @@ export default function App() {
           }
         />
 
-        {/* ✅ BUS ADMIN */}
         <Route
           path="/bus"
           element={
@@ -133,8 +143,6 @@ export default function App() {
             </RequireRole>
           }
         />
-
-        {/* ✅ BUS ROUTES CRUD */}
         <Route
           path="/bus/routes"
           element={
@@ -160,7 +168,6 @@ export default function App() {
           }
         />
 
-        {/* ✅ PRIVATE ADMIN */}
         <Route
           path="/private"
           element={
@@ -169,8 +176,6 @@ export default function App() {
             </RequireRole>
           }
         />
-
-        {/* ✅ PRIVATE admin driver approvals */}
         <Route
           path="/private/driver-approvals"
           element={
@@ -182,18 +187,16 @@ export default function App() {
       </Route>
 
       <Route
-  path="/owner"
-  element={
-    <RequireRole allow={["BUS_OWNER"]}>
-      <BusOwnerDashboard />
-    </RequireRole>
-  }
-/>
+        path="/owner"
+        element={
+          <RequireRole allow={["BUS_OWNER"]}>
+            <BusOwnerDashboard />
+          </RequireRole>
+        }
+      />
 
-      {/* auth routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

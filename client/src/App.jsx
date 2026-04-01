@@ -11,7 +11,6 @@ import Shell from "./components/Shell";
 
 import DriverRegistrationPage from "./pages/driver/DriverRegistrationPage";
 import PrivateDriverApprovalsPage from "./pages/private/PrivateDriverApprovalsPage";
-import EditOffer from "./pages/driver/EditOffer";
 
 import TrainAdminDashboard from "./pages/train/TrainAdminDashboard";
 import BusAdminDashboard from "./pages/bus/BusAdminDashboard";
@@ -21,10 +20,15 @@ import StationsPage from "./pages/train/StationsPage";
 import TrainSchedulesPage from "./pages/train/TrainSchedulesPage";
 import TrainTimetablesPage from "./pages/train/TrainTimetablesPage";
 
-// ✅ ADD checkout pages
-import CheckoutPage from "./pages/rides/CheckoutPage";
-import CheckoutSuccess from "./pages/rides/CheckoutSuccess";
-import CheckoutCancel from "./pages/rides/CheckoutCancel";
+import BusOwnerDashboard from "./pages/owner/BusOwnerDashboard";
+
+import BusRoutesPage from "./pages/bus/BusRoutesPage";
+import CreateBusRoute from "./pages/bus/CreateBusRoute";
+import EditBusRoute from "./pages/bus/EditBusRoute";
+
+import TrainSearchPage from "./pages/train-passenger/TrainSearchPage";
+import TrainScheduleDetailsPage from "./pages/train-passenger/TrainScheduleDetailsPage";
+import MyTrainBookingsPage from "./pages/train-passenger/MyTrainBookingsPage";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -48,28 +52,14 @@ export default function App() {
         <Route index element={<Landing />} />
         <Route path="/plan" element={<PlanTrip />} />
 
-        {/* ✅ CHECKOUT ROUTES (MISSING BEFORE) */}
+        {/* passenger train routes */}
+        <Route path="/train-service" element={<TrainSearchPage />} />
+        <Route path="/train-service/:id" element={<TrainScheduleDetailsPage />} />
         <Route
-          path="/checkout/:offerId"
+          path="/train-service/bookings"
           element={
             <Protected>
-              <CheckoutPage />
-            </Protected>
-          }
-        />
-        <Route
-          path="/checkout/success"
-          element={
-            <Protected>
-              <CheckoutSuccess />
-            </Protected>
-          }
-        />
-        <Route
-          path="/checkout/cancel"
-          element={
-            <Protected>
-              <CheckoutCancel />
+              <MyTrainBookingsPage />
             </Protected>
           }
         />
@@ -93,7 +83,6 @@ export default function App() {
             </RequireRole>
           }
         />
-
         <Route
           path="/driver/register"
           element={
@@ -102,7 +91,6 @@ export default function App() {
             </RequireRole>
           }
         />
-
         <Route
           path="/driver/offer"
           element={
@@ -112,16 +100,7 @@ export default function App() {
           }
         />
 
-        <Route
-          path="/driver/offers/:id/edit"
-          element={
-            <RequireRole allow={["driver"]}>
-              <EditOffer />
-            </RequireRole>
-          }
-        />
-
-        {/* ADMIN ROUTES */}
+        {/* train admin */}
         <Route
           path="/train"
           element={
@@ -155,6 +134,7 @@ export default function App() {
           }
         />
 
+        {/* bus admin */}
         <Route
           path="/bus"
           element={
@@ -163,7 +143,32 @@ export default function App() {
             </RequireRole>
           }
         />
+        <Route
+          path="/bus/routes"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <BusRoutesPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/bus/routes/new"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <CreateBusRoute />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/bus/routes/:id"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <EditBusRoute />
+            </RequireRole>
+          }
+        />
 
+        {/* private admin */}
         <Route
           path="/private"
           element={
@@ -172,7 +177,6 @@ export default function App() {
             </RequireRole>
           }
         />
-
         <Route
           path="/private/driver-approvals"
           element={
@@ -183,7 +187,17 @@ export default function App() {
         />
       </Route>
 
-      {/* auth routes */}
+      {/* owner */}
+      <Route
+        path="/owner"
+        element={
+          <RequireRole allow={["BUS_OWNER"]}>
+            <BusOwnerDashboard />
+          </RequireRole>
+        }
+      />
+
+      {/* auth */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 

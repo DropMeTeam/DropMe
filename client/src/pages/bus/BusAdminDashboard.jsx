@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bus } from "lucide-react";
-import api from "../../lib/api"; // ✅ matches your other pages (default import)
+import api from "../../lib/api";
 
 export default function BusAdminDashboard() {
   const nav = useNavigate();
@@ -35,7 +35,6 @@ export default function BusAdminDashboard() {
 
   useEffect(() => {
     loadPending();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function approve(id) {
@@ -64,7 +63,6 @@ export default function BusAdminDashboard() {
 
   return (
     <div className="p-6 grid gap-4">
-      {/* Header / Navigation */}
       <div className="card p-6">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
@@ -85,7 +83,6 @@ export default function BusAdminDashboard() {
             Manage Bus Routes
           </button>
 
-          {/* Future-ready buttons (enable when pages exist) */}
           <button className="btn" disabled title="Coming next">
             Manage Schedules (Next)
           </button>
@@ -110,7 +107,6 @@ export default function BusAdminDashboard() {
         {err ? <div className="mt-3 text-sm text-red-300">{err}</div> : null}
       </div>
 
-      {/* Pending Approvals */}
       <div className="card p-6">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-lg font-semibold">Pending Bus Registrations</h2>

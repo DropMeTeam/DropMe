@@ -11,6 +11,7 @@ import Shell from "./components/Shell";
 
 import DriverRegistrationPage from "./pages/driver/DriverRegistrationPage";
 import PrivateDriverApprovalsPage from "./pages/private/PrivateDriverApprovalsPage";
+import EditOffer from "./pages/driver/EditOffer";
 
 import TrainAdminDashboard from "./pages/train/TrainAdminDashboard";
 import BusAdminDashboard from "./pages/bus/BusAdminDashboard";
@@ -26,7 +27,12 @@ import BusRoutesPage from "./pages/bus/BusRoutesPage";
 import CreateBusRoute from "./pages/bus/CreateBusRoute";
 import EditBusRoute from "./pages/bus/EditBusRoute";
 
-// NEW passenger train pages
+// checkout pages
+import CheckoutPage from "./pages/rides/CheckoutPage";
+import CheckoutSuccess from "./pages/rides/CheckoutSuccess";
+import CheckoutCancel from "./pages/rides/CheckoutCancel";
+
+// passenger train pages
 import TrainSearchPage from "./pages/train-passenger/TrainSearchPage";
 import TrainScheduleDetailsPage from "./pages/train-passenger/TrainScheduleDetailsPage";
 import MyTrainBookingsPage from "./pages/train-passenger/MyTrainBookingsPage";
@@ -65,7 +71,33 @@ export default function App() {
           }
         />
 
-        {/* rider/driver flows */}
+        {/* checkout routes */}
+        <Route
+          path="/checkout/:offerId"
+          element={
+            <Protected>
+              <CheckoutPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/checkout/success"
+          element={
+            <Protected>
+              <CheckoutSuccess />
+            </Protected>
+          }
+        />
+        <Route
+          path="/checkout/cancel"
+          element={
+            <Protected>
+              <CheckoutCancel />
+            </Protected>
+          }
+        />
+
+        {/* rider */}
         <Route
           path="/rider"
           element={
@@ -74,34 +106,42 @@ export default function App() {
             </Protected>
           }
         />
+
+        {/* driver */}
         <Route
           path="/driver"
           element={
-            <Protected>
+            <RequireRole allow={["driver"]}>
               <DriverDashboard />
-            </Protected>
+            </RequireRole>
           }
         />
-
         <Route
           path="/driver/register"
           element={
-            <Protected>
+            <RequireRole allow={["driver"]}>
               <DriverRegistrationPage />
-            </Protected>
+            </RequireRole>
           }
         />
-
         <Route
           path="/driver/offer"
           element={
-            <Protected>
+            <RequireRole allow={["driver"]}>
               <OfferRide />
-            </Protected>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/driver/offers/:id/edit"
+          element={
+            <RequireRole allow={["driver"]}>
+              <EditOffer />
+            </RequireRole>
           }
         />
 
-        {/* admin routes */}
+        {/* train admin */}
         <Route
           path="/train"
           element={
@@ -135,6 +175,7 @@ export default function App() {
           }
         />
 
+        {/* bus admin */}
         <Route
           path="/bus"
           element={
@@ -168,6 +209,7 @@ export default function App() {
           }
         />
 
+        {/* private admin */}
         <Route
           path="/private"
           element={
@@ -186,6 +228,7 @@ export default function App() {
         />
       </Route>
 
+      {/* owner */}
       <Route
         path="/owner"
         element={
@@ -195,8 +238,10 @@ export default function App() {
         }
       />
 
+      {/* auth */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

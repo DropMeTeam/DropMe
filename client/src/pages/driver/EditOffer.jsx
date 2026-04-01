@@ -1,43 +1,45 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import PlaceInput from "../../components/PlaceInput";
 import MapPicker from "../../components/MapPicker";
 import { getRoute } from "../../lib/osrm";
 import api from "../../lib/api";
 
-export default function OfferRide() {
-  // unified point shape: { label, lat, lng }
+export default function EditOffer() {
+  const { id } = useParams();
+  const nav = useNavigate();
+
   const [from, setFrom] = useState(null);
   const [to, setTo] = useState(null);
 
-  // controlled text inputs
   const [fromText, setFromText] = useState("");
   const [toText, setToText] = useState("");
 
-  // map click target
-  const [activePin, setActivePin] = useState("pickup"); // pickup | dropoff
+  const [activePin, setActivePin] = useState("pickup");
 
-  // route
   const [routePoints, setRoutePoints] = useState([]);
   const [meta, setMeta] = useState(null);
 
-  // form
   const [pickupTime, setPickupTime] = useState("");
+  const [seatsTotal, setSeatsTotal] = useState(3);
   const [priceLkr, setPriceLkr] = useState(0);
+  const [status, setStatus] = useState("open");
+
   const [loading, setLoading] = useState(false);
+  const [booting, setBooting] = useState(true);
 
-  // ✅ load driver registration to get seatsTotal
-  const { data: regData } = useQuery({
-    queryKey: ["driver-registration-me"],
-    queryFn: async () => (await api.get("/api/driver-registration/me")).data,
-  });
+  async function buildRoute(p, d) {
+    if (!p || !d) return;
+    const r = await getRoute(p, d);
+    setRoutePoints(r.pathLatLng);
+    setMeta(r);
+  }
 
-  const vehicleSeats = Number(regData?.driverRegistration?.vehicle?.seatsTotal || 0);
+  // ✅ driver cannot set past time
+  const FUTURE_BUFFER_MS = 60 * 1000; // +1 minute safety buffer
 
-  // driver cannot publish past time
-  const FUTURE_BUFFER_MS = 60 * 1000; // +1 minute
-
-  function toDatetimeLocalString(d) {
+  function toDatetimeLocalString(dateInput) {
+    const d = new Date(dateInput);
     const pad = (n) => String(n).padStart(2, "0");
     const yyyy = d.getFullYear();
     const mm = pad(d.getMonth() + 1);
@@ -47,34 +49,65 @@ export default function OfferRide() {
     return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
   }
 
+  // ✅ REQUIRED: minPickupTime used by input
   const minPickupTime = useMemo(() => {
     return toDatetimeLocalString(new Date(Date.now() + FUTURE_BUFFER_MS));
   }, []);
 
+  // ✅ REQUIRED: parsePickupTime used by save()
   function parsePickupTime(value) {
     const dt = new Date(value);
     if (!value || Number.isNaN(dt.getTime())) return null;
     return dt;
   }
 
-  async function buildRoute(nextFrom, nextTo) {
-    if (!nextFrom || !nextTo) return;
-    const r = await getRoute(nextFrom, nextTo);
-    setRoutePoints(r.pathLatLng);
-    setMeta(r);
-  }
+  useEffect(() => {
+    (async () => {
+      try {
+        setBooting(true);
+        const { data } = await api.get(`/api/offers/${id}`);
+        const o = data?.offer;
 
-  async function submit() {
+        const fromPoint = o?.origin?.point?.coordinates;
+        const toPoint = o?.destination?.point?.coordinates;
+
+        const fromObj =
+          fromPoint?.length === 2
+            ? { label: o?.origin?.address || "Pickup", lat: fromPoint[1], lng: fromPoint[0] }
+            : null;
+
+        const toObj =
+          toPoint?.length === 2
+            ? { label: o?.destination?.address || "Dropoff", lat: toPoint[1], lng: toPoint[0] }
+            : null;
+
+        setFrom(fromObj);
+        setTo(toObj);
+        setFromText(fromObj?.label || "");
+        setToText(toObj?.label || "");
+
+        setPickupTime(o?.pickupTime ? toDatetimeLocalString(o.pickupTime) : "");
+        setSeatsTotal(o?.seatsTotal ?? 3);
+        setPriceLkr(o?.priceLkr ?? 0);
+        setStatus(o?.status || "open");
+
+        if (fromObj && toObj) await buildRoute(fromObj, toObj);
+      } catch (e) {
+        alert(e?.response?.data?.message || "Failed to load offer");
+        nav("/driver");
+      } finally {
+        setBooting(false);
+      }
+    })();
+  }, [id, nav]);
+
+  async function save() {
     if (!from || !to || !pickupTime) {
-      alert("Please set pickup, drop-off and pickup time.");
+      alert("Pickup, Drop-off and pickup time are required.");
       return;
     }
 
-    if (!vehicleSeats || vehicleSeats < 1) {
-      alert("Vehicle seats not found. Please submit driver registration first.");
-      return;
-    }
-
+    // ✅ block past date/time (even if typed manually)
     const dt = parsePickupTime(pickupTime);
     if (!dt) {
       alert("Please select a valid pick-up time.");
@@ -87,44 +120,53 @@ export default function OfferRide() {
 
     setLoading(true);
     try {
-      // ✅ seatsTotal NOT sent (server will set from driver registration)
-      await api.post("/api/offers", {
+      await api.patch(`/api/offers/${id}`, {
         origin: { point: { lat: from.lat, lng: from.lng }, address: from.label },
         destination: { point: { lat: to.lat, lng: to.lng }, address: to.label },
         pickupTime,
+        seatsTotal: Number(seatsTotal),
         priceLkr: Number(priceLkr),
+        status,
         routePolyline: meta?.polyline || "",
       });
 
-      alert("Ride offer published!");
-
-      // reset
-      setFrom(null);
-      setTo(null);
-      setFromText("");
-      setToText("");
-      setActivePin("pickup");
-      setRoutePoints([]);
-      setMeta(null);
-      setPickupTime("");
-      setPriceLkr(0);
+      alert("Offer updated!");
+      nav("/driver");
     } catch (e) {
-      alert(e?.response?.data?.message || "Failed to publish offer");
+      alert(e?.response?.data?.message || "Update failed");
     } finally {
       setLoading(false);
     }
   }
 
+  async function remove() {
+    const ok = window.confirm("Delete this offer?");
+    if (!ok) return;
+
+    try {
+      await api.delete(`/api/offers/${id}`);
+      alert("Offer deleted");
+      nav("/driver");
+    } catch (e) {
+      alert(e?.response?.data?.message || "Delete failed");
+    }
+  }
+
+  if (booting) {
+    return (
+      <div className="min-h-screen bg-[#060812] text-white grid place-items-center">
+        <div className="text-sm text-white/70">Loading offer…</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#060812] text-white">
       <div className="mx-auto max-w-6xl px-6 py-8 grid grid-cols-12 gap-6">
-        {/* LEFT PANEL */}
+        {/* LEFT */}
         <div className="col-span-12 lg:col-span-4 space-y-4">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <h1 className="text-xl font-semibold">Offer a ride</h1>
-            <p className="text-sm text-white/60 mt-1">
-              Type locations or click on the map to set pickup and drop-off.
-            </p>
+            <h1 className="text-xl font-semibold">Edit Offer</h1>
 
             <div className="mt-5 space-y-4">
               <PlaceInput
@@ -152,7 +194,6 @@ export default function OfferRide() {
                 }}
               />
 
-              {/* map click toggle buttons */}
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -180,31 +221,29 @@ export default function OfferRide() {
                 </button>
               </div>
 
-              <div>
-                <label className="block text-sm text-white/70 mb-2">Pick-up time</label>
-                <input
-                  type="datetime-local"
-                  value={pickupTime}
-                  min={minPickupTime}
-                  onChange={(e) => setPickupTime(e.target.value)}
-                  className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3"
-                />
-              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-white/70 mb-2">Pick-up time</label>
+                  <input
+                    type="datetime-local"
+                    value={pickupTime}
+                    min={minPickupTime}
+                    onChange={(e) => setPickupTime(e.target.value)}
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3"
+                  />
+                </div>
 
-              {/* ✅ Seats (read-only from vehicle registration) */}
-              <div>
-                <label className="block text-sm text-white/70 mb-2">Seats (from your vehicle)</label>
-                <input
-                  type="text"
-                  readOnly
-                  value={vehicleSeats ? String(vehicleSeats) : "Not set"}
-                  className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 opacity-80"
-                />
-                {!vehicleSeats ? (
-                  <div className="mt-2 text-xs text-red-300">
-                    Submit driver registration first to set vehicle seats.
-                  </div>
-                ) : null}
+                <div>
+                  <label className="block text-sm text-white/70 mb-2">Seats</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="6"
+                    value={seatsTotal}
+                    onChange={(e) => setSeatsTotal(e.target.value)}
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3"
+                  />
+                </div>
               </div>
 
               <div>
@@ -218,12 +257,31 @@ export default function OfferRide() {
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={save}
+                  disabled={loading}
+                  className="w-full rounded-xl bg-white text-black font-semibold py-3 disabled:opacity-60"
+                >
+                  {loading ? "Saving..." : "Save changes"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => nav("/driver")}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 font-semibold py-3 hover:bg-white/10"
+                >
+                  Cancel
+                </button>
+              </div>
+
               <button
-                onClick={submit}
-                disabled={loading || !vehicleSeats}
-                className="w-full rounded-xl bg-white text-black font-semibold py-3 disabled:opacity-60"
+                type="button"
+                onClick={remove}
+                className="w-full rounded-xl border border-red-400/30 bg-red-500/10 text-red-200 font-semibold py-3 hover:bg-red-500/15"
               >
-                {loading ? "Publishing..." : "Publish Offer"}
+                Delete offer
               </button>
             </div>
           </div>

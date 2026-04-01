@@ -1,6 +1,7 @@
+// validators/ride.validators.js
 import { z } from "zod";
 
-const GeoPoint = z.object({ lng: z.number(), lat: z.number() });
+const GeoPoint = z.object({ lng: z.coerce.number(), lat: z.coerce.number() });
 
 const Location = z.object({
   point: GeoPoint,
@@ -10,17 +11,30 @@ const Location = z.object({
 export const CreateOfferSchema = z.object({
   origin: Location,
   destination: Location,
-  pickupTime: z.string().datetime(),
-  timeWindowMins: z.number().int().min(0).max(120).optional(),
-  seatsTotal: z.number().int().min(1).max(6).optional(),
-  routePolyline: z.string().optional()
+  pickupTime: z.coerce.date(),
+  timeWindowMins: z.coerce.number().int().min(0).max(120).optional(),
+  seatsTotal: z.coerce.number().int().min(1).max(6).optional(),
+  routePolyline: z.string().optional(),
+  priceLkr: z.coerce.number().min(0).optional(),
 });
 
 export const CreateRequestSchema = z.object({
   origin: Location,
   destination: Location,
-  pickupTime: z.string().datetime(),
-  timeWindowMins: z.number().int().min(0).max(120).optional(),
-  seatsNeeded: z.number().int().min(1).max(2).optional(),
+  pickupTime: z.coerce.date(),
+  timeWindowMins: z.coerce.number().int().min(0).max(120).optional(),
+  seatsNeeded: z.coerce.number().int().min(1).max(6).optional(),
   mode: z.enum(["POOL", "PRIVATE", "TRANSIT"]).optional()
+});
+
+//  NEW: Partial update schema for edit
+export const UpdateOfferSchema = z.object({
+  origin: Location.optional(),
+  destination: Location.optional(),
+  pickupTime: z.coerce.date().optional(),
+  timeWindowMins: z.coerce.number().int().min(0).max(120).optional(),
+  seatsTotal: z.coerce.number().int().min(1).max(6).optional(),
+  routePolyline: z.string().optional(),
+  priceLkr: z.coerce.number().min(0).optional(),
+  status: z.enum(["open", "closed", "completed"]).optional(),
 });

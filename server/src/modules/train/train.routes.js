@@ -3,6 +3,8 @@ import { listActiveStations } from "./controllers/trainPublicStations.controller
 import {
   searchTrains,
   getPassengerTrainDetails,
+  listNearestStations,
+  searchNearbyTrains,
 } from "./controllers/trainPassenger.controller.js";
 
 export const trainRouter = express.Router();
@@ -10,12 +12,12 @@ export const trainRouter = express.Router();
 // Public station list
 trainRouter.get("/stations", listActiveStations);
 
-// Passenger train search
-// Example:
-// GET /api/train/search?from=Colombo Fort&to=Kandy&day=Mon
+// Passenger search by explicit stations
 trainRouter.get("/search", searchTrains);
 
-// Passenger train details
-// Example:
-// GET /api/train/schedules/:id?day=Mon
+// Passenger search by current location -> nearest valid train stop
+trainRouter.get("/nearest-stations", listNearestStations);
+trainRouter.get("/search-nearby", searchNearbyTrains);
+
+// Passenger schedule details
 trainRouter.get("/schedules/:id", getPassengerTrainDetails);

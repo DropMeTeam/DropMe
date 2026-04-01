@@ -11,7 +11,6 @@ import Shell from "./components/Shell";
 
 import DriverRegistrationPage from "./pages/driver/DriverRegistrationPage";
 import PrivateDriverApprovalsPage from "./pages/private/PrivateDriverApprovalsPage";
-import EditOffer from "./pages/driver/EditOffer";
 
 import TrainAdminDashboard from "./pages/train/TrainAdminDashboard";
 import BusAdminDashboard from "./pages/bus/BusAdminDashboard";
@@ -27,12 +26,6 @@ import BusRoutesPage from "./pages/bus/BusRoutesPage";
 import CreateBusRoute from "./pages/bus/CreateBusRoute";
 import EditBusRoute from "./pages/bus/EditBusRoute";
 
-// checkout pages
-import CheckoutPage from "./pages/rides/CheckoutPage";
-import CheckoutSuccess from "./pages/rides/CheckoutSuccess";
-import CheckoutCancel from "./pages/rides/CheckoutCancel";
-
-// passenger train pages
 import TrainSearchPage from "./pages/train-passenger/TrainSearchPage";
 import TrainScheduleDetailsPage from "./pages/train-passenger/TrainScheduleDetailsPage";
 import MyTrainBookingsPage from "./pages/train-passenger/MyTrainBookingsPage";
@@ -71,32 +64,6 @@ export default function App() {
           }
         />
 
-        {/* checkout routes */}
-        <Route
-          path="/checkout/:offerId"
-          element={
-            <Protected>
-              <CheckoutPage />
-            </Protected>
-          }
-        />
-        <Route
-          path="/checkout/success"
-          element={
-            <Protected>
-              <CheckoutSuccess />
-            </Protected>
-          }
-        />
-        <Route
-          path="/checkout/cancel"
-          element={
-            <Protected>
-              <CheckoutCancel />
-            </Protected>
-          }
-        />
-
         {/* rider */}
         <Route
           path="/rider"
@@ -129,14 +96,6 @@ export default function App() {
           element={
             <RequireRole allow={["driver"]}>
               <OfferRide />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/driver/offers/:id/edit"
-          element={
-            <RequireRole allow={["driver"]}>
-              <EditOffer />
             </RequireRole>
           }
         />

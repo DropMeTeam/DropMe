@@ -14,52 +14,48 @@ import { errorHandler } from "./middleware/errorHandler.js";
 
 import { trainRouter } from "./modules/train/train.routes.js";
 import { trainAdminRouter } from "./modules/train/train.admin.routes.js";
-
 import { adminRouter } from "./routes/admin.routes.js";
 
-import busRouter from "./modules/bus/routes/bus.routes.js";
-import geoRouter from "./routes/geo.routes.js";
-
-// ✅ user + driver workflow
-// ✅ NEW
 import { usersRouter } from "./routes/users.routes.js";
 import { driverRegistrationRouter } from "./routes/driverRegistration.routes.js";
 import { driverApprovalsRouter } from "./routes/driverApprovals.routes.js";
 
-// ✅ bus owner + bus approvals
-import { busOwnerRouter } from "./routes/busOwner.routes.js";
-import { busApprovalsRouter } from "./routes/busApprovals.routes.js";
+
+import { bookingsRouter } from "./routes/bookings.routes.js";
+// import { paymentsRouter } from "./routes/payments.routes.js";
+import { paymentsRouter } from "./routes/payments.routes.js";
 
 export function buildApp({ io }) {
   const app = express();
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    })
+  );
+
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());
   app.use(morgan("dev"));
 
-  // ✅ In single-client architecture, CLIENT_ORIGIN is enough.
-  // Keep ADMIN_ORIGIN only if you still run a separate admin app.
   const allowedOrigins = [
     process.env.CLIENT_ORIGIN || "http://localhost:5173",
-    process.env.ADMIN_ORIGIN || "http://localhost:5174"
-  ].filter(Boolean);
+    process.env.ADMIN_ORIGIN || "http://localhost:5174",
+  ];
 
   app.use(
     cors({
       origin: (origin, cb) => {
-        // allow non-browser clients (Postman / server-to-server)
         if (!origin) return cb(null, true);
         if (allowedOrigins.includes(origin)) return cb(null, true);
         return cb(new Error(`CORS blocked origin: ${origin}`));
       },
-      credentials: true
+      credentials: true,
     })
   );
 
   app.use(rateLimit({ windowMs: 60 * 1000, limit: 120 }));
 
-  // attach socket.io to req
   app.use((req, _res, next) => {
     req.io = io;
     next();
@@ -67,66 +63,29 @@ export function buildApp({ io }) {
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
 
-  // serve uploaded images
-  // ✅ serve uploaded images (if you store files locally)
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-  // =========================
-  // AUTH + USER
-  // =========================
   app.use("/api/auth", authRouter);
   app.use("/api/users", usersRouter);
 
-  // driver registration submit + status
   app.use("/api/driver-registration", driverRegistrationRouter);
 
-  // =========================
-  // CORE APP MODULES
-  // =========================
-  // ✅ matching + rides
   app.use("/api/offers", offersRouter);
   app.use("/api/requests", requestsRouter);
   app.use("/api/matches", matchesRouter);
 
-  // =========================
-  // TRAIN MODULE
-  // =========================
+  //  bookings
+  app.use("/api/bookings", bookingsRouter);
+
+  // payments 
+   app.use("/api/payments", paymentsRouter);
+
   app.use("/api/train", trainRouter);
   app.use("/api/admin/train", trainAdminRouter);
-  // ✅ train module
-  app.use("/api/train", trainRouter);
-  app.use("/api/admin/train", trainAdminRouter);
 
-  // ✅ bus module
-  app.use("/api/bus", busRouter);
-
-  // ✅ geo proxy (PlaceSearch should call this, not nominatim directly)
-  app.use("/api/geo", geoRouter);
-
-  // ✅ admin routes + driver approvals
   app.use("/api/admin", adminRouter);
   app.use("/api/admin", driverApprovalsRouter);
 
-  // =========================
-  // ADMIN MODULES
-  // =========================
-  // NOTE: Each router is mounted once.
- app.use("/api/admin", busApprovalsRouter);     // ✅ MUST be first
-app.use("/api/admin", driverApprovalsRouter);  // optional
-app.use("/api/admin", adminRouter);            // ✅ last (private-admin guarded)
-  // =========================
-  // BUS OWNER MODULE
-  // =========================
-  app.use("/api/bus-owner", busOwnerRouter);
-
-  // =========================
-  // BUS + GEO MODULES
-  // =========================
-  app.use("/api/bus", busRouter);
-  app.use("/api/geo", geoRouter);
-
-  // error handler last
   app.use(errorHandler);
-
   return app;
 }

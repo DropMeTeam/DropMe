@@ -27,7 +27,14 @@ const BusRouteSchema = new mongoose.Schema(
     start: { type: PointSchema, required: true },
     end: { type: PointSchema, required: true },
 
-    stops: { type: [StopSchema], default: [] }
+    stops: { type: [StopSchema], default: [] },
+
+    // NEW: store auto-calculated road distance in kilometers
+    distanceKm: {
+      type: Number,
+      default: 0,
+      min: 0
+    }
   },
   { timestamps: true }
 );

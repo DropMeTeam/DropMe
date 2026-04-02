@@ -77,45 +77,44 @@ export function buildApp({ io }) {
   // uploads
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-  // =========================
   // PUBLIC / AUTH
-  // =========================
+  
   app.use("/api/auth", authRouter);
   app.use("/api/users", usersRouter);
 
-  // =========================
+  
   // DRIVER WORKFLOW
-  // =========================
+  
   app.use("/api/driver-registration", driverRegistrationRouter);
 
-  // =========================
+  
   // CORE (rides)
-  // =========================
+  
   app.use("/api/offers", offersRouter);
   app.use("/api/requests", requestsRouter);
   app.use("/api/matches", matchesRouter);
 
-  // =========================
+  
   // TRAIN
-  // =========================
+  
   app.use("/api/train", trainRouter);
   app.use("/api/admin/train", trainAdminRouter);
 
-  // =========================
+  
   // BUS + GEO
-  // =========================
+  
   app.use("/api/bus", busRouter);
   app.use("/api/geo", geoRouter);
 
-  // =========================
+  
   // BUS OWNER
-  // =========================
+  
   app.use("/api/bus-owner", busOwnerRouter);
 
-  // =========================
+  
   // ADMIN (ORDER MATTERS)
   // Put “specific admin modules” BEFORE the general adminRouter
-  // =========================
+  
   app.use("/api/admin", busApprovalsRouter);
   app.use("/api/admin", driverApprovalsRouter);
 

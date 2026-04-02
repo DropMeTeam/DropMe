@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { MapContainer, Marker, Polyline, TileLayer, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import PlaceSearch from "../../components/PlaceSearch";
@@ -13,6 +14,8 @@ L.Icon.Default.mergeOptions({
 });
 
 export default function CreateBusRoute() {
+  const navigate = useNavigate();
+
   const [routeNumber, setRouteNumber] = useState("");
   const [routeType, setRouteType] = useState("NORMAL");
 
@@ -20,7 +23,7 @@ export default function CreateBusRoute() {
   const [end, setEnd] = useState(null);
   const [stops, setStops] = useState([]);
 
-  // ✅ NEW: search textbox states (this is what makes typing work)
+  // search textbox states
   const [startQ, setStartQ] = useState("");
   const [endQ, setEndQ] = useState("");
   const [stopQ, setStopQ] = useState("");
@@ -29,6 +32,9 @@ export default function CreateBusRoute() {
   const [msg, setMsg] = useState(null);
   const [roadLine, setRoadLine] = useState([]);
 
+  // auto-calculated road distance in kilometers
+  const [distanceKm, setDistanceKm] = useState(0);
+
   const center = useMemo(() => {
     if (start) return [start.lat, start.lng];
     return [7.8731, 80.7718];
@@ -36,27 +42,42 @@ export default function CreateBusRoute() {
 
   useEffect(() => {
     let alive = true;
+
     async function buildRoad() {
       try {
         if (!start || !end) {
-          if (alive) setRoadLine([]);
+          if (alive) {
+            setRoadLine([]);
+            setDistanceKm(0);
+          }
           return;
         }
+
         const points = [start, ...stops, end];
         const result = await getRoadRoute(points);
+
         if (!alive) return;
+
         setRoadLine(result?.latlngs || []);
+        setDistanceKm(Number(result?.distanceKm || 0));
       } catch {
         if (!alive) return;
+
         const fallback = [];
         if (start) fallback.push([start.lat, start.lng]);
         for (const s of stops) fallback.push([s.lat, s.lng]);
         if (end) fallback.push([end.lat, end.lng]);
+
         setRoadLine(fallback);
+        setDistanceKm(0);
       }
     }
+
     buildRoad();
-    return () => { alive = false; };
+
+    return () => {
+      alive = false;
+    };
   }, [start, end, stops]);
 
   function removeStop(index) {
@@ -77,9 +98,17 @@ export default function CreateBusRoute() {
     e.preventDefault();
     setMsg(null);
 
-    if (!routeNumber.trim()) return setMsg({ type: "error", text: "Route number is required" });
-    if (!start) return setMsg({ type: "error", text: "Start point is required" });
-    if (!end) return setMsg({ type: "error", text: "End point is required" });
+    if (!routeNumber.trim()) {
+      return setMsg({ type: "error", text: "Route number is required" });
+    }
+
+    if (!start) {
+      return setMsg({ type: "error", text: "Start point is required" });
+    }
+
+    if (!end) {
+      return setMsg({ type: "error", text: "End point is required" });
+    }
 
     const cap = routeType === "EXPRESS" ? 10 : 50;
     if (stops.length > cap) {
@@ -87,23 +116,38 @@ export default function CreateBusRoute() {
     }
 
     setSaving(true);
+
     try {
-      const payload = { routeNumber, routeType, start, end, stops };
+      const payload = {
+        routeNumber,
+        routeType,
+        start,
+        end,
+        stops,
+        distanceKm
+      };
+
       const res = await api.post("/api/bus/routes", payload);
 
       if (res.data?.ok) {
         setMsg({ type: "success", text: "Route created successfully" });
+
         setRouteNumber("");
         setRouteType("NORMAL");
         setStart(null);
         setEnd(null);
         setStops([]);
         setRoadLine([]);
-
-        // ✅ reset search boxes
+        setDistanceKm(0);
         setStartQ("");
         setEndQ("");
         setStopQ("");
+
+        setTimeout(() => {
+          navigate("/bus/routes", {
+            state: { success: "Route created successfully" }
+          });
+        }, 1200);
       } else {
         setMsg({ type: "error", text: "Failed to create route" });
       }
@@ -123,7 +167,9 @@ export default function CreateBusRoute() {
 
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, maxWidth: 900 }}>
         <div style={{ display: "grid", gap: 8 }}>
-          <label htmlFor="routeNumber" style={{ fontWeight: 600 }}>Route Number</label>
+          <label htmlFor="routeNumber" style={{ fontWeight: 600 }}>
+            Route Number
+          </label>
           <input
             id="routeNumber"
             name="routeNumber"
@@ -135,7 +181,9 @@ export default function CreateBusRoute() {
         </div>
 
         <div style={{ display: "grid", gap: 8 }}>
-          <label htmlFor="routeType" style={{ fontWeight: 600 }}>Route Type</label>
+          <label htmlFor="routeType" style={{ fontWeight: 600 }}>
+            Route Type
+          </label>
           <select
             id="routeType"
             name="routeType"
@@ -156,7 +204,7 @@ export default function CreateBusRoute() {
               onValueChange={setStartQ}
               onSelect={(p) => {
                 setStart(p);
-                setStartQ(p.label); // keep text synced with selection
+                setStartQ(p.label);
               }}
             />
             {start && (
@@ -191,7 +239,7 @@ export default function CreateBusRoute() {
             onValueChange={setStopQ}
             onSelect={(p) => {
               setStops((prev) => [...prev, p]);
-              setStopQ(""); // ✅ clear so you can add next stop quickly
+              setStopQ("");
             }}
           />
 
@@ -200,7 +248,10 @@ export default function CreateBusRoute() {
               <div style={{ fontWeight: 600, marginBottom: 8 }}>Stops ({stops.length})</div>
 
               {stops.map((s, idx) => (
-                <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0" }}>
+                <div
+                  key={idx}
+                  style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0" }}
+                >
                   <div style={{ width: 26, fontWeight: 700 }}>{idx + 1}.</div>
 
                   <div style={{ flex: 1 }}>
@@ -210,13 +261,36 @@ export default function CreateBusRoute() {
                     </div>
                   </div>
 
-                  <button type="button" onClick={() => moveStop(idx, -1)} disabled={idx === 0}>↑</button>
-                  <button type="button" onClick={() => moveStop(idx, +1)} disabled={idx === stops.length - 1}>↓</button>
-                  <button type="button" onClick={() => removeStop(idx)}>Remove</button>
+                  <button type="button" onClick={() => moveStop(idx, -1)} disabled={idx === 0}>
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveStop(idx, +1)}
+                    disabled={idx === stops.length - 1}
+                  >
+                    ↓
+                  </button>
+                  <button type="button" onClick={() => removeStop(idx)}>
+                    Remove
+                  </button>
                 </div>
               ))}
             </div>
           )}
+        </div>
+
+        <div
+          style={{
+            padding: 10,
+            borderRadius: 10,
+            border: "1px solid #eee",
+            background: "#fafafa",
+            fontWeight: 600,
+            color: "#000"
+          }}
+        >
+          Route Distance: {distanceKm > 0 ? `${distanceKm.toFixed(2)} km` : "Not calculated yet"}
         </div>
 
         {msg && (
@@ -226,7 +300,8 @@ export default function CreateBusRoute() {
               borderRadius: 10,
               border: "1px solid",
               borderColor: msg.type === "success" ? "#c7f2d0" : "#ffd1d1",
-              background: msg.type === "success" ? "#f2fff5" : "#fff5f5"
+              background: msg.type === "success" ? "#f2fff5" : "#fff5f5",
+              color: "#000"
             }}
           >
             {msg.text}
@@ -251,19 +326,25 @@ export default function CreateBusRoute() {
 
           {start && (
             <Marker position={[start.lat, start.lng]}>
-              <Tooltip direction="top" offset={[0, -10]} permanent>START</Tooltip>
+              <Tooltip direction="top" offset={[0, -10]} permanent>
+                START
+              </Tooltip>
             </Marker>
           )}
 
           {stops.map((s, idx) => (
             <Marker key={idx} position={[s.lat, s.lng]}>
-              <Tooltip direction="top" offset={[0, -10]} permanent>{idx + 1}</Tooltip>
+              <Tooltip direction="top" offset={[0, -10]} permanent>
+                {idx + 1}
+              </Tooltip>
             </Marker>
           ))}
 
           {end && (
             <Marker position={[end.lat, end.lng]}>
-              <Tooltip direction="top" offset={[0, -10]} permanent>END</Tooltip>
+              <Tooltip direction="top" offset={[0, -10]} permanent>
+                END
+              </Tooltip>
             </Marker>
           )}
 

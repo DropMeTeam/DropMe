@@ -24,7 +24,12 @@ function normalizePlace(p) {
   const lng = typeof lngRaw === "string" ? Number(lngRaw) : lngRaw;
 
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { ...p, lat, lng };
+
+  return {
+    ...p,
+    lat,
+    lng
+  };
 }
 
 export default function EditBusRoute() {
@@ -42,12 +47,13 @@ export default function EditBusRoute() {
   const [end, setEnd] = useState(null);
   const [stops, setStops] = useState([]);
 
-  // ✅ NEW: textbox states (this makes PlaceSearch typable)
+  // textbox states
   const [startQ, setStartQ] = useState("");
   const [endQ, setEndQ] = useState("");
   const [stopQ, setStopQ] = useState("");
 
   const [roadLine, setRoadLine] = useState([]);
+  const [distanceKm, setDistanceKm] = useState(0);
 
   const center = useMemo(() => {
     const s = normalizePlace(start);
@@ -72,8 +78,8 @@ export default function EditBusRoute() {
       setStart(s);
       setEnd(e);
       setStops(mids);
+      setDistanceKm(Number(r?.distanceKm || 0));
 
-      // ✅ sync textbox text with loaded places
       setStartQ(s?.label || "");
       setEndQ(e?.label || "");
       setStopQ("");
@@ -92,7 +98,7 @@ export default function EditBusRoute() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Build road route whenever start/end/stops change
+  // Build road route + distance whenever start/end/stops change
   useEffect(() => {
     let alive = true;
 
@@ -103,7 +109,10 @@ export default function EditBusRoute() {
         const mids = (stops || []).map(normalizePlace).filter(Boolean);
 
         if (!s || !e) {
-          if (alive) setRoadLine([]);
+          if (alive) {
+            setRoadLine([]);
+            setDistanceKm(0);
+          }
           return;
         }
 
@@ -111,7 +120,9 @@ export default function EditBusRoute() {
         const result = await getRoadRoute(points);
 
         if (!alive) return;
+
         setRoadLine(result?.latlngs || []);
+        setDistanceKm(Number(result?.distanceKm || 0));
       } catch {
         if (!alive) return;
 
@@ -123,11 +134,14 @@ export default function EditBusRoute() {
         if (s) fallback.push([s.lat, s.lng]);
         for (const m of mids) fallback.push([m.lat, m.lng]);
         if (e) fallback.push([e.lat, e.lng]);
+
         setRoadLine(fallback);
+        setDistanceKm(0);
       }
     }
 
     buildRoad();
+
     return () => {
       alive = false;
     };
@@ -155,21 +169,33 @@ export default function EditBusRoute() {
     const ept = normalizePlace(end);
     const mids = (stops || []).map(normalizePlace).filter(Boolean);
 
-    if (!routeNumber.trim()) return setMsg({ type: "error", text: "Route number is required" });
-    if (!s) return setMsg({ type: "error", text: "Start point is required" });
-    if (!ept) return setMsg({ type: "error", text: "End point is required" });
+    if (!routeNumber.trim()) {
+      return setMsg({ type: "error", text: "Route number is required" });
+    }
+
+    if (!s) {
+      return setMsg({ type: "error", text: "Start point is required" });
+    }
+
+    if (!ept) {
+      return setMsg({ type: "error", text: "End point is required" });
+    }
 
     const cap = routeType === "EXPRESS" ? 10 : 50;
-    if (mids.length > cap) return setMsg({ type: "error", text: `${routeType} cannot exceed ${cap} stops` });
+    if (mids.length > cap) {
+      return setMsg({ type: "error", text: `${routeType} cannot exceed ${cap} stops` });
+    }
 
     setSaving(true);
+
     try {
       const payload = {
         routeNumber: routeNumber.trim(),
         routeType,
         start: s,
         end: ept,
-        stops: mids
+        stops: mids,
+        distanceKm
       };
 
       await api.patch(`/api/bus/routes/${id}`, payload);
@@ -184,7 +210,9 @@ export default function EditBusRoute() {
     }
   }
 
-  if (loading) return <div style={{ padding: 16 }}>Loading...</div>;
+  if (loading) {
+    return <div style={{ padding: 16 }}>Loading...</div>;
+  }
 
   const sN = normalizePlace(start);
   const eN = normalizePlace(end);
@@ -194,7 +222,11 @@ export default function EditBusRoute() {
     <div style={{ padding: 16, display: "grid", gap: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <h2 style={{ margin: 0 }}>View / Edit Route</h2>
-        <button type="button" onClick={() => nav("/bus/routes")} style={{ padding: 10, borderRadius: 10 }}>
+        <button
+          type="button"
+          onClick={() => nav("/bus/routes")}
+          style={{ padding: 10, borderRadius: 10 }}
+        >
           Back
         </button>
       </div>
@@ -268,7 +300,7 @@ export default function EditBusRoute() {
               const n = normalizePlace(p);
               if (!n) return;
               setStops((prev) => [...prev, n]);
-              setStopQ(""); // ✅ ready for next stop
+              setStopQ("");
             }}
           />
 
@@ -302,6 +334,19 @@ export default function EditBusRoute() {
           )}
         </div>
 
+        <div
+          style={{
+            padding: 10,
+            borderRadius: 10,
+            border: "1px solid #eee",
+            background: "#fafafa",
+            fontWeight: 600,
+            color: "#000"
+          }}
+        >
+          Route Distance: {distanceKm > 0 ? `${distanceKm.toFixed(2)} km` : "Not calculated yet"}
+        </div>
+
         {msg && (
           <div
             style={{
@@ -309,7 +354,8 @@ export default function EditBusRoute() {
               borderRadius: 10,
               border: "1px solid",
               borderColor: msg.type === "success" ? "#c7f2d0" : "#ffd1d1",
-              background: msg.type === "success" ? "#f2fff5" : "#fff5f5"
+              background: msg.type === "success" ? "#f2fff5" : "#fff5f5",
+              color: "#000"
             }}
           >
             {msg.text}

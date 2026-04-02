@@ -8,7 +8,7 @@ import {
 
 const router = Router();
 
-// ✅ PUBLIC (no auth)
+ 
 router.get("/routes/:routeId/buses", getBusesForRoute);
 router.get("/routes/:routeId/schedules", getSchedulesForRoute);
 router.post("/routes/:routeId/schedules", upsertSchedule);

@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import BusRoute from "../models/BusRoute.js";
 import BusSchedule from "../models/BusSchedule.js";
 
-// ✅ Robust import: supports BOTH default export and named export from Bus.js
+
 import * as BusModel from "../../../models/Bus.js";
 const Bus = BusModel.default || BusModel.Bus || BusModel.bus;
 if (!Bus) {
@@ -80,6 +80,7 @@ export async function upsertSchedule(req, res, next) {
     if (!mongoose.isValidObjectId(busId)) {
       return res.status(400).json({ ok: false, message: "Invalid busId" });
     }
+    
     if (!["A_TO_B", "B_TO_A"].includes(direction)) {
       return res.status(400).json({
         ok: false,

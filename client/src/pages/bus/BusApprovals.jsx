@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bus, ArrowLeft, ExternalLink, Image as ImageIcon, MapPin } from "lucide-react";
+import { Bus, ArrowLeft, ExternalLink, Image as ImageIcon, MapPin, Wifi, Snowflake } from "lucide-react";
 import { api } from "../../lib/api";
 
 export default function BusApprovals() {
@@ -12,11 +12,9 @@ export default function BusApprovals() {
   const [note, setNote] = useState("");
   const [err, setErr] = useState("");
 
-  // Resolve backend origin for /uploads/*
   const API_ORIGIN = useMemo(() => {
     const b = api?.defaults?.baseURL;
     if (typeof b === "string" && b.startsWith("http")) return b.replace(/\/$/, "");
-    // fallback (adjust if you store this env)
     return import.meta.env.VITE_API_ORIGIN || "http://localhost:5000";
   }, []);
 
@@ -87,7 +85,7 @@ export default function BusApprovals() {
             <h1 className="text-xl font-semibold">Bus Approvals</h1>
           </div>
 
-          <button className="btn" onClick={() => nav("/bus/admin")}>
+          <button className="btn" onClick={() => nav("/bus")}>
             <ArrowLeft className="h-4 w-4" />
             <span className="ml-2">Back</span>
           </button>
@@ -118,18 +116,25 @@ export default function BusApprovals() {
 
         <div className="mt-4 grid gap-3">
           {pending.map((b) => {
-            const route = b?.routeId || b?.route || null; // backend may send either
-            const routeLabel =
-              route?.name ||
-              (route?.start && route?.end ? `${route.start} → ${route.end}` : null) ||
-              "-";
+            const route = b?.routeId || b?.route || null;
 
-            // Support both your old single photoUrl and new fields
+            const startLabel =
+              route?.start?.label || route?.start || "-";
+
+            const endLabel =
+              route?.end?.label || route?.end || "-";
+
+            const routeLabel =
+              route?.routeNumber
+                ? `${route.routeNumber} • ${startLabel} → ${endLabel}`
+                : `${startLabel} → ${endLabel}`;
+
             const busPhoto = absUrl(b?.photoUrl);
             const regPhoto = absUrl(b?.registrationPhotoUrl || b?.registrationUrl);
             const permitPhoto = absUrl(b?.permitPhotoUrl || b?.permitUrl);
 
             const isBusy = busyId === b._id;
+            const features = Array.isArray(b?.features) ? b.features.filter(Boolean) : [];
 
             return (
               <div key={b._id} className="rounded-xl border border-white/10 p-4">
@@ -154,7 +159,31 @@ export default function BusApprovals() {
                   <span className="font-medium">{routeLabel}</span>
                 </div>
 
-                {/* Photos / documents */}
+                <div className="mt-2">
+                  <div className="text-sm text-zinc-400">Features:</div>
+
+                  {features.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {features.map((feature, idx) => (
+                        <span
+                          key={`${feature}-${idx}`}
+                          className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-200"
+                        >
+                          {feature.toLowerCase() === "wifi" ? (
+                            <Wifi className="h-3.5 w-3.5" />
+                          ) : null}
+                          {feature.toLowerCase() === "ac" ? (
+                            <Snowflake className="h-3.5 w-3.5" />
+                          ) : null}
+                          {feature}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-sm text-zinc-500">No features provided</div>
+                  )}
+                </div>
+
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
                   <PhotoCard
                     title="Bus Photo"

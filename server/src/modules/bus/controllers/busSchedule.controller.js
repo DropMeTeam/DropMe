@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import BusRoute from "../models/BusRoute.js";
 import BusSchedule from "../models/BusSchedule.js";
 
-
 import * as BusModel from "../../../models/Bus.js";
 const Bus = BusModel.default || BusModel.Bus || BusModel.bus;
 if (!Bus) {
@@ -26,18 +25,20 @@ function isHHMM(v) {
 
 /**
  * GET /api/bus/routes/:routeId/buses
- * NOTE: This assumes Bus model has a field routeId.
- * If your Bus model uses a different field name (e.g., busRouteId), change filter below.
+ * Return ONLY APPROVED buses for the selected route
  */
 export async function getBusesForRoute(req, res, next) {
   try {
     const { routeId } = req.params;
+
     if (!mongoose.isValidObjectId(routeId)) {
       return res.status(400).json({ ok: false, message: "Invalid routeId" });
     }
 
-    // ⚠️ Adjust this filter if your Bus schema doesn't have `routeId`
-    const buses = await Bus.find({ routeId }).sort({ createdAt: -1 });
+    const buses = await Bus.find({
+      routeId,
+      status: "approved",
+    }).sort({ createdAt: -1 });
 
     res.json({ ok: true, buses });
   } catch (err) {
@@ -47,15 +48,27 @@ export async function getBusesForRoute(req, res, next) {
 
 /**
  * GET /api/bus/routes/:routeId/schedules
+ * Return schedules only for APPROVED buses in this route
  */
 export async function getSchedulesForRoute(req, res, next) {
   try {
     const { routeId } = req.params;
+
     if (!mongoose.isValidObjectId(routeId)) {
       return res.status(400).json({ ok: false, message: "Invalid routeId" });
     }
 
-    const schedules = await BusSchedule.find({ routeId })
+    const approvedBuses = await Bus.find({
+      routeId,
+      status: "approved",
+    }).select("_id");
+
+    const approvedBusIds = approvedBuses.map((b) => b._id);
+
+    const schedules = await BusSchedule.find({
+      routeId,
+      busId: { $in: approvedBusIds },
+    })
       .populate("busId")
       .sort({ dayOfWeek: 1, direction: 1, createdAt: -1 });
 
@@ -68,6 +81,7 @@ export async function getSchedulesForRoute(req, res, next) {
 /**
  * POST /api/bus/routes/:routeId/schedules
  * Upsert schedule by (routeId + busId + direction + dayOfWeek)
+ * Allow only APPROVED buses that belong to this selected route
  */
 export async function upsertSchedule(req, res, next) {
   try {
@@ -77,33 +91,51 @@ export async function upsertSchedule(req, res, next) {
     if (!mongoose.isValidObjectId(routeId)) {
       return res.status(400).json({ ok: false, message: "Invalid routeId" });
     }
+
     if (!mongoose.isValidObjectId(busId)) {
       return res.status(400).json({ ok: false, message: "Invalid busId" });
     }
-    
+
     if (!["A_TO_B", "B_TO_A"].includes(direction)) {
       return res.status(400).json({
         ok: false,
         message: "direction must be A_TO_B or B_TO_A",
       });
     }
+
     if (typeof dayOfWeek !== "number" || dayOfWeek < 0 || dayOfWeek > 6) {
       return res.status(400).json({
         ok: false,
         message: "dayOfWeek must be a number between 0..6",
       });
     }
+
     if (!Array.isArray(times)) {
       return res.status(400).json({ ok: false, message: "times must be an array" });
     }
 
-    // Load route to build stopTimes (label/lat/lng)
+    // route must exist
     const route = await BusRoute.findById(routeId);
-    if (!route) return res.status(404).json({ ok: false, message: "Route not found" });
+    if (!route) {
+      return res.status(404).json({ ok: false, message: "Route not found" });
+    }
+
+    // bus must belong to this route and be approved
+    const bus = await Bus.findOne({
+      _id: busId,
+      routeId,
+      status: "approved",
+    });
+
+    if (!bus) {
+      return res.status(400).json({
+        ok: false,
+        message: "Selected bus is not approved for this route",
+      });
+    }
 
     const stops = orderedStops(route, direction);
 
-    // Validate times -> map by stopIndex
     const timeMap = new Map();
     for (const t of times) {
       if (typeof t?.stopIndex !== "number") continue;
@@ -114,6 +146,7 @@ export async function upsertSchedule(req, res, next) {
           message: "Time format must be HH:mm (e.g., 06:30)",
         });
       }
+
       timeMap.set(t.stopIndex, t.time);
     }
 
@@ -149,7 +182,9 @@ export async function upsertSchedule(req, res, next) {
 export async function deleteSchedule(req, res, next) {
   try {
     const deleted = await BusSchedule.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ ok: false, message: "Schedule not found" });
+    if (!deleted) {
+      return res.status(404).json({ ok: false, message: "Schedule not found" });
+    }
     res.json({ ok: true, message: "Schedule deleted" });
   } catch (err) {
     next(err);
@@ -158,16 +193,15 @@ export async function deleteSchedule(req, res, next) {
 
 /**
  * GET /api/bus/bus-owner/schedules
- * NOTE: This assumes Bus has ownerId that matches req.user._id
- * If your Bus model uses a different owner field, change filter below.
  */
 export async function getOwnerSchedules(req, res, next) {
   try {
-    const ownerId = req.user?._id || req.user?.id;
-    if (!ownerId) return res.status(401).json({ ok: false, message: "Unauthorized" });
+    const ownerId = req.user?._id || req.user?.id || req.user?.sub;
+    if (!ownerId) {
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
+    }
 
-    // ⚠️ Adjust if your Bus schema uses a different owner field name
-    const buses = await Bus.find({ ownerId }).select("_id");
+    const buses = await Bus.find({ owner: ownerId }).select("_id");
     const busIds = buses.map((b) => b._id);
 
     const schedules = await BusSchedule.find({ busId: { $in: busIds } })

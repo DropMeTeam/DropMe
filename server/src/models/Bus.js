@@ -15,16 +15,22 @@ const BusSchema = new mongoose.Schema(
 
     color: { type: String, trim: true, default: "" },
 
-    // enforce your operational limits
+    // seat count selected from allowed list per type
     seatsTotal: { type: Number, required: true, min: 25, max: 60 },
+
+    // NEW: bus features selected by owner
+    features: {
+      type: [String],
+      default: [],
+    },
 
     // route binding: must be an admin-created route
     routeId: { type: mongoose.Schema.Types.ObjectId, ref: "BusRoute", required: true, index: true },
 
     // Photos / compliance artifacts
-    photoUrl: { type: String, default: "" },              // bus photo
-    registrationPhotoUrl: { type: String, default: "" },  // bus registration photo
-    permitPhotoUrl: { type: String, default: "" },        // bus permit photo
+    photoUrl: { type: String, default: "" },
+    registrationPhotoUrl: { type: String, default: "" },
+    permitPhotoUrl: { type: String, default: "" },
 
     // Governance lifecycle
     status: {

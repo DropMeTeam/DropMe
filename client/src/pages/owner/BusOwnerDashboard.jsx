@@ -1,6 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
 import { useAuth } from "../../state/AuthContext";
+
+const SEAT_OPTIONS = {
+  Normal: [42, 44, 49, 54],
+  "Semi-luxury": [32, 35, 40],
+  Luxury: [45, 49, 50],
+  Expressway: [32, 35, 40, 45, 49, 50],
+};
+
+const FEATURE_OPTIONS = ["WiFi", "AC", "CCTV", "USB Charging", "Reclining Seats"];
 
 export default function BusOwnerDashboard() {
   const { user } = useAuth();
@@ -16,14 +25,19 @@ export default function BusOwnerDashboard() {
   const [form, setForm] = useState({
     plateNumber: "",
     busType: "Normal",
-    seatsTotal: 40,
+    seatsTotal: 42,
     color: "",
     routeId: "",
+    features: [],
   });
 
   const [busPhoto, setBusPhoto] = useState(null);
   const [registrationPhoto, setRegistrationPhoto] = useState(null);
   const [permitPhoto, setPermitPhoto] = useState(null);
+
+  const allowedSeats = useMemo(() => {
+    return SEAT_OPTIONS[form.busType] || [];
+  }, [form.busType]);
 
   async function loadBuses() {
     setLoading(true);
@@ -57,8 +71,30 @@ export default function BusOwnerDashboard() {
     loadRoutes();
   }, []);
 
+  // auto-fix selected seat when bus type changes
+  useEffect(() => {
+    if (!allowedSeats.includes(Number(form.seatsTotal))) {
+      setForm((s) => ({
+        ...s,
+        seatsTotal: allowedSeats[0] || "",
+      }));
+    }
+  }, [form.busType, allowedSeats, form.seatsTotal]);
+
   function setField(k, v) {
     setForm((s) => ({ ...s, [k]: v }));
+  }
+
+  function toggleFeature(feature) {
+    setForm((prev) => {
+      const exists = prev.features.includes(feature);
+      return {
+        ...prev,
+        features: exists
+          ? prev.features.filter((f) => f !== feature)
+          : [...prev.features, feature],
+      };
+    });
   }
 
   async function submitBus(e) {
@@ -66,9 +102,10 @@ export default function BusOwnerDashboard() {
     setErr("");
 
     const seats = Number(form.seatsTotal);
-    if (!Number.isFinite(seats) || seats < 25 || seats > 60) {
-      return setErr("Seats must be between 25 and 60");
+    if (!allowedSeats.includes(seats)) {
+      return setErr(`Please select a valid seat count for ${form.busType}`);
     }
+
     if (!form.plateNumber?.trim()) return setErr("Bus registration number (plateNumber) is required");
     if (!form.routeId) return setErr("Please select a bus route");
     if (!busPhoto) return setErr("Bus photo is required");
@@ -84,6 +121,10 @@ export default function BusOwnerDashboard() {
       fd.append("seatsTotal", String(seats));
       fd.append("routeId", form.routeId);
 
+      form.features.forEach((feature) => {
+        fd.append("features", feature);
+      });
+
       fd.append("busPhoto", busPhoto);
       fd.append("registrationPhoto", registrationPhoto);
       fd.append("permitPhoto", permitPhoto);
@@ -92,8 +133,14 @@ export default function BusOwnerDashboard() {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      // reset & redirect user flow to My Buses
-      setForm({ plateNumber: "", busType: "Normal", seatsTotal: 40, color: "", routeId: "" });
+      setForm({
+        plateNumber: "",
+        busType: "Normal",
+        seatsTotal: 42,
+        color: "",
+        routeId: "",
+        features: [],
+      });
       setBusPhoto(null);
       setRegistrationPhoto(null);
       setPermitPhoto(null);
@@ -175,7 +222,11 @@ export default function BusOwnerDashboard() {
               required
             />
 
-            <select className="input" value={form.busType} onChange={(e) => setField("busType", e.target.value)}>
+            <select
+              className="input"
+              value={form.busType}
+              onChange={(e) => setField("busType", e.target.value)}
+            >
               <option value="Normal">Normal</option>
               <option value="Semi-luxury">Semi-luxury</option>
               <option value="Luxury">Luxury</option>
@@ -189,16 +240,35 @@ export default function BusOwnerDashboard() {
               onChange={(e) => setField("color", e.target.value)}
             />
 
-            <input
+            <select
               className="input"
-              type="number"
-              min={25}
-              max={60}
-              placeholder="Number of seats (25–60)"
               value={form.seatsTotal}
-              onChange={(e) => setField("seatsTotal", e.target.value)}
+              onChange={(e) => setField("seatsTotal", Number(e.target.value))}
               required
-            />
+            >
+              {allowedSeats.map((seat) => (
+                <option key={seat} value={seat}>
+                  {seat} Seats
+                </option>
+              ))}
+            </select>
+
+            <div className="grid gap-2 rounded-xl border border-white/10 p-3">
+              <label className="text-sm text-zinc-400">Bus Features</label>
+
+              <div className="grid grid-cols-2 gap-2">
+                {FEATURE_OPTIONS.map((feature) => (
+                  <label key={feature} className="flex items-center gap-2 text-sm text-zinc-200">
+                    <input
+                      type="checkbox"
+                      checked={form.features.includes(feature)}
+                      onChange={() => toggleFeature(feature)}
+                    />
+                    <span>{feature}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
 
             <select
               className="input"
@@ -258,27 +328,21 @@ export default function BusOwnerDashboard() {
                   Type: {b.busType} • Seats: {b.seatsTotal} • Color: {b.color || "-"}
                 </div>
 
-                {b.routeId ? (
-                  <div className="mt-1 text-sm text-zinc-400">
-                    Route: {b.routeId?.routeNumber ? `${b.routeId.routeNumber} • ` : ""}{b.routeId?.start?.label} → {b.routeId?.end?.label}
-                  </div>
-                ) : null}
+                <div className="mt-1 text-sm text-zinc-400">
+                  Features: {Array.isArray(b.features) && b.features.length > 0 ? b.features.join(", ") : "-"}
+                </div>
 
-                {b.status === "approved" ? (
-                  <div className="mt-2 text-sm text-emerald-300">✅ Approved</div>
-                ) : null}
+                <div className="mt-1 text-sm text-zinc-400">
+                  Route: {b.routeId?.routeNumber || "-"} • {b.routeId?.start?.label || "-"} → {b.routeId?.end?.label || "-"}
+                </div>
 
-                {b.status === "rejected" ? (
-                  <div className="mt-2 text-sm text-red-300">❌ Rejected: {b.reviewNote || "No reason provided"}</div>
-                ) : null}
-
-                {b.status === "pending" ? (
-                  <div className="mt-2 text-sm text-amber-300">⏳ Pending admin review</div>
+                {b.reviewNote ? (
+                  <div className="mt-2 text-sm text-amber-300">Review Note: {b.reviewNote}</div>
                 ) : null}
               </div>
             ))}
 
-            {!loading && buses.length === 0 ? (
+            {buses.length === 0 ? (
               <div className="text-sm text-zinc-400">No buses submitted yet.</div>
             ) : null}
           </div>
@@ -289,8 +353,15 @@ export default function BusOwnerDashboard() {
 }
 
 function StatusBadge({ status }) {
-  const base = "px-2 py-1 rounded-full text-xs border";
-  if (status === "approved") return <span className={`${base} border-emerald-400/30 text-emerald-300`}>APPROVED</span>;
-  if (status === "rejected") return <span className={`${base} border-red-400/30 text-red-300`}>REJECTED</span>;
-  return <span className={`${base} border-amber-400/30 text-amber-300`}>PENDING</span>;
+  const map = {
+    pending: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
+    approved: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
+    rejected: "bg-red-500/15 text-red-300 border border-red-500/30",
+  };
+
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${map[status] || "border border-white/10 text-zinc-300"}`}>
+      {status || "unknown"}
+    </span>
+  );
 }

@@ -5,6 +5,7 @@ export async function listPendingBusRegistrations(req, res, next) {
   try {
     const pending = await Bus.find({ status: "pending" })
       .populate("owner", "name email role")
+      .populate("routeId", "routeNumber start end routeType")
       .sort({ createdAt: -1 })
       .lean();
 

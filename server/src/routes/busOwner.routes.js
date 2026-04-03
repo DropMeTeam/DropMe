@@ -22,10 +22,17 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-// ✅ LIST MY BUSES (this removes your 404)
+const ALLOWED_SEATS = {
+  Normal: [42, 44, 49, 54],
+  "Semi-luxury": [32, 35, 40],
+  Luxury: [45, 49, 50],
+  Expressway: [32, 35, 40, 45, 49, 50],
+};
+
+// LIST MY BUSES
 router.get("/buses", requireAuth, requireRole("BUS_OWNER"), async (req, res, next) => {
   try {
     const ownerId = req.user?.sub || req.user?.id;
@@ -42,7 +49,7 @@ router.get("/buses", requireAuth, requireRole("BUS_OWNER"), async (req, res, nex
   }
 });
 
-// ✅ CREATE BUS (multipart upload)
+// CREATE BUS
 router.post(
   "/buses",
   requireAuth,
@@ -62,14 +69,20 @@ router.post(
       const plate = String(plateNumber || "").trim().toUpperCase();
       if (!plate) return res.status(400).json({ message: "plateNumber is required" });
 
+      const safeBusType = String(busType || "Normal");
+      if (!ALLOWED_SEATS[safeBusType]) {
+        return res.status(400).json({ message: "Invalid busType" });
+      }
+
       const seats = Number(seatsTotal);
-      if (!Number.isFinite(seats) || seats < 25 || seats > 60) {
-        return res.status(400).json({ message: "Seats must be between 25 and 60" });
+      if (!ALLOWED_SEATS[safeBusType].includes(seats)) {
+        return res.status(400).json({
+          message: `Invalid seat count for ${safeBusType}. Allowed: ${ALLOWED_SEATS[safeBusType].join(", ")}`
+        });
       }
 
       if (!routeId) return res.status(400).json({ message: "routeId is required" });
 
-      // ✅ enforce: route must exist (admin-created route)
       const route = await BusRoute.findById(routeId).lean();
       if (!route) return res.status(400).json({ message: "Invalid routeId (route not found)" });
 
@@ -85,12 +98,21 @@ router.post(
       const registrationPhotoUrl = `/uploads/buses/${regPhoto.filename}`;
       const permitPhotoUrl = `/uploads/buses/${permitPhoto.filename}`;
 
+      // supports features[] from frontend FormData
+      const rawFeatures = req.body.features;
+      const features = Array.isArray(rawFeatures)
+        ? rawFeatures.map((f) => String(f).trim()).filter(Boolean)
+        : rawFeatures
+          ? [String(rawFeatures).trim()].filter(Boolean)
+          : [];
+
       const created = await Bus.create({
         owner: ownerId,
         plateNumber: plate,
-        busType,
+        busType: safeBusType,
         color,
         seatsTotal: seats,
+        features,
         routeId,
         photoUrl,
         registrationPhotoUrl,

@@ -65,21 +65,30 @@ export default function TrainScheduleDetailsPage() {
   return (
     <div className="grid gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          to="/train-service"
-          className="inline-flex items-center rounded-2xl border border-zinc-800 px-4 py-2 hover:bg-zinc-900"
-        >
-          <ChevronLeft className="mr-2 h-4 w-4" />
-          Back to search
-        </Link>
+  <Link
+    to="/train-service"
+    className="inline-flex items-center rounded-2xl border border-zinc-800 px-4 py-2 hover:bg-zinc-900"
+  >
+    <ChevronLeft className="mr-2 h-4 w-4" />
+    Back to search
+  </Link>
 
-        <Link
-          to="/train-service/bookings"
-          className="inline-flex items-center rounded-2xl border border-zinc-800 px-4 py-2 hover:bg-zinc-900"
-        >
-          My bookings
-        </Link>
-      </div>
+  <div className="flex flex-wrap gap-3">
+    <Link
+      to={`/train-service/${id}/book${day ? `?day=${day}` : ""}`}
+      className="inline-flex items-center rounded-2xl bg-white px-4 py-2 font-medium text-zinc-950 hover:opacity-90"
+    >
+      Book now
+    </Link>
+
+    <Link
+      to="/train-service/bookings"
+      className="inline-flex items-center rounded-2xl border border-zinc-800 px-4 py-2 hover:bg-zinc-900"
+    >
+      My bookings
+    </Link>
+  </div>
+</div>
 
       <section className="rounded-3xl border border-zinc-800 bg-zinc-950/30 p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">

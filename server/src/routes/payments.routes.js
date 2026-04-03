@@ -9,32 +9,32 @@ import {
 
 export const paymentsRouter = Router();
 
-// ride payments
+// ride payments - rider only
 paymentsRouter.post(
   "/stripe/session",
   requireAuth,
-  requireRole("rider", "admin"),
+  requireRole("rider"),
   createStripeSession
 );
 
 paymentsRouter.get(
   "/stripe/verify",
   requireAuth,
-  requireRole("rider", "admin"),
+  requireRole("rider"),
   verifyStripePayment
 );
 
-// train payments
+// train payments - rider only
 paymentsRouter.post(
   "/stripe/train/session",
   requireAuth,
-  requireRole("rider", "admin"),
+  requireRole("rider"),
   createTrainStripeSession
 );
 
 paymentsRouter.get(
   "/stripe/train/verify",
   requireAuth,
-  requireRole("rider", "admin"),
+  requireRole("rider"),
   verifyTrainStripePayment
 );

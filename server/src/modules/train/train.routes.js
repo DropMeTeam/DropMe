@@ -11,15 +11,8 @@ import {
   listMyTrainBookings,
   getMyTrainBookingById,
   cancelMyTrainBooking,
-  markTrainBookingPaid,
 } from "./controllers/trainBooking.controller.js";
-
-/**
- * IMPORTANT:
- * Replace this import path with YOUR real auth middleware path.
- * Use the same middleware you already use for protected user routes.
- */
-import { requireAuth } from "../../middleware/requireAuth.js";
+import { requireAuth, requireRole } from "../../middleware/auth.js";
 
 export const trainRouter = express.Router();
 
@@ -30,9 +23,31 @@ trainRouter.get("/nearest-stations", listNearestStations);
 trainRouter.get("/search-nearby", searchNearbyTrains);
 trainRouter.get("/schedules/:id", getPassengerTrainDetails);
 
-// protected booking endpoints
-trainRouter.post("/bookings/checkout", requireAuth, createTrainBookingCheckout);
-trainRouter.get("/bookings/mine", requireAuth, listMyTrainBookings);
-trainRouter.get("/bookings/:id", requireAuth, getMyTrainBookingById);
-trainRouter.patch("/bookings/:id/cancel", requireAuth, cancelMyTrainBooking);
+// protected rider booking endpoints
+trainRouter.post(
+  "/bookings/checkout",
+  requireAuth,
+  requireRole("rider"),
+  createTrainBookingCheckout
+);
 
+trainRouter.get(
+  "/bookings/mine",
+  requireAuth,
+  requireRole("rider"),
+  listMyTrainBookings
+);
+
+trainRouter.get(
+  "/bookings/:id",
+  requireAuth,
+  requireRole("rider"),
+  getMyTrainBookingById
+);
+
+trainRouter.patch(
+  "/bookings/:id/cancel",
+  requireAuth,
+  requireRole("rider"),
+  cancelMyTrainBooking
+);

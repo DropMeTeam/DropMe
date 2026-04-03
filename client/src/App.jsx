@@ -23,6 +23,7 @@ import TrainTimetablesPage from "./pages/train/TrainTimetablesPage";
 import TrainSearchPage from "./pages/train-passenger/TrainSearchPage";
 import TrainScheduleDetailsPage from "./pages/train-passenger/TrainScheduleDetailsPage";
 import MyTrainBookingsPage from "./pages/train-passenger/MyTrainBookingsPage";
+import TrainCheckoutPage from "./pages/train-passenger/TrainCheckoutPage";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -48,6 +49,14 @@ export default function App() {
 
         <Route path="/train-service" element={<TrainSearchPage />} />
         <Route path="/train-service/:id" element={<TrainScheduleDetailsPage />} />
+        <Route
+          path="/train-service/:id/book"
+          element={
+            <Protected>
+              <TrainCheckoutPage />
+            </Protected>
+          }
+        />
         <Route
           path="/train-service/bookings"
           element={

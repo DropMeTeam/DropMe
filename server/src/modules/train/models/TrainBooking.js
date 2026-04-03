@@ -100,6 +100,18 @@ const trainBookingSchema = new mongoose.Schema(
       departureTime: { type: String, default: "" },
       arrivalTime: { type: String, default: "" },
       durationLabel: { type: String, default: "" },
+
+      // new fields
+      durationMinutes: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+      distanceKm: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
     },
   },
   { timestamps: true }

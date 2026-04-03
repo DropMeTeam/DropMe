@@ -2,6 +2,9 @@ import { TrainSchedule } from "../models/TrainSchedule.js";
 import { TrainBooking } from "../models/TrainBooking.js";
 import { HttpError } from "../../../utils/httpError.js";
 
+// Keep backend booking creation aligned with Stripe minimum.
+const MIN_TRAIN_PAYMENT_LKR = Number(process.env.MIN_TRAIN_PAYMENT_LKR || 200);
+
 function getUserId(req) {
   return String(req.user?.sub || req.user?._id || req.user?.id || "");
 }
@@ -9,10 +12,17 @@ function getUserId(req) {
 function getTravelDay(travelDate) {
   const date = new Date(`${travelDate}T00:00:00`);
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
   if (Number.isNaN(date.getTime())) {
     throw new HttpError(400, "Invalid travelDate. Use YYYY-MM-DD");
   }
+
   return days[date.getDay()];
+}
+
+function toSafeNonNegativeNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) && num >= 0 ? num : fallback;
 }
 
 /**
@@ -54,8 +64,11 @@ export async function createTrainBookingCheckout(req, res, next) {
     }
 
     const fare = Number(totalFareLkr);
-    if (!Number.isFinite(fare) || fare < 0) {
-      throw new HttpError(400, "totalFareLkr must be a valid number");
+    if (!Number.isFinite(fare) || fare < MIN_TRAIN_PAYMENT_LKR) {
+      throw new HttpError(
+        400,
+        `totalFareLkr must be at least LKR ${MIN_TRAIN_PAYMENT_LKR}`
+      );
     }
 
     const schedule = await TrainSchedule.findById(scheduleId).lean();
@@ -89,6 +102,8 @@ export async function createTrainBookingCheckout(req, res, next) {
         departureTime: journeySnapshot.departureTime || "",
         arrivalTime: journeySnapshot.arrivalTime || "",
         durationLabel: journeySnapshot.durationLabel || "",
+        durationMinutes: toSafeNonNegativeNumber(journeySnapshot.durationMinutes, 0),
+        distanceKm: toSafeNonNegativeNumber(journeySnapshot.distanceKm, 0),
       },
     });
 
@@ -140,9 +155,7 @@ export async function getMyTrainBookingById(req, res, next) {
     }
 
     const isOwner = String(booking.passengerId) === passengerId;
-    const isAdmin = req.user?.role === "admin";
-
-    if (!isOwner && !isAdmin) {
+    if (!isOwner) {
       throw new HttpError(403, "Not allowed");
     }
 
@@ -171,9 +184,7 @@ export async function cancelMyTrainBooking(req, res, next) {
     }
 
     const isOwner = String(booking.passengerId) === passengerId;
-    const isAdmin = req.user?.role === "admin";
-
-    if (!isOwner && !isAdmin) {
+    if (!isOwner) {
       throw new HttpError(403, "Not allowed");
     }
 
@@ -196,10 +207,6 @@ export async function cancelMyTrainBooking(req, res, next) {
   }
 }
 
-/**
- * Optional manual mark-paid helper.
- * Usually Stripe verify endpoint should do this instead.
- */
 export async function markTrainBookingPaid(req, res, next) {
   try {
     const { id } = req.params;

@@ -484,18 +484,34 @@ export default function TrainSearchPage() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <Link
-                      to={`/train-service/${train._id}${day ? `?day=${day}` : ""}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className={
-                        active
-                          ? "inline-flex items-center rounded-2xl border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-100"
-                          : "inline-flex items-center rounded-2xl border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-900"
-                      }
-                    >
-                      View schedule
-                    </Link>
-                  </div>
+  <Link
+    to={`/train-service/${train._id}${day ? `?day=${day}` : ""}`}
+    onClick={(e) => e.stopPropagation()}
+    className={
+      active
+        ? "inline-flex items-center rounded-2xl border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-100"
+        : "inline-flex items-center rounded-2xl border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-900"
+    }
+  >
+    View schedule
+  </Link>
+
+  <Link
+    to={`/train-service/${train._id}/book?${new URLSearchParams({
+      ...(day ? { day } : {}),
+      ...(train?.boardingStation?._id ? { fromStationId: train.boardingStation._id } : {}),
+      ...(train?.destinationStation?._id ? { toStationId: train.destinationStation._id } : {}),
+    }).toString()}`}
+    onClick={(e) => e.stopPropagation()}
+    className={
+      active
+        ? "inline-flex items-center rounded-2xl bg-zinc-950 px-4 py-2 text-sm text-white hover:opacity-90"
+        : "inline-flex items-center rounded-2xl bg-white px-4 py-2 text-sm font-medium text-zinc-950 hover:opacity-90"
+    }
+  >
+    Book now
+  </Link>
+</div>
                 </div>
               </article>
             );

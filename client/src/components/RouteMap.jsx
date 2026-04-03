@@ -6,7 +6,7 @@ export default function RouteMap({ pickup, dropoff, routePoints }) {
     : [6.9271, 79.8612]; // Colombo default
 
   return (
-    <div className="h-[520px] w-full overflow-hidden rounded-2xl border border-white/10">
+    <div className="h-[520px] w-full overflow-hidden rounded-none border border-white/10">
       <MapContainer center={center} zoom={12} className="h-full w-full">
         <TileLayer
           attribution="&copy; OpenStreetMap contributors"

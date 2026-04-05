@@ -7,6 +7,24 @@ function formatFare(value) {
   return `LKR ${amount.toFixed(2)}`;
 }
 
+function getDisplayAccessDistanceKm(accessRouteMeta, selectedTrain) {
+  const exactDistance = Number(accessRouteMeta?.distanceKm);
+  if (Number.isFinite(exactDistance)) return exactDistance;
+
+  const fallbackDistance = Number(selectedTrain?.boardingStation?.distanceKm);
+  return Number.isFinite(fallbackDistance) ? fallbackDistance : null;
+}
+
+function getDisplayAccessDurationMins(accessRouteMeta, selectedTrain) {
+  const exactDuration = Number(accessRouteMeta?.durationMins);
+  if (Number.isFinite(exactDuration)) return exactDuration;
+
+  const fallbackDuration = Number(
+    selectedTrain?.boardingStation?.accessEstimateMinutes
+  );
+  return Number.isFinite(fallbackDuration) ? fallbackDuration : null;
+}
+
 export default function JourneySummarySidebar({
   selectedTrain,
   accessRouteMeta,
@@ -14,8 +32,20 @@ export default function JourneySummarySidebar({
   bookingHref,
   selectedFare,
 }) {
+  const accessDistanceKm = getDisplayAccessDistanceKm(
+    accessRouteMeta,
+    selectedTrain
+  );
+  const accessDurationMins = getDisplayAccessDurationMins(
+    accessRouteMeta,
+    selectedTrain
+  );
+
   return (
-<aside className="h-full min-h-[calc(100vh-72px)] border-l border-cyan-400/10 bg-[radial-gradient(circle_at_top,#111c39_0%,#09101e_48%,#060a12_100%)] p-5 shadow-none rounded-none xl:sticky xl:top-0">      <div className="mb-5 text-2xl font-semibold text-white">Journey Summary</div>
+    <aside className="h-full min-h-[calc(100vh-72px)] border-l border-cyan-400/10 bg-[radial-gradient(circle_at_top,#111c39_0%,#09101e_48%,#060a12_100%)] p-5 shadow-none rounded-none xl:sticky xl:top-0">
+      <div className="mb-5 text-2xl font-semibold text-white">
+        Journey Summary
+      </div>
 
       {!selectedTrain ? (
         <div className="rounded-[24px] border border-white/10 bg-white/[0.02] px-4 py-5 text-sm text-zinc-400">
@@ -35,7 +65,14 @@ export default function JourneySummarySidebar({
                     {selectedTrain?.boardingStation?.name || "Nearest station"}
                   </div>
                   <div className="text-xs text-zinc-500">
-                    {selectedTrain?.boardingStation?.distanceKm ?? "--"} km • ~{selectedTrain?.boardingStation?.accessEstimateMinutes ?? "--"} mins from current location
+                    {accessDistanceKm !== null
+                      ? `${accessDistanceKm.toFixed(2)} km`
+                      : "--"}{" "}
+                    • ~
+                    {accessDurationMins !== null
+                      ? Math.round(accessDurationMins)
+                      : "--"}{" "}
+                    mins from current location
                   </div>
                 </div>
               </div>
@@ -43,7 +80,10 @@ export default function JourneySummarySidebar({
               <div className="ml-[5px] border-l border-dashed border-cyan-400/40 pl-6">
                 <div className="inline-flex items-center gap-2 text-sm text-zinc-400">
                   <TrainFront className="h-4 w-4" />
-                  {selectedTrain?.trainName || selectedTrain?.trainNo || "Selected train"} • {selectedTrain?.durationLabel || "--"}
+                  {selectedTrain?.trainName ||
+                    selectedTrain?.trainNo ||
+                    "Selected train"}{" "}
+                  • {selectedTrain?.durationLabel || "--"}
                 </div>
               </div>
 
@@ -54,7 +94,8 @@ export default function JourneySummarySidebar({
                     {selectedTrain?.destinationStation?.arrivalTime || "--"}
                   </div>
                   <div className="text-sm text-zinc-300">
-                    {selectedTrain?.destinationStation?.name || "Destination station"}
+                    {selectedTrain?.destinationStation?.name ||
+                      "Destination station"}
                   </div>
                   <div className="text-xs text-zinc-500">
                     Train journey time: {selectedTrain?.durationLabel || "--"}
@@ -75,7 +116,11 @@ export default function JourneySummarySidebar({
                   <MapPinned className="h-4 w-4 text-cyan-300" />
                   Access route distance
                 </span>
-                <span>{accessRouteMeta ? `${accessRouteMeta.distanceKm.toFixed(2)} km` : `${selectedTrain?.boardingStation?.distanceKm ?? "--"} km`}</span>
+                <span>
+                  {accessDistanceKm !== null
+                    ? `${accessDistanceKm.toFixed(2)} km`
+                    : "--"}
+                </span>
               </div>
 
               <div className="flex items-center justify-between gap-3 text-zinc-300">
@@ -83,7 +128,11 @@ export default function JourneySummarySidebar({
                   <Clock3 className="h-4 w-4 text-cyan-300" />
                   Access route time
                 </span>
-                <span>{accessRouteMeta ? `~${Math.round(accessRouteMeta.durationMins)} mins` : `~${selectedTrain?.boardingStation?.accessEstimateMinutes ?? "--"} mins`}</span>
+                <span>
+                  {accessDurationMins !== null
+                    ? `~${Math.round(accessDurationMins)} mins`
+                    : "--"}
+                </span>
               </div>
 
               <div className="flex items-center justify-between gap-3 text-zinc-300">

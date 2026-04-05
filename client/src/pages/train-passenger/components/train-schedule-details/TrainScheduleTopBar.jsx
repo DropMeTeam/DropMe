@@ -1,16 +1,19 @@
 import { ChevronLeft, ReceiptText } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function TrainScheduleTopBar() {
+  const navigate = useNavigate();
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <Link
-        to="/train-service"
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
         className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/90 transition hover:border-blue-400/40 hover:bg-white/10"
       >
         <ChevronLeft className="h-4 w-4" />
-        Back to search
-      </Link>
+        Back
+      </button>
 
       <Link
         to="/train-service/bookings"

@@ -249,11 +249,8 @@ export async function createTrainStripeSession(req, res, next) {
     }
 
     const amount = Number(booking.totalFareLkr || 0);
-    if (!Number.isFinite(amount) || amount < MIN_TRAIN_PAYMENT_LKR) {
-      throw new HttpError(
-        400,
-        `Train booking amount must be at least LKR ${MIN_TRAIN_PAYMENT_LKR} for Stripe checkout`
-      );
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new HttpError(400, "Train booking amount is invalid");
     }
 
     const unitAmount = Math.round(amount * 100);

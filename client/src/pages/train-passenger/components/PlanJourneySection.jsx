@@ -5,6 +5,8 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export default function PlanJourneySection({
   stations,
   loadingStations,
+  fromStationId,
+  onFromChange,
   destinationStationId,
   onDestinationChange,
   day,
@@ -20,6 +22,31 @@ export default function PlanJourneySection({
       </div>
 
       <div className="space-y-4">
+        <div>
+          <label className="mb-2 block text-xs font-medium text-zinc-400">
+            From Station (Optional)
+          </label>
+
+          <div className="relative">
+            <MapPinned className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+
+            <select
+              value={fromStationId}
+              onChange={(e) => onFromChange(e.target.value)}
+              disabled={loadingStations}
+              className="h-12 w-full appearance-none rounded-2xl border border-cyan-400/15 bg-slate-950/70 py-3 pl-10 pr-10 text-sm text-white outline-none transition focus:border-cyan-400/45"
+            >
+              <option value="">Use my current location</option>
+              {stations.map((station) => (
+                <option key={station._id} value={station._id}>
+                  {station.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         <div>
           <label className="mb-2 block text-xs font-medium text-zinc-400">
             Destination Station

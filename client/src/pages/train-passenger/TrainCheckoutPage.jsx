@@ -16,7 +16,7 @@ import CheckoutInvoiceSidebar from "./components/checkout/CheckoutInvoiceSidebar
 const MIN_TRAIN_PAYMENT_LKR = 200;
 
 // Change this if your actual search page route is different.
-const SEARCH_PAGE_PATH = "/train-service/search";
+const SEARCH_PAGE_PATH = "/train-service";
 
 function todayLocalDate() {
   const now = new Date();

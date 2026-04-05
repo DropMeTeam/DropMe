@@ -153,12 +153,10 @@ function buildJourneyDuration(fromRow, toRow) {
   const departMins = timeToMinutes(fromRow?.departureTime);
   const arriveMins = timeToMinutes(toRow?.arrivalTime || toRow?.departureTime);
 
-  if (
-    Number.isFinite(departMins) &&
-    Number.isFinite(arriveMins) &&
-    arriveMins >= departMins
-  ) {
-    return arriveMins - departMins;
+  if (Number.isFinite(departMins) && Number.isFinite(arriveMins)) {
+    let diff = arriveMins - departMins;
+    if (diff < 0) diff += 24 * 60; // Handle midnight crossing
+    return diff;
   }
 
   return null;
@@ -370,21 +368,21 @@ export async function searchNearbyTrains(req, res, next) {
   try {
     const lat = Number(req.query.lat);
     const lng = Number(req.query.lng);
-    const { to, toStationId, day } = req.query;
+    const { to, toStationId, fromStationId, day } = req.query;
 
     const candidateLimit = Math.max(1, Number(req.query.candidateLimit || 15));
     const maxDistanceKm = req.query.maxDistanceKm
       ? Number(req.query.maxDistanceKm)
       : null;
 
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      return res.status(400).json({ message: "lat and lng are required numbers" });
+    if (!fromStationId && (!Number.isFinite(lat) || !Number.isFinite(lng))) {
+      return res
+        .status(400)
+        .json({ message: "lat/lng or fromStationId is required" });
     }
 
     if (!to && !toStationId) {
-      return res
-        .status(400)
-        .json({ message: "to or toStationId is required" });
+      return res.status(400).json({ message: "to or toStationId is required" });
     }
 
     if (day && !DAYS.includes(day)) {
@@ -393,32 +391,62 @@ export async function searchNearbyTrains(req, res, next) {
         .json({ message: `day must be one of: ${DAYS.join(", ")}` });
     }
 
-    const stations = await Station.find({
-      $and: [{ isActive: { $ne: false } }, { active: { $ne: false } }],
-    }).lean();
+    let searchBoardingStations = [];
 
-    const nearbyStations = stations
-      .map((station) => {
-        const point = getLatLngFromStation(station);
-        if (!point) return null;
+    if (fromStationId) {
+      const fromStation = await Station.findById(fromStationId).lean();
+      if (!fromStation) {
+        throw new HttpError(404, "From station not found");
+      }
 
-        const distanceKm = haversineKm(lat, lng, point.lat, point.lng);
+      let distanceKm = 0;
+      let accessEstimateMinutes = 0;
 
-        return {
-          _id: String(station._id),
-          name: station.name,
-          location: station.location || null,
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        const point = getLatLngFromStation(fromStation);
+        if (point) {
+          distanceKm = haversineKm(lat, lng, point.lat, point.lng);
+          accessEstimateMinutes = estimateAccessMinutes(distanceKm);
+        }
+      }
+
+      searchBoardingStations = [
+        {
+          _id: String(fromStation._id),
+          name: fromStation.name,
+          location: fromStation.location || null,
           distanceKm,
-          accessEstimateMinutes: estimateAccessMinutes(distanceKm),
-        };
-      })
-      .filter(Boolean)
-      .filter((station) => {
-        if (!Number.isFinite(maxDistanceKm)) return true;
-        return station.distanceKm <= maxDistanceKm;
-      })
-      .sort((a, b) => a.distanceKm - b.distanceKm)
-      .slice(0, candidateLimit);
+          accessEstimateMinutes,
+        },
+      ];
+    } else {
+      const stations = await Station.find({
+        $and: [{ isActive: { $ne: false } }, { active: { $ne: false } }],
+      }).lean();
+
+      searchBoardingStations = stations
+        .map((station) => {
+          const point = getLatLngFromStation(station);
+          if (!point) return null;
+
+          const distanceKm = haversineKm(lat, lng, point.lat, point.lng);
+
+          return {
+            _id: String(station._id),
+            name: station.name,
+            location: station.location || null,
+            distanceKm,
+            accessEstimateMinutes: estimateAccessMinutes(distanceKm),
+          };
+        })
+        .filter(Boolean)
+        .filter((station) => {
+          if (!Number.isFinite(maxDistanceKm)) return true;
+          return station.distanceKm <= maxDistanceKm;
+        })
+        .sort((a, b) => a.distanceKm - b.distanceKm)
+        .slice(0, candidateLimit);
+    }
 
     const schedules = await applyPassengerPopulate(
       TrainSchedule.find({ active: true }).sort({ createdAt: -1 })
@@ -446,7 +474,7 @@ export async function searchNearbyTrains(req, res, next) {
         let chosenCandidate = null;
         let chosenBoardingIndex = -1;
 
-        for (const candidate of nearbyStations) {
+        for (const candidate of searchBoardingStations) {
           const boardingIndex = rows.findIndex((row) =>
             matchesStation(row, { stationId: candidate._id })
           );
@@ -537,13 +565,14 @@ export async function searchNearbyTrains(req, res, next) {
     return res.json({
       origin: { lat, lng },
       filters: {
+        fromStationId: fromStationId || null,
         to: to || null,
         toStationId: toStationId || null,
         day: day || null,
         candidateLimit,
         maxDistanceKm: Number.isFinite(maxDistanceKm) ? maxDistanceKm : null,
       },
-      nearbyStations: nearbyStations.map((s) => ({
+      nearbyStations: fromStationId ? [] : searchBoardingStations.map((s) => ({
         ...s,
         distanceKm: Number(s.distanceKm.toFixed(2)),
       })),

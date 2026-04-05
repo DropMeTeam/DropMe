@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import api from "../../lib/api";
 import { getRoute } from "../../lib/osrm";
@@ -40,23 +41,40 @@ function hhmmToMinutes(value) {
   return h * 60 + m;
 }
 
-function durationLabelToMinutes(label) {
-  if (!label || typeof label !== "string") return Number.MAX_SAFE_INTEGER;
+function samePoint(a, b) {
+  if (!a || !b) return false;
+  return a.lat === b.lat && a.lng === b.lng;
+}
 
-  const hourMatch = label.match(/(\d+)\s*h/i);
-  const minuteMatch = label.match(/(\d+)\s*m/i);
+function buildTrainPathPoints(train) {
+  const raw = Array.isArray(train?.stopsBetween)
+    ? train.stopsBetween
+        .map((item) => normalizeLocation(item?.station?.location))
+        .filter(Boolean)
+    : [];
 
-  const hours = hourMatch ? Number(hourMatch[1]) : 0;
-  const minutes = minuteMatch ? Number(minuteMatch[1]) : 0;
+  const deduped = [];
+  for (const point of raw) {
+    const prev = deduped[deduped.length - 1];
+    if (!samePoint(prev, point)) {
+      deduped.push(point);
+    }
+  }
 
-  return hours * 60 + minutes;
+  return deduped;
 }
 
 export default function TrainSearchPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [stations, setStations] = useState([]);
 
-  const [destinationStationId, setDestinationStationId] = useState("");
-  const [day, setDay] = useState("");
+  const [fromStationId, setFromStationId] = useState(
+    searchParams.get("fromStationId") || ""
+  );
+  const [destinationStationId, setDestinationStationId] = useState(
+    searchParams.get("toStationId") || ""
+  );
+  const [day, setDay] = useState(searchParams.get("day") || "");
 
   const [currentLocation, setCurrentLocation] = useState(null);
   const [nearestStations, setNearestStations] = useState([]);
@@ -66,6 +84,7 @@ export default function TrainSearchPage() {
   const [sortMode, setSortMode] = useState("earliest");
 
   const [routePoints, setRoutePoints] = useState([]);
+  const [trainRoutePoints, setTrainRoutePoints] = useState([]);
   const [accessRouteMeta, setAccessRouteMeta] = useState(null);
 
   const [loadingStations, setLoadingStations] = useState(true);
@@ -73,6 +92,19 @@ export default function TrainSearchPage() {
   const [searching, setSearching] = useState(false);
   const [routing, setRouting] = useState(false);
   const [error, setError] = useState("");
+
+  const routeRequestRef = useRef(0);
+
+  useEffect(() => {
+    if (
+      stations.length > 0 &&
+      destinationStationId &&
+      !searching &&
+      results.length === 0
+    ) {
+      handleSearch();
+    }
+  }, [stations, destinationStationId]);
 
   useEffect(() => {
     let mounted = true;
@@ -107,12 +139,71 @@ export default function TrainSearchPage() {
   }, []);
 
   const destinationStation = useMemo(() => {
-    return stations.find((station) => station._id === destinationStationId) || null;
+    return (
+      stations.find((station) => station._id === destinationStationId) || null
+    );
   }, [stations, destinationStationId]);
 
   const canSearch = useMemo(() => {
-    return Boolean(currentLocation?.lat && currentLocation?.lng && destinationStationId);
-  }, [currentLocation, destinationStationId]);
+    if (fromStationId && destinationStationId) return true;
+    return Boolean(
+      currentLocation?.lat && currentLocation?.lng && destinationStationId
+    );
+  }, [currentLocation, fromStationId, destinationStationId]);
+
+  async function syncSelectedTrainVisuals(
+    train,
+    locationOverride = currentLocation
+  ) {
+    const requestId = ++routeRequestRef.current;
+
+    setSelectedTrain(train);
+    setRoutePoints([]);
+    setAccessRouteMeta(null);
+
+    const nextTrainPath = buildTrainPathPoints(train);
+    setTrainRoutePoints(nextTrainPath);
+
+    const boardingLocation = normalizeLocation(train?.boardingStation?.location);
+    const activeLocation = locationOverride || null;
+
+    if (!activeLocation || !boardingLocation) {
+      if (routeRequestRef.current === requestId) {
+        setRouting(false);
+      }
+      return;
+    }
+
+    try {
+      setRouting(true);
+
+      const route = await getRoute(
+        { lat: activeLocation.lat, lng: activeLocation.lng },
+        { lat: boardingLocation.lat, lng: boardingLocation.lng }
+      );
+
+      if (routeRequestRef.current !== requestId) return;
+
+      const nextRoutePoints = Array.isArray(route?.pathLatLng)
+        ? route.pathLatLng
+        : [];
+
+      setRoutePoints(nextRoutePoints);
+      setAccessRouteMeta({
+        distanceKm: Number(route.distanceMeters || 0) / 1000,
+        durationMins: Number(route.durationSeconds || 0) / 60,
+      });
+    } catch {
+      if (routeRequestRef.current !== requestId) return;
+
+      setRoutePoints([]);
+      setAccessRouteMeta(null);
+    } finally {
+      if (routeRequestRef.current === requestId) {
+        setRouting(false);
+      }
+    }
+  }
 
   async function useMyLocation() {
     if (!navigator.geolocation) {
@@ -128,11 +219,13 @@ export default function TrainSearchPage() {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
 
-        setCurrentLocation({
+        const nextLocation = {
           label: "My current location",
           lat,
           lng,
-        });
+        };
+
+        setCurrentLocation(nextLocation);
 
         try {
           const res = await api.get("/api/train/nearest-stations", {
@@ -143,10 +236,16 @@ export default function TrainSearchPage() {
             Array.isArray(res.data?.stations) ? res.data.stations : []
           );
         } catch (e) {
-          setError(e?.response?.data?.message || "Failed to load nearest stations");
+          setError(
+            e?.response?.data?.message || "Failed to load nearest stations"
+          );
           setNearestStations([]);
         } finally {
           setLocating(false);
+        }
+
+        if (selectedTrain) {
+          await syncSelectedTrainVisuals(selectedTrain, nextLocation);
         }
       },
       (geoError) => {
@@ -175,17 +274,33 @@ export default function TrainSearchPage() {
     setResults([]);
     setSelectedTrain(null);
     setRoutePoints([]);
+    setTrainRoutePoints([]);
     setAccessRouteMeta(null);
 
+    const params = new URLSearchParams();
+    if (fromStationId) params.set("fromStationId", fromStationId);
+    if (destinationStationId) params.set("toStationId", destinationStationId);
+    if (day) params.set("day", day);
+    setSearchParams(params);
+
     try {
+      const searchParamsObj = {
+        toStationId: destinationStationId,
+        ...(day ? { day } : {}),
+        candidateLimit: 15,
+      };
+
+      if (fromStationId) {
+        searchParamsObj.fromStationId = fromStationId;
+      }
+
+      if (currentLocation) {
+        searchParamsObj.lat = currentLocation.lat;
+        searchParamsObj.lng = currentLocation.lng;
+      }
+
       const res = await api.get("/api/train/search-nearby", {
-        params: {
-          lat: currentLocation.lat,
-          lng: currentLocation.lng,
-          toStationId: destinationStationId,
-          ...(day ? { day } : {}),
-          candidateLimit: 15,
-        },
+        params: searchParamsObj,
       });
 
       const trains = Array.isArray(res.data?.trains) ? res.data.trains : [];
@@ -197,7 +312,7 @@ export default function TrainSearchPage() {
       setNearestStations(nearby);
 
       if (trains.length > 0) {
-        await selectTrain(trains[0]);
+        await syncSelectedTrainVisuals(trains[0]);
       }
     } catch (e) {
       setError(e?.response?.data?.message || "Failed to search nearby trains");
@@ -208,55 +323,40 @@ export default function TrainSearchPage() {
   }
 
   async function selectTrain(train) {
-    setSelectedTrain(train);
-    setRoutePoints([]);
-    setAccessRouteMeta(null);
-
-    const boardingLocation = normalizeLocation(train?.boardingStation?.location);
-    if (!currentLocation || !boardingLocation) return;
-
-    try {
-      setRouting(true);
-
-      const route = await getRoute(
-        { lat: currentLocation.lat, lng: currentLocation.lng },
-        { lat: boardingLocation.lat, lng: boardingLocation.lng }
-      );
-
-      setRoutePoints(route.pathLatLng);
-      setAccessRouteMeta({
-        distanceKm: route.distanceMeters / 1000,
-        durationMins: route.durationSeconds / 60,
-      });
-    } catch {
-      setRoutePoints([]);
-      setAccessRouteMeta(null);
-    } finally {
-      setRouting(false);
-    }
+    await syncSelectedTrainVisuals(train);
   }
 
   const sortedResults = useMemo(() => {
     const copy = [...results];
 
     if (sortMode === "fastest") {
-      return copy.sort(
-        (a, b) =>
-          durationLabelToMinutes(a?.durationLabel) -
-          durationLabelToMinutes(b?.durationLabel)
-      );
+      return copy.sort((a, b) => {
+        const aDur = Number.isFinite(a?.durationMinutes)
+          ? a.durationMinutes
+          : Number.MAX_SAFE_INTEGER;
+        const bDur = Number.isFinite(b?.durationMinutes)
+          ? b.durationMinutes
+          : Number.MAX_SAFE_INTEGER;
+        return aDur - bDur;
+      });
     }
 
-    return copy.sort(
-      (a, b) =>
-        hhmmToMinutes(a?.boardingStation?.departureTime) -
-        hhmmToMinutes(b?.boardingStation?.departureTime)
-    );
+    return copy.sort((a, b) => {
+      const aTime = hhmmToMinutes(a?.boardingStation?.departureTime);
+      const bTime = hhmmToMinutes(b?.boardingStation?.departureTime);
+      return aTime - bTime;
+    });
   }, [results, sortMode]);
 
   const boardingPoint = useMemo(() => {
     return selectedTrain
       ? normalizeLocation(selectedTrain?.boardingStation?.location)
+      : null;
+  }, [selectedTrain]);
+
+  const destinationPoint = useMemo(() => {
+    return selectedTrain
+      ? normalizeLocation(selectedTrain?.destinationStation?.location)
       : null;
   }, [selectedTrain]);
 
@@ -294,12 +394,15 @@ export default function TrainSearchPage() {
 
   return (
     <div className="relative left-1/2 right-1/2 w-screen -translate-x-1/2 bg-[#030814]">
-<div className="grid min-h-[calc(100vh-72px)] grid-cols-1 gap-0 xl:grid-cols-[420px_minmax(0,1fr)_360px]">        <TrainSearchSidebar
+      <div className="grid min-h-[calc(100vh-72px)] grid-cols-1 gap-0 xl:grid-cols-[420px_minmax(0,1fr)_360px]">
+        <TrainSearchSidebar
           currentLocation={currentLocation}
           locating={locating}
           onUseMyLocation={useMyLocation}
           stations={stations}
           loadingStations={loadingStations}
+          fromStationId={fromStationId}
+          onFromChange={setFromStationId}
           destinationStationId={destinationStationId}
           onDestinationChange={setDestinationStationId}
           day={day}
@@ -310,13 +413,15 @@ export default function TrainSearchPage() {
           nearestStations={nearestStations}
         />
 
-        <div className="min-w-0  bg-[#040a16] px-0 py-0">
+        <div className="min-w-0 bg-[#040a16] px-0 py-0">
           <div className="space-y-0">
             <SearchMapPanel
               currentLocation={currentLocation}
               selectedTrain={selectedTrain}
               boardingPoint={boardingPoint}
+              destinationPoint={destinationPoint}
               routePoints={routePoints}
+              trainRoutePoints={trainRoutePoints}
               routing={routing}
             />
 

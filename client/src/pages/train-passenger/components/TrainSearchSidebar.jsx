@@ -8,6 +8,8 @@ export default function TrainSearchSidebar({
   onUseMyLocation,
   stations,
   loadingStations,
+  fromStationId,
+  onFromChange,
   destinationStationId,
   onDestinationChange,
   day,
@@ -39,6 +41,8 @@ export default function TrainSearchSidebar({
         <PlanJourneySection
           stations={stations}
           loadingStations={loadingStations}
+          fromStationId={fromStationId}
+          onFromChange={onFromChange}
           destinationStationId={destinationStationId}
           onDestinationChange={onDestinationChange}
           day={day}

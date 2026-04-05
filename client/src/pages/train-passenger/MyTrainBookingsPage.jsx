@@ -1,13 +1,20 @@
-import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { ReceiptText, TrainFront, RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
-import BookingCard from "../../components/train/BookingCard";
 import {
   getMyTrainBookings,
   cancelMyTrainBooking,
   verifyTrainStripePayment,
 } from "../../lib/trainPassengerApi";
+
+import BookingsHeroSection from "./components/bookings/BookingsHeroSection";
+import BookingsStatsGrid from "./components/bookings/BookingsStatsGrid";
+import BookingsStatusBanner from "./components/bookings/BookingsStatusBanner";
+import BookingsJourneyList from "./components/bookings/BookingsJourneyList";
+import {
+  getActiveTickets,
+  getMilesTravelled,
+} from "./components/bookings/bookings.utils";
 
 export default function MyTrainBookingsPage() {
   const [searchParams] = useSearchParams();
@@ -67,9 +74,7 @@ export default function MyTrainBookingsPage() {
     const id = booking?._id;
     if (!id) return;
 
-    const ok = window.confirm(
-      "Are you sure you want to cancel this booking?"
-    );
+    const ok = window.confirm("Are you sure you want to cancel this booking?");
     if (!ok) return;
 
     setCancellingId(id);
@@ -110,83 +115,53 @@ export default function MyTrainBookingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const totalJourneys = bookings.length;
+
+  const activeTickets = useMemo(() => getActiveTickets(bookings), [bookings]);
+  const milesTravelled = useMemo(() => getMilesTravelled(bookings), [bookings]);
+
   return (
-    <div className="grid gap-6">
-      <section className="rounded-3xl border border-zinc-800 bg-zinc-950/30 p-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-zinc-950">
-              <ReceiptText className="h-6 w-6" />
-            </div>
+  <div className="mx-auto w-full max-w-[1500px] px-6 py-2 md:px-8 xl:px-10">
+  <div className="grid gap-5">
+      <BookingsHeroSection onRefresh={handleRefresh} busy={loading || verifying} />
 
-            <div>
-              <h1 className="text-2xl font-semibold">My train bookings</h1>
-              <p className="mt-2 max-w-2xl text-sm text-zinc-400">
-                View your bookings, verify Stripe payments, and manage unpaid reservations.
-              </p>
-            </div>
-          </div>
+      <BookingsStatsGrid
+        totalJourneys={totalJourneys}
+        activeTickets={activeTickets}
+        milesTravelled={milesTravelled}
+      />
 
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={loading || verifying}
-              className="inline-flex items-center rounded-2xl border border-zinc-800 px-4 py-2 hover:bg-zinc-900 disabled:opacity-60"
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </button>
+      {verifying ? (
+        <BookingsStatusBanner
+          variant="info"
+          title="Verifying Payment"
+          message="We are checking your Stripe payment and updating the latest booking state."
+        />
+      ) : null}
 
-            <Link
-              to="/train-service"
-              className="inline-flex items-center rounded-2xl border border-zinc-800 px-4 py-2 hover:bg-zinc-900"
-            >
-              <TrainFront className="mr-2 h-4 w-4" />
-              Back to train search
-            </Link>
-          </div>
-        </div>
+      {message ? (
+        <BookingsStatusBanner
+          variant="success"
+          title="Payment Successful"
+          message={message}
+        />
+      ) : null}
 
-        {verifying ? (
-          <div className="mt-6 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-sm text-blue-200">
-            Verifying Stripe payment...
-          </div>
-        ) : null}
+      {error ? (
+        <BookingsStatusBanner
+          variant="error"
+          title="Something went wrong"
+          message={error}
+        />
+      ) : null}
 
-        {message ? (
-          <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200">
-            {message}
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-            {error}
-          </div>
-        ) : null}
-      </section>
-
-      <section className="grid gap-4">
-        {loading ? (
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-950/30 p-6 text-sm text-zinc-400">
-            Loading your bookings...
-          </div>
-        ) : bookings.length === 0 ? (
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-950/30 p-6 text-sm text-zinc-400">
-            No train bookings found yet.
-          </div>
-        ) : (
-          bookings.map((booking) => (
-            <BookingCard
-              key={booking._id}
-              booking={booking}
-              onCancel={handleCancel}
-              cancelling={cancellingId === booking._id}
-            />
-          ))
-        )}
-      </section>
+      <BookingsJourneyList
+        bookings={bookings}
+        loading={loading}
+        cancellingId={cancellingId}
+        onCancel={handleCancel}
+      />
     </div>
-  );
+  </div>
+);
 }

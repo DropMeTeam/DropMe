@@ -301,12 +301,16 @@ export default function TrainCheckoutPage() {
   }
 
   if (loading) {
-    return <div className="p-6 text-sm text-zinc-400">Loading booking form...</div>;
+    return (
+      <div className="w-full rounded-[28px] border border-white/10 bg-[#0b0f17] px-5 py-6 text-sm text-zinc-400">
+        Loading booking form...
+      </div>
+    );
   }
 
   if (error && !schedule) {
     return (
-      <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-6 text-red-200">
+      <div className="w-full rounded-[28px] border border-red-500/30 bg-red-500/10 px-5 py-6 text-red-200">
         {error}
       </div>
     );
@@ -314,79 +318,83 @@ export default function TrainCheckoutPage() {
 
   if (!schedule) {
     return (
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-950/30 p-6 text-zinc-400">
+      <div className="w-full rounded-[28px] border border-zinc-800 bg-zinc-950/30 px-5 py-6 text-zinc-400">
         Schedule not found.
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <CheckoutHeaderBar
-        title="Complete Booking"
-        searchPath={SEARCH_PAGE_PATH}
-        onBookingsClick={() => navigate("/train-service/bookings")}
-      />
-
-      {error ? (
-        <div className="rounded-[28px] border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-200">
-          {error}
-        </div>
-      ) : null}
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-6">
-          <CheckoutRouteCard
-            trainName={schedule.trainName}
-            trainNo={schedule.trainNo}
-            boardingName={boardingStation?.name || ""}
-            destinationName={destinationStation?.name || ""}
-            departureTime={boardingStation?.departureTime || ""}
-            arrivalTime={destinationStation?.arrivalTime || ""}
-          />
-
-          <CheckoutMetricsGrid
-            trainName={schedule.trainName || schedule.trainNo || "-"}
-            trainNo={schedule.trainNo || "-"}
-            segmentCount={segmentCount}
-            journeyDistanceKm={journeyDistanceKm}
-            journeyDurationLabel={journeyDurationLabel}
-          />
-
-          <CheckoutPreferencesSection
-            stopOptions={stopOptions}
-            validDestinationOptions={validDestinationOptions}
-            boardingStationId={boardingStationId}
-            onBoardingChange={setBoardingStationId}
-            destinationStationId={destinationStationId}
-            onDestinationChange={setDestinationStationId}
-            travelDate={travelDate}
-            onTravelDateChange={setTravelDate}
-            seats={seats}
-            onSeatsChange={setSeats}
-            minDate={todayLocalDate()}
-            minPaymentLkr={MIN_TRAIN_PAYMENT_LKR}
-            submitting={submitting}
-            boardingIndex={boardingIndex}
-          />
-        </div>
-
-        <CheckoutInvoiceSidebar
-          trainName={schedule.trainName || "Train service"}
-          trainNo={schedule.trainNo || ""}
-          boardingName={boardingStation?.name || ""}
-          destinationName={destinationStation?.name || ""}
-          departureTime={boardingStation?.departureTime || ""}
-          arrivalTime={destinationStation?.arrivalTime || ""}
-          travelDate={travelDate}
-          seats={seats}
-          farePerSeat={estimatedFarePerSeat}
-          totalFareLkr={totalFareLkr}
-          canSubmit={canSubmit}
-          submitting={submitting}
-          cancelPath={SEARCH_PAGE_PATH}
+    <div className="w-full">
+      <form onSubmit={handleSubmit} className="w-full space-y-5">
+        <CheckoutHeaderBar
+          title="Complete Booking"
+          searchPath={SEARCH_PAGE_PATH}
+          onBookingsClick={() => navigate("/train-service/bookings")}
         />
-      </div>
-    </form>
+
+        {error ? (
+          <div className="rounded-[24px] border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-200">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="min-w-0 space-y-5">
+            <CheckoutRouteCard
+              trainName={schedule.trainName}
+              trainNo={schedule.trainNo}
+              boardingName={boardingStation?.name || ""}
+              destinationName={destinationStation?.name || ""}
+              departureTime={boardingStation?.departureTime || ""}
+              arrivalTime={destinationStation?.arrivalTime || ""}
+            />
+
+            <CheckoutMetricsGrid
+              trainName={schedule.trainName || schedule.trainNo || "-"}
+              trainNo={schedule.trainNo || "-"}
+              segmentCount={segmentCount}
+              journeyDistanceKm={journeyDistanceKm}
+              journeyDurationLabel={journeyDurationLabel}
+            />
+
+            <CheckoutPreferencesSection
+              stopOptions={stopOptions}
+              validDestinationOptions={validDestinationOptions}
+              boardingStationId={boardingStationId}
+              onBoardingChange={setBoardingStationId}
+              destinationStationId={destinationStationId}
+              onDestinationChange={setDestinationStationId}
+              travelDate={travelDate}
+              onTravelDateChange={setTravelDate}
+              seats={seats}
+              onSeatsChange={setSeats}
+              minDate={todayLocalDate()}
+              minPaymentLkr={MIN_TRAIN_PAYMENT_LKR}
+              submitting={submitting}
+              boardingIndex={boardingIndex}
+            />
+          </div>
+
+          <div className="min-w-0">
+            <CheckoutInvoiceSidebar
+              trainName={schedule.trainName || "Train service"}
+              trainNo={schedule.trainNo || ""}
+              boardingName={boardingStation?.name || ""}
+              destinationName={destinationStation?.name || ""}
+              departureTime={boardingStation?.departureTime || ""}
+              arrivalTime={destinationStation?.arrivalTime || ""}
+              travelDate={travelDate}
+              seats={seats}
+              farePerSeat={estimatedFarePerSeat}
+              totalFareLkr={totalFareLkr}
+              canSubmit={canSubmit}
+              submitting={submitting}
+              cancelPath={SEARCH_PAGE_PATH}
+            />
+          </div>
+        </div>
+      </form>
+    </div>
   );
 }

@@ -1,3 +1,6 @@
+import { ArrowRight, LockKeyhole, ShieldCheck, TrainFront } from "lucide-react";
+import checkoutHeroImage from "./assets/checkout-hero.png";
+
 function formatTime12(time, fallback = "--") {
   if (!time || typeof time !== "string" || !time.includes(":")) return fallback;
 
@@ -20,58 +23,87 @@ export default function CheckoutRouteCard({
   destinationName,
   departureTime,
   arrivalTime,
+  segmentCount,
 }) {
+  const segmentLabel = `${segmentCount || 0} ${(segmentCount || 0) === 1 ? "segment" : "segments"}`;
+
   return (
-    <section className="rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top,#171c27_0%,#0e1117_60%,#090b10_100%)] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.35)]">
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <div>
-          <div className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-            Selected Train
+    <section className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[#0b1220] p-5 shadow-[0_20px_70px_rgba(0,0,0,0.28)] sm:p-6">
+  <div
+    className="absolute inset-0 bg-cover bg-center opacity-100"
+    style={{
+      backgroundImage: `url(${checkoutHeroImage})`,
+      // brighter and more colorful than before
+      filter: "saturate(1.2) contrast(1.04) brightness(1.08)",
+    }}
+  />
+
+  {/* softer dark overlay so image is still visible */}
+  <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(6,10,18,0.68)_0%,rgba(6,10,18,0.38)_48%,rgba(6,10,18,0.62)_100%)]" />
+
+  {/* blue glow layer without killing image colors */}
+  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(14,165,233,0.22),transparent_30%),linear-gradient(180deg,rgba(2,6,23,0.06),rgba(2,6,23,0.22))]" />
+
+  <div className="relative z-10 flex h-full flex-col gap-6">  <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.18em]">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/25 bg-cyan-400/12 px-3 py-1.5 text-cyan-300">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Route Confirmed
+            </span>
+            <span className="text-zinc-300/90">Booking Ref: #{trainNo || "TRAIN"}</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-zinc-300">
+              {segmentLabel}
+            </span>
           </div>
-          <div className="mt-2 text-xl font-semibold text-white">
+
+          <div className="rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-xs font-medium text-zinc-200 backdrop-blur-md">
             {trainName || "Train service"}
           </div>
-          <div className="mt-1 text-sm text-cyan-300">{trainNo || "-"}</div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
-        <div className="rounded-[24px] bg-black/35 p-5 shadow-[0_10px_40px_rgba(0,0,0,0.35)]">
-          <div className="text-xs uppercase tracking-[0.22em] text-zinc-500">
-            From
-          </div>
-         <div className="mt-3 text-2xl font-bold leading-tight text-white">
-  {boardingName || "Boarding station"}
-</div>
-<div className="mt-2 text-lg font-medium text-cyan-300">
-  {formatTime12(departureTime)}
-</div>
-<div className="mt-1 text-sm text-zinc-500">
-  Departure
-</div>
         </div>
 
-        <div className="flex items-center justify-center">
-          <div className="h-px w-10 bg-white/10 md:w-16" />
-          <div className="mx-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.2em] text-zinc-400">
-            Route
+        <div className="grid gap-5 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-400">
+              Departure
+            </div>
+            <div className="mt-2 flex items-end gap-3">
+              <div className="text-4xl font-bold leading-none tracking-tight text-white sm:text-5xl">
+                {formatTime12(departureTime)}
+              </div>
+            </div>
+            <div className="mt-3 text-2xl font-semibold tracking-tight text-white">
+              {boardingName || "Boarding station"}
+            </div>
+            <div className="mt-1 text-sm text-zinc-400">Selected origin locked for checkout</div>
           </div>
-          <div className="h-px w-10 bg-white/10 md:w-16" />
-        </div>
 
-        <div className="rounded-[24px] bg-black/35 p-5 shadow-[0_10px_40px_rgba(0,0,0,0.35)]">
-          <div className="text-xs uppercase tracking-[0.22em] text-zinc-500">
-            To
+          <div className="flex items-center justify-center gap-3 lg:flex-col">
+            <div className="hidden h-px w-20 bg-gradient-to-r from-transparent via-cyan-400/45 to-transparent lg:block" />
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-[20px] border border-cyan-400/20 bg-black/25 backdrop-blur-md shadow-[0_0_22px_rgba(14,165,233,0.22)]">
+              <div className="relative">
+                <LockKeyhole className="h-5 w-5 text-cyan-300" />
+                <TrainFront className="absolute -right-4 top-5 h-3.5 w-3.5 text-cyan-400" />
+              </div>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300 backdrop-blur-md">
+              Locked Route
+              <ArrowRight className="h-3.5 w-3.5 text-cyan-300" />
+            </div>
+            <div className="hidden h-px w-20 bg-gradient-to-r from-transparent via-cyan-400/45 to-transparent lg:block" />
           </div>
-          <div className="mt-3 text-2xl font-bold leading-tight text-white">
-  {destinationName || "Destination station"}
-</div>
-<div className="mt-2 text-lg font-medium text-cyan-300">
-  {formatTime12(arrivalTime)}
-</div>
-<div className="mt-1 text-sm text-zinc-500">
-  Arrival
-</div>
+
+          <div className="min-w-0 text-left lg:text-right">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-400">
+              Arrival
+            </div>
+            <div className="mt-2 text-4xl font-bold leading-none tracking-tight text-white sm:text-5xl">
+              {formatTime12(arrivalTime)}
+            </div>
+            <div className="mt-3 text-2xl font-semibold tracking-tight text-white">
+              {destinationName || "Destination station"}
+            </div>
+            <div className="mt-1 text-sm text-zinc-400">Selected destination locked for checkout</div>
+          </div>
         </div>
       </div>
     </section>

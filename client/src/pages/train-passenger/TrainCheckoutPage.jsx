@@ -1,19 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ChevronLeft, CreditCard, Loader2 } from "lucide-react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import StationPicker from "../../components/train/StationPicker";
-import SeatSelector from "../../components/train/SeatSelector";
-import JourneySummaryCard from "../../components/train/JourneySummaryCard";
 import {
   createTrainBooking,
   createTrainStripeSession,
   getTrainScheduleDetails,
 } from "../../lib/trainPassengerApi";
 
-// Keep client-side amount aligned with backend.
-// This avoids creating a booking that Stripe will reject immediately.
+import CheckoutHeaderBar from "./components/checkout/CheckoutHeaderBar";
+import CheckoutRouteCard from "./components/checkout/CheckoutRouteCard";
+import CheckoutMetricsGrid from "./components/checkout/CheckoutMetricsGrid";
+import CheckoutPreferencesSection from "./components/checkout/CheckoutPreferencesSection";
+import CheckoutInvoiceSidebar from "./components/checkout/CheckoutInvoiceSidebar";
+
 const MIN_TRAIN_PAYMENT_LKR = 200;
+
+// Change this if your actual search page route is different.
+const SEARCH_PAGE_PATH = "/train-service/search";
 
 function todayLocalDate() {
   const now = new Date();
@@ -40,9 +43,7 @@ function diffMinutes(start, end) {
   let s = hhmmToMinutes(start);
   let e = hhmmToMinutes(end);
 
-  if (e < s) {
-    e += 24 * 60;
-  }
+  if (e < s) e += 24 * 60;
 
   return Math.max(0, e - s);
 }
@@ -230,7 +231,6 @@ export default function TrainCheckoutPage() {
     return Math.max(100, segmentCount * 120);
   }, [schedule, stopOptions.length, segmentCount]);
 
-  // Enforce minimum total booking amount so Stripe won't reject tiny payments.
   const totalFareLkr = useMemo(() => {
     const computedTotal = estimatedFarePerSeat * safeNumber(seats, 1);
     return Math.max(MIN_TRAIN_PAYMENT_LKR, computedTotal);
@@ -321,192 +321,72 @@ export default function TrainCheckoutPage() {
   }
 
   return (
-    <div className="grid gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          to={`/train-service/${id}${day ? `?day=${day}` : ""}`}
-          className="inline-flex items-center rounded-2xl border border-zinc-800 px-4 py-2 hover:bg-zinc-900"
-        >
-          <ChevronLeft className="mr-2 h-4 w-4" />
-          Back to schedule
-        </Link>
-
-        <button
-          type="button"
-          onClick={() => navigate("/train-service/bookings")}
-          className="inline-flex items-center rounded-2xl border border-zinc-800 px-4 py-2 hover:bg-zinc-900"
-        >
-          My bookings
-        </button>
-      </div>
-
-      <section className="rounded-3xl border border-zinc-800 bg-zinc-950/30 p-6">
-        <h1 className="text-2xl font-semibold">Train booking form</h1>
-        <p className="mt-2 text-sm text-zinc-400">
-          Select your boarding station, destination, date, and seats, then continue to Stripe payment.
-        </p>
-
-        {error ? (
-          <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-            {error}
-          </div>
-        ) : null}
-      </section>
-
-      <JourneySummaryCard
-        trainName={schedule.trainName}
-        trainNo={schedule.trainNo}
-        boardingName={boardingStation?.name || ""}
-        destinationName={destinationStation?.name || ""}
-        travelDate={travelDate}
-        seats={seats}
-        totalFareLkr={totalFareLkr}
-        departureTime={boardingStation?.departureTime || ""}
-        arrivalTime={destinationStation?.arrivalTime || ""}
-        durationLabel={journeyDurationLabel || ""}
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <CheckoutHeaderBar
+        title="Complete Booking"
+        searchPath={SEARCH_PAGE_PATH}
+        onBookingsClick={() => navigate("/train-service/bookings")}
       />
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-          <div className="text-xs text-zinc-500">Journey distance</div>
-          <div className="mt-1 text-lg font-semibold">
-            {journeyDistanceKm.toFixed(2)} km
-          </div>
-          <div className="text-sm text-zinc-400">
-            Estimated selected segment distance
-          </div>
+      {error ? (
+        <div className="rounded-[28px] border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-200">
+          {error}
         </div>
+      ) : null}
 
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-          <div className="text-xs text-zinc-500">Journey time</div>
-          <div className="mt-1 text-lg font-semibold">
-            {journeyDurationLabel || "-"}
-          </div>
-          <div className="text-sm text-zinc-400">
-            From selected departure to arrival
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-          <div className="text-xs text-zinc-500">Stored in booking</div>
-          <div className="mt-1 text-lg font-semibold">Yes</div>
-          <div className="text-sm text-zinc-400">
-            Sent in journeySnapshot on checkout
-          </div>
-        </div>
-      </section>
-
-      <form
-        onSubmit={handleSubmit}
-        className="grid gap-6 rounded-3xl border border-zinc-800 bg-zinc-950/30 p-6"
-      >
-        <div className="grid gap-4 md:grid-cols-2">
-          <StationPicker
-            label="Boarding station"
-            value={boardingStationId}
-            onChange={setBoardingStationId}
-            options={stopOptions}
-            placeholder="Select boarding station"
-            disabled={submitting}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-6">
+          <CheckoutRouteCard
+            trainName={schedule.trainName}
+            trainNo={schedule.trainNo}
+            boardingName={boardingStation?.name || ""}
+            destinationName={destinationStation?.name || ""}
+            departureTime={boardingStation?.departureTime || ""}
+            arrivalTime={destinationStation?.arrivalTime || ""}
           />
 
-          <StationPicker
-            label="Destination station"
-            value={destinationStationId}
-            onChange={setDestinationStationId}
-            options={validDestinationOptions}
-            placeholder="Select destination station"
-            disabled={submitting || boardingIndex < 0}
+          <CheckoutMetricsGrid
+            trainName={schedule.trainName || schedule.trainNo || "-"}
+            trainNo={schedule.trainNo || "-"}
+            segmentCount={segmentCount}
+            journeyDistanceKm={journeyDistanceKm}
+            journeyDurationLabel={journeyDurationLabel}
+          />
+
+          <CheckoutPreferencesSection
+            stopOptions={stopOptions}
+            validDestinationOptions={validDestinationOptions}
+            boardingStationId={boardingStationId}
+            onBoardingChange={setBoardingStationId}
+            destinationStationId={destinationStationId}
+            onDestinationChange={setDestinationStationId}
+            travelDate={travelDate}
+            onTravelDateChange={setTravelDate}
+            seats={seats}
+            onSeatsChange={setSeats}
+            minDate={todayLocalDate()}
+            minPaymentLkr={MIN_TRAIN_PAYMENT_LKR}
+            submitting={submitting}
+            boardingIndex={boardingIndex}
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="mb-2 block text-sm text-zinc-300">Travel date</label>
-            <input
-              type="date"
-              value={travelDate}
-              min={todayLocalDate()}
-              onChange={(e) => setTravelDate(e.target.value)}
-              disabled={submitting}
-              className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-white outline-none focus:border-white/30"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm text-zinc-300">Seats</label>
-            <SeatSelector
-              value={seats}
-              onChange={setSeats}
-              min={1}
-              max={6}
-              disabled={submitting}
-            />
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-5">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-            <div className="text-xs text-zinc-500">Train</div>
-            <div className="mt-1 font-medium">
-              {schedule.trainName || schedule.trainNo || "-"}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-            <div className="text-xs text-zinc-500">Segments</div>
-            <div className="mt-1 font-medium">{segmentCount}</div>
-          </div>
-
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-            <div className="text-xs text-zinc-500">Distance</div>
-            <div className="mt-1 font-medium">{journeyDistanceKm.toFixed(2)} km</div>
-          </div>
-
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-            <div className="text-xs text-zinc-500">Fare / seat</div>
-            <div className="mt-1 font-medium">LKR {estimatedFarePerSeat.toFixed(2)}</div>
-          </div>
-
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-            <div className="text-xs text-zinc-500">Total</div>
-            <div className="mt-1 font-medium">LKR {totalFareLkr.toFixed(2)}</div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-          A Stripe-safe minimum total of
-          <span className="mx-1 font-semibold">LKR {MIN_TRAIN_PAYMENT_LKR}</span>
-          is applied for very small bookings so checkout is not rejected.
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="submit"
-            disabled={!canSubmit || submitting}
-            className="inline-flex items-center rounded-2xl bg-white px-5 py-3 font-medium text-zinc-950 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Redirecting to Stripe...
-              </>
-            ) : (
-              <>
-                <CreditCard className="mr-2 h-4 w-4" />
-                Book now and pay
-              </>
-            )}
-          </button>
-
-          <Link
-            to={`/train-service/${id}${day ? `?day=${day}` : ""}`}
-            className="inline-flex items-center rounded-2xl border border-zinc-800 px-5 py-3 hover:bg-zinc-900"
-          >
-            Cancel
-          </Link>
-        </div>
-      </form>
-    </div>
+        <CheckoutInvoiceSidebar
+          trainName={schedule.trainName || "Train service"}
+          trainNo={schedule.trainNo || ""}
+          boardingName={boardingStation?.name || ""}
+          destinationName={destinationStation?.name || ""}
+          departureTime={boardingStation?.departureTime || ""}
+          arrivalTime={destinationStation?.arrivalTime || ""}
+          travelDate={travelDate}
+          seats={seats}
+          farePerSeat={estimatedFarePerSeat}
+          totalFareLkr={totalFareLkr}
+          canSubmit={canSubmit}
+          submitting={submitting}
+          cancelPath={SEARCH_PAGE_PATH}
+        />
+      </div>
+    </form>
   );
 }

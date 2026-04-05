@@ -1,7 +1,7 @@
 import { Route } from "lucide-react";
 import TrainStopTimelineCard from "./TrainStopTimelineCard";
 
-export default function TrainStopsTimelineSection({ stops }) {
+export default function TrainStopsTimelineSection({ stops, segments = [] }) {
   return (
     <section className="rounded-[32px] border border-white/8 bg-[linear-gradient(180deg,rgba(4,16,40,0.92),rgba(5,13,33,0.98))] p-5 shadow-[0_18px_60px_rgba(2,8,23,0.42)] md:p-7">
       <div className="mb-7 flex items-start gap-4">
@@ -16,14 +16,28 @@ export default function TrainStopsTimelineSection({ stops }) {
       </div>
 
       <div className="space-y-5">
-        {stops.map((stop, index) => (
-          <TrainStopTimelineCard
-            key={`${stop.order}-${stop.station?._id || stop.station?.name || "x"}`}
-            stop={stop}
-            index={index}
-            totalStops={stops.length}
-          />
-        ))}
+        {stops.map((stop, index) => {
+          const nextStop = stops[index + 1];
+          const segment = nextStop
+            ? segments.find(
+                (seg) =>
+                  String(seg.fromStationId?._id || seg.fromStationId) ===
+                    String(stop.station?._id || stop.stationId) &&
+                  String(seg.toStationId?._id || seg.toStationId) ===
+                    String(nextStop.station?._id || nextStop.stationId)
+              )
+            : null;
+
+          return (
+            <TrainStopTimelineCard
+              key={`${stop.order}-${stop.station?._id || stop.station?.name || "x"}`}
+              stop={stop}
+              index={index}
+              totalStops={stops.length}
+              nextSegmentFare={segment?.fareLkr}
+            />
+          );
+        })}
       </div>
     </section>
   );

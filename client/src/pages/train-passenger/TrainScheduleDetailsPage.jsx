@@ -110,7 +110,10 @@ export default function TrainScheduleDetailsPage() {
 
       <TrainScheduleActions id={id} day={activeDay} />
 
-      <TrainStopsTimelineSection stops={schedule.stops || []} />
+      <TrainStopsTimelineSection
+        stops={schedule.stops || []}
+        segments={schedule.segments || []}
+      />
     </div>
   );
 }

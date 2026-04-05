@@ -1,6 +1,7 @@
 import { TrainSchedule } from "../models/TrainSchedule.js";
 import { TrainBooking } from "../models/TrainBooking.js";
 import { HttpError } from "../../../utils/httpError.js";
+import { calculateJourneyFare } from "../utils/trainFare.js";
 
 // Keep backend booking creation aligned with Stripe minimum.
 const MIN_TRAIN_PAYMENT_LKR = Number(process.env.MIN_TRAIN_PAYMENT_LKR || 200);
@@ -63,18 +64,21 @@ export async function createTrainBookingCheckout(req, res, next) {
       throw new HttpError(400, "seats must be a positive integer");
     }
 
-    const fare = Number(totalFareLkr);
-    if (!Number.isFinite(fare) || fare < MIN_TRAIN_PAYMENT_LKR) {
-      throw new HttpError(
-        400,
-        `totalFareLkr must be at least LKR ${MIN_TRAIN_PAYMENT_LKR}`
-      );
-    }
-
     const schedule = await TrainSchedule.findById(scheduleId).lean();
     if (!schedule) {
       throw new HttpError(404, "Train schedule not found");
     }
+
+    // Recalculate fare on server
+    const travelDay = getTravelDay(travelDate);
+    const { farePerSeatLkr } = calculateJourneyFare(
+      schedule,
+      boardingStationId,
+      destinationStationId,
+      travelDay
+    );
+
+    const serverTotalFare = farePerSeatLkr * seatCount;
 
     const booking = await TrainBooking.create({
       scheduleId,
@@ -89,9 +93,9 @@ export async function createTrainBookingCheckout(req, res, next) {
       destinationStationId,
       destinationStationName,
       travelDate,
-      travelDay: getTravelDay(travelDate),
+      travelDay,
       seats: seatCount,
-      totalFareLkr: fare,
+      totalFareLkr: serverTotalFare,
       bookingStatus: "pending_payment",
       paymentStatus: "pending",
       stripeSessionId: "",
@@ -102,8 +106,13 @@ export async function createTrainBookingCheckout(req, res, next) {
         departureTime: journeySnapshot.departureTime || "",
         arrivalTime: journeySnapshot.arrivalTime || "",
         durationLabel: journeySnapshot.durationLabel || "",
-        durationMinutes: toSafeNonNegativeNumber(journeySnapshot.durationMinutes, 0),
+        durationMinutes: toSafeNonNegativeNumber(
+          journeySnapshot.durationMinutes,
+          0
+        ),
         distanceKm: toSafeNonNegativeNumber(journeySnapshot.distanceKm, 0),
+        farePerSeatLkr,
+        fareBreakdownTotalLkr: serverTotalFare,
       },
     });
 

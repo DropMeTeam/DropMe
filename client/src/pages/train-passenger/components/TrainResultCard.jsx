@@ -109,6 +109,16 @@ export default function TrainResultCard({ train, active, onSelect }) {
 
         <div className="text-right">
           <div className="text-xs uppercase tracking-[0.12em] text-zinc-500">
+            Fare
+          </div>
+          <div className="mt-1 text-lg font-bold text-white">
+            LKR {train?.farePerSeatLkr ?? "--"}
+          </div>
+          <div className="text-[10px] text-zinc-500">per seat</div>
+        </div>
+
+        <div className="text-right">
+          <div className="text-xs uppercase tracking-[0.12em] text-zinc-500">
             Status
           </div>
           <div className="mt-1 text-sm font-medium text-cyan-300">

@@ -112,7 +112,14 @@ export default function BookingJourneyCard({ booking, onCancel, cancelling = fal
               </div>
             </div>
 
-            
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+                Fare
+              </div>
+              <div className="mt-2 text-sm font-semibold text-white">
+                LKR {booking?.totalFareLkr || "--"}
+              </div>
+            </div>
           </div>
         </div>
       </div>

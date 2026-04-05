@@ -184,6 +184,8 @@ async function computeSegments(stops) {
 function applyTimetablePopulate(q) {
   return q
     .populate("stops.stationId", "name location")
+    .populate("segments.fromStationId", "name")
+    .populate("segments.toStationId", "name")
     .populate("weeklyTimetable.Mon.stationId", "name location")
     .populate("weeklyTimetable.Tue.stationId", "name location")
     .populate("weeklyTimetable.Wed.stationId", "name location")
@@ -232,11 +234,20 @@ export async function getSchedule(req, res, next) {
  * - basic schedule fields
  * - stops validation
  * - automatic route segment calculation
+ * - segment fares validation
  * - optional weeklyTimetable validation
  */
 export async function createSchedule(req, res, next) {
   try {
-    const { trainName, trainNo, seatCapacity, stops, active, weeklyTimetable } = req.body;
+    const {
+      trainName,
+      trainNo,
+      seatCapacity,
+      stops,
+      active,
+      weeklyTimetable,
+      segmentFares,
+    } = req.body;
 
     if (!trainNo) {
       throw new HttpError(400, "trainNo is required");
@@ -250,6 +261,23 @@ export async function createSchedule(req, res, next) {
     // Validate and compute route data
     validateStops(stops);
     const { segments, totalDistanceKm } = await computeSegments(stops);
+
+    // Validate segment fares
+    if (!Array.isArray(segmentFares) || segmentFares.length !== segments.length) {
+      throw new HttpError(
+        400,
+        `Exactly ${segments.length} segment fares are required`
+      );
+    }
+
+    // Merge fares into segments
+    for (let i = 0; i < segments.length; i++) {
+      const fare = Number(segmentFares[i]);
+      if (!Number.isFinite(fare) || fare < 0) {
+        throw new HttpError(400, `Invalid fare for segment ${i + 1}`);
+      }
+      segments[i].fareLkr = fare;
+    }
 
     // Validate timetable only if sent
     if (weeklyTimetable !== undefined) {
@@ -281,6 +309,7 @@ export async function createSchedule(req, res, next) {
  * - Allows partial updates
  * - Can update only weeklyTimetable without sending other fields
  * - Recalculates segments only if stops are changed
+ * - Updates fares if segmentFares is provided
  */
 export async function updateSchedule(req, res, next) {
   try {
@@ -290,7 +319,15 @@ export async function updateSchedule(req, res, next) {
       throw new HttpError(404, "Schedule not found");
     }
 
-    const { trainName, trainNo, seatCapacity, stops, active, weeklyTimetable } = req.body;
+    const {
+      trainName,
+      trainNo,
+      seatCapacity,
+      stops,
+      active,
+      weeklyTimetable,
+      segmentFares,
+    } = req.body;
 
     // Allow updating only provided fields
     if (trainNo !== undefined) doc.trainNo = String(trainNo).trim();
@@ -314,9 +351,47 @@ export async function updateSchedule(req, res, next) {
 
       const { segments, totalDistanceKm } = await computeSegments(stops);
 
+      // If stops change, we MUST have new fares or we can't save safely
+      if (!Array.isArray(segmentFares) || segmentFares.length !== segments.length) {
+        throw new HttpError(
+          400,
+          `Stops changed. Exactly ${segments.length} segment fares are required`
+        );
+      }
+
+      // Merge fares
+      for (let i = 0; i < segments.length; i++) {
+        const fare = Number(segmentFares[i]);
+        if (!Number.isFinite(fare) || fare < 0) {
+          throw new HttpError(400, `Invalid fare for segment ${i + 1}`);
+        }
+        segments[i].fareLkr = fare;
+      }
+
       doc.stops = stops;
       doc.segments = segments;
       doc.totalDistanceKm = totalDistanceKm;
+    } else if (segmentFares !== undefined) {
+      // If only fares are changed, update existing segments
+      if (
+        !Array.isArray(segmentFares) ||
+        segmentFares.length !== doc.segments.length
+      ) {
+        throw new HttpError(
+          400,
+          `Exactly ${doc.segments.length} segment fares are required`
+        );
+      }
+
+      for (let i = 0; i < doc.segments.length; i++) {
+        const fare = Number(segmentFares[i]);
+        if (!Number.isFinite(fare) || fare < 0) {
+          throw new HttpError(400, `Invalid fare for segment ${i + 1}`);
+        }
+        doc.segments[i].fareLkr = fare;
+      }
+      // Force Mongoose to see the array change
+      doc.markModified("segments");
     }
 
     // If weeklyTimetable is sent, validate and save it

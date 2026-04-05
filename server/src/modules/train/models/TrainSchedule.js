@@ -15,6 +15,7 @@ const SegmentSchema = new mongoose.Schema(
     fromStationId: { type: mongoose.Schema.Types.ObjectId, ref: "Station", required: true },
     toStationId: { type: mongoose.Schema.Types.ObjectId, ref: "Station", required: true },
     distanceKm: { type: Number, required: true },
+    fareLkr: { type: Number, required: true, min: 0, default: 0 },
   },
   { _id: false }
 );

@@ -6,7 +6,7 @@ import {
   getStopIndicatorClasses,
 } from "./trainScheduleDetails.utils";
 
-export default function TrainStopTimelineCard({ stop, index, totalStops }) {
+export default function TrainStopTimelineCard({ stop, index, totalStops, nextSegmentFare }) {
   const badge = getStopBadge(index, totalStops);
   const indicatorClasses = getStopIndicatorClasses(index, totalStops);
 
@@ -14,7 +14,15 @@ export default function TrainStopTimelineCard({ stop, index, totalStops }) {
     <div className="grid grid-cols-[42px_minmax(0,1fr)] gap-4 md:gap-6">
       <div className="relative flex justify-center">
         {index !== totalStops - 1 ? (
-          <span className="absolute left-1/2 top-8 h-[calc(100%+1.8rem)] w-px -translate-x-1/2 bg-[linear-gradient(180deg,rgba(59,130,246,0.55),rgba(148,163,184,0.15))]" />
+          <div className="absolute left-1/2 top-8 flex h-[calc(100%+1.8rem)] w-px -translate-x-1/2 flex-col items-center bg-[linear-gradient(180deg,rgba(59,130,246,0.55),rgba(148,163,184,0.15))]">
+            {nextSegmentFare !== undefined && (
+              <div className="mt-4 -ml-0.5 flex flex-col items-center">
+                <span className="whitespace-nowrap rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold text-cyan-300 ring-1 ring-cyan-400/20">
+                  LKR {nextSegmentFare}
+                </span>
+              </div>
+            )}
+          </div>
         ) : null}
 
         <span

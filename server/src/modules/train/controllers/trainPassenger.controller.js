@@ -1,5 +1,6 @@
 import { TrainSchedule } from "../models/TrainSchedule.js";
 import { Station } from "../models/Station.js";
+import { calculateJourneyFare } from "../utils/trainFare.js";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -9,14 +10,16 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
  */
 function applyPassengerPopulate(query) {
   return query
-    .populate("stops.stationId", "name location active")
-    .populate("weeklyTimetable.Mon.stationId", "name location active")
-    .populate("weeklyTimetable.Tue.stationId", "name location active")
-    .populate("weeklyTimetable.Wed.stationId", "name location active")
-    .populate("weeklyTimetable.Thu.stationId", "name location active")
-    .populate("weeklyTimetable.Fri.stationId", "name location active")
-    .populate("weeklyTimetable.Sat.stationId", "name location active")
-    .populate("weeklyTimetable.Sun.stationId", "name location active");
+    .populate("stops.stationId", "name location isActive active")
+    .populate("segments.fromStationId", "name location isActive active")
+    .populate("segments.toStationId", "name location isActive active")
+    .populate("weeklyTimetable.Mon.stationId", "name location isActive active")
+    .populate("weeklyTimetable.Tue.stationId", "name location isActive active")
+    .populate("weeklyTimetable.Wed.stationId", "name location isActive active")
+    .populate("weeklyTimetable.Thu.stationId", "name location isActive active")
+    .populate("weeklyTimetable.Fri.stationId", "name location isActive active")
+    .populate("weeklyTimetable.Sat.stationId", "name location isActive active")
+    .populate("weeklyTimetable.Sun.stationId", "name location isActive active");
 }
 
 /**
@@ -202,6 +205,14 @@ export async function searchTrains(req, res, next) {
 
       const durationMinutes = buildJourneyDuration(fromRow, toRow);
 
+      // Calculate journey fare
+      const { farePerSeatLkr, segmentCount } = calculateJourneyFare(
+        schedule,
+        fromRow.stationId?._id || fromRow.stationId,
+        toRow.stationId?._id || toRow.stationId,
+        day
+      );
+
       results.push({
         _id: schedule._id,
         trainNo: schedule.trainNo,
@@ -210,6 +221,8 @@ export async function searchTrains(req, res, next) {
         totalDistanceKm: schedule.totalDistanceKm || 0,
         active: !!schedule.active,
         searchDay: day || null,
+        farePerSeatLkr,
+        fareBreakdownTotalLkr: farePerSeatLkr, // Same for single seat
         from: {
           station: {
             _id: fromRow.stationId?._id,
@@ -312,7 +325,9 @@ export async function listNearestStations(req, res, next) {
       return res.status(400).json({ message: "lat and lng are required numbers" });
     }
 
-    const stations = await Station.find({ active: true }).lean();
+    const stations = await Station.find({
+      $and: [{ isActive: { $ne: false } }, { active: { $ne: false } }],
+    }).lean();
 
     const nearest = stations
       .map((station) => {
@@ -357,7 +372,7 @@ export async function searchNearbyTrains(req, res, next) {
     const lng = Number(req.query.lng);
     const { to, toStationId, day } = req.query;
 
-    const candidateLimit = Math.max(1, Number(req.query.candidateLimit || 5));
+    const candidateLimit = Math.max(1, Number(req.query.candidateLimit || 15));
     const maxDistanceKm = req.query.maxDistanceKm
       ? Number(req.query.maxDistanceKm)
       : null;
@@ -378,7 +393,9 @@ export async function searchNearbyTrains(req, res, next) {
         .json({ message: `day must be one of: ${DAYS.join(", ")}` });
     }
 
-    const stations = await Station.find({ active: true }).lean();
+    const stations = await Station.find({
+      $and: [{ isActive: { $ne: false } }, { active: { $ne: false } }],
+    }).lean();
 
     const nearbyStations = stations
       .map((station) => {
@@ -410,74 +427,97 @@ export async function searchNearbyTrains(req, res, next) {
     const trains = [];
 
     for (const schedule of schedules) {
-      const rows = sortByOrder(resolveRowsForDay(schedule, day));
+      try {
+        const rows = sortByOrder(resolveRowsForDay(schedule, day));
 
-      const destinationIndex = rows.findIndex((row) =>
-        matchesStation(row, {
-          stationId: toStationId,
-          stationName: to,
-        })
-      );
-
-      if (destinationIndex === -1) continue;
-
-      const destinationRow = rows[destinationIndex];
-
-      // Find the nearest station to the user that this train actually serves
-      // before the destination.
-      let chosenCandidate = null;
-      let chosenBoardingIndex = -1;
-
-      for (const candidate of nearbyStations) {
-        const boardingIndex = rows.findIndex((row) =>
-          matchesStation(row, { stationId: candidate._id })
+        const destinationIndex = rows.findIndex((row) =>
+          matchesStation(row, {
+            stationId: toStationId,
+            stationName: to,
+          })
         );
 
-        if (boardingIndex !== -1 && boardingIndex < destinationIndex) {
-          chosenCandidate = candidate;
-          chosenBoardingIndex = boardingIndex;
-          break;
+        if (destinationIndex === -1) continue;
+
+        const destinationRow = rows[destinationIndex];
+
+        // Find the nearest station to the user that this train actually serves
+        // before the destination.
+        let chosenCandidate = null;
+        let chosenBoardingIndex = -1;
+
+        for (const candidate of nearbyStations) {
+          const boardingIndex = rows.findIndex((row) =>
+            matchesStation(row, { stationId: candidate._id })
+          );
+
+          if (boardingIndex !== -1 && boardingIndex < destinationIndex) {
+            chosenCandidate = candidate;
+            chosenBoardingIndex = boardingIndex;
+            break;
+          }
         }
+
+        if (!chosenCandidate || chosenBoardingIndex === -1) continue;
+
+        const boardingRow = rows[chosenBoardingIndex];
+        const durationMinutes = buildJourneyDuration(
+          boardingRow,
+          destinationRow
+        );
+
+        // Calculate journey fare
+        let farePerSeatLkr = 0;
+        try {
+          const res = calculateJourneyFare(
+            schedule,
+            boardingRow.stationId?._id || boardingRow.stationId,
+            destinationRow.stationId?._id || destinationRow.stationId,
+            day
+          );
+          farePerSeatLkr = res.farePerSeatLkr;
+        } catch (fareError) {
+          console.error("Fare calculation error:", fareError);
+        }
+
+        trains.push({
+          _id: schedule._id,
+          trainNo: schedule.trainNo,
+          trainName: schedule.trainName || "",
+          seatCapacity: schedule.seatCapacity,
+          totalDistanceKm: schedule.totalDistanceKm || 0,
+          active: !!schedule.active,
+          searchDay: day || null,
+          farePerSeatLkr,
+          fareBreakdownTotalLkr: farePerSeatLkr,
+
+          boardingStation: {
+            _id: boardingRow.stationId?._id,
+            name: boardingRow.stationId?.name || "",
+            location: boardingRow.stationId?.location || null,
+            distanceKm: Number(chosenCandidate.distanceKm.toFixed(2)),
+            accessEstimateMinutes: chosenCandidate.accessEstimateMinutes,
+            departureTime: boardingRow.departureTime || "",
+          },
+
+          destinationStation: {
+            _id: destinationRow.stationId?._id,
+            name: destinationRow.stationId?.name || "",
+            location: destinationRow.stationId?.location || null,
+            arrivalTime:
+              destinationRow.arrivalTime || destinationRow.departureTime || "",
+          },
+
+          durationMinutes,
+          durationLabel: formatDuration(durationMinutes),
+
+          stopsBetween: rows
+            .slice(chosenBoardingIndex, destinationIndex + 1)
+            .map(mapStop),
+        });
+      } catch (trainError) {
+        console.error(`Error processing train ${schedule._id}:`, trainError);
       }
-
-      if (!chosenCandidate || chosenBoardingIndex === -1) continue;
-
-      const boardingRow = rows[chosenBoardingIndex];
-      const durationMinutes = buildJourneyDuration(boardingRow, destinationRow);
-
-      trains.push({
-        _id: schedule._id,
-        trainNo: schedule.trainNo,
-        trainName: schedule.trainName || "",
-        seatCapacity: schedule.seatCapacity,
-        totalDistanceKm: schedule.totalDistanceKm || 0,
-        active: !!schedule.active,
-        searchDay: day || null,
-
-        boardingStation: {
-          _id: boardingRow.stationId?._id,
-          name: boardingRow.stationId?.name || "",
-          location: boardingRow.stationId?.location || null,
-          distanceKm: Number(chosenCandidate.distanceKm.toFixed(2)),
-          accessEstimateMinutes: chosenCandidate.accessEstimateMinutes,
-          departureTime: boardingRow.departureTime || "",
-        },
-
-        destinationStation: {
-          _id: destinationRow.stationId?._id,
-          name: destinationRow.stationId?.name || "",
-          location: destinationRow.stationId?.location || null,
-          arrivalTime:
-            destinationRow.arrivalTime || destinationRow.departureTime || "",
-        },
-
-        durationMinutes,
-        durationLabel: formatDuration(durationMinutes),
-
-        stopsBetween: rows
-          .slice(chosenBoardingIndex, destinationIndex + 1)
-          .map(mapStop),
-      });
     }
 
     trains.sort((a, b) => {

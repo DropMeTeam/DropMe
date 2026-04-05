@@ -112,6 +112,8 @@ const trainBookingSchema = new mongoose.Schema(
         default: 0,
         min: 0,
       },
+      farePerSeatLkr: { type: Number, default: 0, min: 0 },
+      fareBreakdownTotalLkr: { type: Number, default: 0, min: 0 },
     },
   },
   { timestamps: true }

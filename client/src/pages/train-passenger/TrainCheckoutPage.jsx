@@ -191,6 +191,37 @@ export default function TrainCheckoutPage() {
     return Math.max(0, destinationIndex - boardingIndex);
   }, [boardingIndex, destinationIndex]);
 
+  const farePerSeatLkr = useMemo(() => {
+    if (boardingIndex < 0 || destinationIndex < 0 || boardingIndex >= destinationIndex) {
+      return 0;
+    }
+
+    const stopList = stopOptions;
+    const journeyStationIds = stopList
+      .slice(boardingIndex, destinationIndex + 1)
+      .map((s) => String(s._id));
+
+    let totalFare = 0;
+    const segments = Array.isArray(schedule?.segments) ? schedule.segments : [];
+
+    for (let i = 0; i < journeyStationIds.length - 1; i++) {
+      const fromId = journeyStationIds[i];
+      const toId = journeyStationIds[i + 1];
+
+      const segment = segments.find(
+        (seg) =>
+          String(seg.fromStationId?._id || seg.fromStationId) === fromId &&
+          String(seg.toStationId?._id || seg.toStationId) === toId
+      );
+
+      if (segment) {
+        totalFare += Number(segment.fareLkr || 0);
+      }
+    }
+
+    return totalFare;
+  }, [boardingIndex, destinationIndex, stopOptions, schedule]);
+
   const journeyDurationMinutes = useMemo(() => {
     if (!boardingStation?.departureTime || !destinationStation?.arrivalTime) {
       return 0;
@@ -217,24 +248,9 @@ export default function TrainCheckoutPage() {
     );
   }, [schedule, stopOptions.length, segmentCount]);
 
-  const estimatedFarePerSeat = useMemo(() => {
-    if (!schedule || segmentCount <= 0) return 0;
-
-    const totalDistanceKm = safeNumber(schedule.totalDistanceKm, 0);
-    const totalSegments = Math.max(1, stopOptions.length - 1);
-    const segmentRatio = segmentCount / totalSegments;
-
-    if (totalDistanceKm > 0) {
-      return Math.max(100, Math.round(totalDistanceKm * segmentRatio * 12));
-    }
-
-    return Math.max(100, segmentCount * 120);
-  }, [schedule, stopOptions.length, segmentCount]);
-
   const totalFareLkr = useMemo(() => {
-    const computedTotal = estimatedFarePerSeat * safeNumber(seats, 1);
-    return Math.max(MIN_TRAIN_PAYMENT_LKR, computedTotal);
-  }, [estimatedFarePerSeat, seats]);
+    return farePerSeatLkr * safeNumber(seats, 1);
+  }, [farePerSeatLkr, seats]);
 
   const canSubmit =
     !!schedule &&
@@ -242,8 +258,7 @@ export default function TrainCheckoutPage() {
     !!destinationStation &&
     !!travelDate &&
     segmentCount > 0 &&
-    seats > 0 &&
-    totalFareLkr >= MIN_TRAIN_PAYMENT_LKR;
+    seats > 0;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -378,7 +393,7 @@ export default function TrainCheckoutPage() {
 
           <div className="min-w-0">
             <CheckoutInvoiceSidebar
-              trainName={schedule.trainName || "Train service"}
+              trainName={schedule.trainName || ""}
               trainNo={schedule.trainNo || ""}
               boardingName={boardingStation?.name || ""}
               destinationName={destinationStation?.name || ""}
@@ -386,7 +401,7 @@ export default function TrainCheckoutPage() {
               arrivalTime={destinationStation?.arrivalTime || ""}
               travelDate={travelDate}
               seats={seats}
-              farePerSeat={estimatedFarePerSeat}
+              farePerSeat={farePerSeatLkr}
               totalFareLkr={totalFareLkr}
               canSubmit={canSubmit}
               submitting={submitting}

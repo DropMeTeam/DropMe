@@ -184,7 +184,7 @@ export default function TrainSearchPage() {
           lng: currentLocation.lng,
           toStationId: destinationStationId,
           ...(day ? { day } : {}),
-          candidateLimit: 5,
+          candidateLimit: 15,
         },
       });
 
@@ -262,6 +262,7 @@ export default function TrainSearchPage() {
 
   const selectedFare = useMemo(() => {
     return (
+      selectedTrain?.farePerSeatLkr ??
       selectedTrain?.estimatedFareLkr ??
       selectedTrain?.fareLkr ??
       selectedTrain?.priceLkr ??

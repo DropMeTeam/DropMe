@@ -32,7 +32,6 @@ export default function CheckoutInvoiceSidebar({
   cancelPath,
 }) {
   const baseSubtotal = Number(farePerSeat || 0) * Number(seats || 0);
-  const stripeSafeAdjustment = Math.max(0, Number(totalFareLkr || 0) - baseSubtotal);
 
   return (
     <aside className="rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,#1a1f2a_0%,#121620_58%,#0b0e14_100%)] p-5 shadow-[0_22px_70px_rgba(0,0,0,0.34)] xl:sticky xl:top-5">
@@ -55,26 +54,18 @@ export default function CheckoutInvoiceSidebar({
       <div className="mt-5 space-y-4 rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,12,18,0.72),rgba(7,9,14,0.92))] p-4">
         <div className="flex items-start justify-between gap-3 text-sm">
           <div>
-            <div className="font-medium text-zinc-200">Premium ticket x{seats}</div>
+            <div className="font-medium text-zinc-200">Ticket x{seats}</div>
             <div className="mt-1 text-zinc-500">Base route fare</div>
           </div>
           <div className="font-semibold text-white">LKR {baseSubtotal.toFixed(2)}</div>
         </div>
 
-        <div className="flex items-start justify-between gap-3 text-sm">
+        <div className="flex items-start justify-between gap-3 text-sm border-t border-white/5 pt-4">
           <div>
             <div className="font-medium text-zinc-200">Fare per seat</div>
             <div className="mt-1 text-zinc-500">Calculated from selected route</div>
           </div>
           <div className="font-semibold text-white">LKR {Number(farePerSeat || 0).toFixed(2)}</div>
-        </div>
-
-        <div className="flex items-start justify-between gap-3 text-sm">
-          <div>
-            <div className="font-medium text-zinc-200">Stripe-safe adjustment</div>
-            <div className="mt-1 text-zinc-500">Applied only when minimum payment is needed</div>
-          </div>
-          <div className="font-semibold text-cyan-300">LKR {stripeSafeAdjustment.toFixed(2)}</div>
         </div>
       </div>
 

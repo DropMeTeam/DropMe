@@ -48,7 +48,6 @@ export async function createTrainBookingCheckout(req, res, next) {
       destinationStationName,
       travelDate,
       seats = 1,
-      totalFareLkr,
       journeySnapshot = {},
     } = req.body || {};
 
@@ -79,6 +78,18 @@ export async function createTrainBookingCheckout(req, res, next) {
     );
 
     const serverTotalFare = farePerSeatLkr * seatCount;
+
+    if (!Number.isFinite(serverTotalFare) || serverTotalFare <= 0) {
+      throw new HttpError(400, "Calculated train fare is invalid");
+    }
+
+    // Prevent creating bookings that Stripe can never charge.
+    if (serverTotalFare < MIN_TRAIN_PAYMENT_LKR) {
+      throw new HttpError(
+        400,
+        `Minimum train payment is LKR ${MIN_TRAIN_PAYMENT_LKR}. Current total is LKR ${serverTotalFare.toFixed(2)}. Increase seats or fare before checkout.`
+      );
+    }
 
     const booking = await TrainBooking.create({
       scheduleId,

@@ -9,8 +9,6 @@ const stripe = process.env.STRIPE_SECRET_KEY
   : null;
 
 // Safe floor for tiny train payments.
-// You can move this to .env if you want:
-// MIN_TRAIN_PAYMENT_LKR=200
 const MIN_TRAIN_PAYMENT_LKR = Number(process.env.MIN_TRAIN_PAYMENT_LKR || 200);
 
 function getUserId(req) {
@@ -251,6 +249,14 @@ export async function createTrainStripeSession(req, res, next) {
     const amount = Number(booking.totalFareLkr || 0);
     if (!Number.isFinite(amount) || amount <= 0) {
       throw new HttpError(400, "Train booking amount is invalid");
+    }
+
+    // Block tiny train payments before Stripe call.
+    if (amount < MIN_TRAIN_PAYMENT_LKR) {
+      throw new HttpError(
+        400,
+        `Minimum train payment is LKR ${MIN_TRAIN_PAYMENT_LKR}. Current total is LKR ${amount.toFixed(2)}. Increase seats or fare before checkout.`
+      );
     }
 
     const unitAmount = Math.round(amount * 100);

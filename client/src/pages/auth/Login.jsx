@@ -9,7 +9,6 @@ function routeByRole(role) {
   if (role === "ADMIN_PRIVATE") return "/private";
   if (role === "driver") return "/driver";
   if (role === "rider") return "/rider";
-  if (role === "BUS_OWNER") return "/owner";
   return "/plan";
 }
 

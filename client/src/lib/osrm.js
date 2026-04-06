@@ -2,7 +2,6 @@ import polyline from "@mapbox/polyline";
 
 const OSRM = "https://router.project-osrm.org";
 
-// Existing function (keep — other pages may use it)
 export async function getRoute(from, to) {
   const url =
     `${OSRM}/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}` +
@@ -21,7 +20,7 @@ export async function getRoute(from, to) {
   return {
     distanceMeters: r.distance,
     durationSeconds: r.duration,
-    pathLatLng
+    pathLatLng,
   };
 }
 
@@ -43,7 +42,7 @@ export async function getRoadRoute(points) {
       latlngs: [],
       distanceKm: 0,
       distanceMeters: 0,
-      durationSeconds: 0
+      durationSeconds: 0,
     };
   }
 
@@ -70,6 +69,6 @@ export async function getRoadRoute(points) {
     latlngs,
     distanceKm: Number((r.distance / 1000).toFixed(2)),
     distanceMeters: r.distance,
-    durationSeconds: r.duration
+    durationSeconds: r.duration,
   };
 }

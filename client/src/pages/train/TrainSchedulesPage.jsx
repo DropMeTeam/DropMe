@@ -43,6 +43,9 @@ export default function TrainSchedulesPage() {
   const [totalKm, setTotalKm] = useState(0);
   const [totalMin, setTotalMin] = useState(0);
 
+  // segment fares: { "fromId-toId": number }
+  const [segmentFares, setSegmentFares] = useState({});
+
   // timetable rows generated from TimetableBuilder
   const [generatedStopTimes, setGeneratedStopTimes] = useState([]);
 
@@ -180,6 +183,7 @@ export default function TrainSchedulesPage() {
     setStops([newStop(1), newStop(2)]);
     setMode("route");
     setGeneratedStopTimes([]);
+    setSegmentFares({});
   }
 
   async function saveToBackend() {
@@ -201,6 +205,16 @@ export default function TrainSchedulesPage() {
         throw new Error("Departure times missing. Generate timetable first.");
       }
 
+      // Collect fares in order of segments
+      const faresArr = segments.map((seg) => {
+        const key = `${seg.fromStationId}-${seg.toStationId}`;
+        const val = Number(segmentFares[key] || 0);
+        if (Number.isNaN(val) || val < 0) {
+          throw new Error(`Invalid fare for segment: ${key}`);
+        }
+        return val;
+      });
+
       const payload = {
         trainName,
         trainNo: trainNo.trim(),
@@ -212,6 +226,7 @@ export default function TrainSchedulesPage() {
           arrivalTime: s.arrivalTime || "",
           departureTime: s.departureTime || "",
         })),
+        segmentFares: faresArr,
       };
 
       if (editingId) {
@@ -264,6 +279,14 @@ export default function TrainSchedulesPage() {
           departureTime: s.departureTime || "",
         }))
     );
+
+    const initialFares = {};
+    (item.segments || []).forEach((seg) => {
+      const fromId = String(seg.fromStationId?._id || seg.fromStationId);
+      const toId = String(seg.toStationId?._id || seg.toStationId);
+      initialFares[`${fromId}-${toId}`] = seg.fareLkr || 0;
+    });
+    setSegmentFares(initialFares);
 
     setMode("route");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -371,6 +394,69 @@ export default function TrainSchedulesPage() {
               </div>
             </div>
           </div>
+
+          {/* Adjacent Segment Fares */}
+          {segments.length > 0 && (
+            <div
+              style={{
+                border: "1px solid #eee",
+                borderRadius: 12,
+                padding: 10,
+                background: "#f9f9f9",
+              }}
+            >
+              <div style={{ fontWeight: 900, marginBottom: 8 }}>
+                Adjacent Segment Fares (LKR)
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {segments.map((seg, idx) => {
+                  const fromId = String(seg.fromStationId);
+                  const toId = String(seg.toStationId);
+                  const fromName =
+                    stationById.get(fromId)?.name || "Station";
+                  const toName = stationById.get(toId)?.name || "Station";
+                  const key = `${fromId}-${toId}`;
+
+                  return (
+                    <div
+                      key={key}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 100px",
+                        gap: 10,
+                        alignItems: "center",
+                        fontSize: 13,
+                      }}
+                    >
+                      <div
+                        style={{
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {idx + 1}. {fromName} → {toName}
+                      </div>
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="Fare"
+                        value={segmentFares[key] || ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSegmentFares((prev) => ({
+                            ...prev,
+                            [key]: val,
+                          }));
+                        }}
+                        style={{ padding: "4px 8px", borderRadius: 6 }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button

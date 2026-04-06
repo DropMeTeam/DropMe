@@ -1,6 +1,6 @@
 import { Outlet, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../state/AuthContext";
-import { Car, LogOut, MapPinned, UserRound, Shield, TrainFront } from "lucide-react";
+import { Car, LogOut, MapPinned, UserRound, Shield } from "lucide-react";
 
 function isAdmin(role) {
   return role === "ADMIN_TRAIN" || role === "ADMIN_BUS" || role === "ADMIN_PRIVATE";
@@ -34,10 +34,6 @@ export default function Shell() {
           <nav className="flex items-center gap-2">
             <Link to="/plan" className="pill">
               <MapPinned className="h-4 w-4" /> Plan
-            </Link>
-
-            <Link to="/train-service" className="pill">
-              <TrainFront className="h-4 w-4" /> Train
             </Link>
 
             {user ? (
@@ -78,10 +74,9 @@ export default function Shell() {
         </div>
       </header>
 
-
-      <main className="mx-auto w-full max-w-[1800px] px-3 py-4 md:px-4 xl:px-5">
-  <Outlet />
-</main>
+      <main className="mx-auto max-w-6xl px-4 py-6">
+        <Outlet />
+      </main>
 
       <footer className="mx-auto max-w-6xl px-4 pb-10 pt-10 text-xs text-zinc-400">
         <div className="border-t border-zinc-800 pt-6">

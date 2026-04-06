@@ -66,24 +66,21 @@ function validateWeeklyTimetable(weeklyTimetable) {
 
   for (const d of DAYS) {
     const rows = weeklyTimetable[d];
-    if (rows === undefined) continue;
+    if (rows === undefined) continue; // allow partial day updates if you want
 
     if (!Array.isArray(rows)) {
       throw new HttpError(400, `weeklyTimetable.${d} must be an array`);
     }
 
     for (const r of rows) {
-      if (!r.stationId) {
-        throw new HttpError(400, `weeklyTimetable.${d}: stationId required`);
-      }
-      if (!Number.isFinite(Number(r.order))) {
+      if (!r.stationId) throw new HttpError(400, `weeklyTimetable.${d}: stationId required`);
+      if (!Number.isFinite(Number(r.order)))
         throw new HttpError(400, `weeklyTimetable.${d}: order must be numeric`);
-      }
-      if (!r.departureTime) {
+      if (!r.departureTime)
         throw new HttpError(400, `weeklyTimetable.${d}: departureTime required`);
-      }
     }
 
+    // optional: order uniqueness per day
     const orders = rows.map((x) => Number(x.order));
     if (new Set(orders).size !== orders.length) {
       throw new HttpError(400, `weeklyTimetable.${d}: order must be unique`);
@@ -140,8 +137,6 @@ async function computeSegments(stops) {
 function applyTimetablePopulate(q) {
   return q
     .populate("stops.stationId", "name location")
-    .populate("segments.fromStationId", "name")
-    .populate("segments.toStationId", "name")
     .populate("weeklyTimetable.Mon.stationId", "name location")
     .populate("weeklyTimetable.Tue.stationId", "name location")
     .populate("weeklyTimetable.Wed.stationId", "name location")
@@ -172,27 +167,9 @@ export async function getSchedule(req, res, next) {
   }
 }
 
-/**
- * POST: Create a new train schedule
- *
- * Supports:
- * - basic schedule fields
- * - stops validation
- * - automatic route segment calculation
- * - segment fares validation
- * - optional weeklyTimetable validation
- */
 export async function createSchedule(req, res, next) {
   try {
-    const {
-      trainName,
-      trainNo,
-      seatCapacity,
-      stops,
-      active,
-      weeklyTimetable,
-      segmentFares,
-    } = req.body;
+    const { trainName, trainNo, seatCapacity, stops, active, weeklyTimetable } = req.body;
 
     if (!trainNo) throw new HttpError(400, "trainNo is required");
 
@@ -203,21 +180,6 @@ export async function createSchedule(req, res, next) {
 
     validateStops(stops);
     const { segments, totalDistanceKm } = await computeSegments(stops);
-
-    if (!Array.isArray(segmentFares) || segmentFares.length !== segments.length) {
-      throw new HttpError(
-        400,
-        `Exactly ${segments.length} segment fares are required`
-      );
-    }
-
-    for (let i = 0; i < segments.length; i++) {
-      const fare = Number(segmentFares[i]);
-      if (!Number.isFinite(fare) || fare < 0) {
-        throw new HttpError(400, `Invalid fare for segment ${i + 1}`);
-      }
-      segments[i].fareLkr = fare;
-    }
 
     if (weeklyTimetable !== undefined) {
       validateWeeklyTimetable(weeklyTimetable);
@@ -241,30 +203,14 @@ export async function createSchedule(req, res, next) {
   }
 }
 
-/**
- * PATCH/PUT: Update an existing schedule
- *
- * Important:
- * - Allows partial updates
- * - Can update only weeklyTimetable without sending other fields
- * - Recalculates segments only if stops are changed
- * - Updates fares if segmentFares is provided
- */
 export async function updateSchedule(req, res, next) {
   try {
     const doc = await TrainSchedule.findById(req.params.id);
     if (!doc) throw new HttpError(404, "Schedule not found");
 
-    const {
-      trainName,
-      trainNo,
-      seatCapacity,
-      stops,
-      active,
-      weeklyTimetable,
-      segmentFares,
-    } = req.body;
+    const { trainName, trainNo, seatCapacity, stops, active, weeklyTimetable } = req.body;
 
+    // ✅ allow partial updates (timetables page sends only weeklyTimetable)
     if (trainNo !== undefined) doc.trainNo = String(trainNo).trim();
     if (trainName !== undefined) doc.trainName = trainName || "";
 
@@ -281,47 +227,12 @@ export async function updateSchedule(req, res, next) {
     if (stops !== undefined) {
       validateStops(stops);
       const { segments, totalDistanceKm } = await computeSegments(stops);
-
-      if (!Array.isArray(segmentFares) || segmentFares.length !== segments.length) {
-        throw new HttpError(
-          400,
-          `Stops changed. Exactly ${segments.length} segment fares are required`
-        );
-      }
-
-      for (let i = 0; i < segments.length; i++) {
-        const fare = Number(segmentFares[i]);
-        if (!Number.isFinite(fare) || fare < 0) {
-          throw new HttpError(400, `Invalid fare for segment ${i + 1}`);
-        }
-        segments[i].fareLkr = fare;
-      }
-
       doc.stops = stops;
       doc.segments = segments;
       doc.totalDistanceKm = totalDistanceKm;
-    } else if (segmentFares !== undefined) {
-      if (
-        !Array.isArray(segmentFares) ||
-        segmentFares.length !== doc.segments.length
-      ) {
-        throw new HttpError(
-          400,
-          `Exactly ${doc.segments.length} segment fares are required`
-        );
-      }
-
-      for (let i = 0; i < doc.segments.length; i++) {
-        const fare = Number(segmentFares[i]);
-        if (!Number.isFinite(fare) || fare < 0) {
-          throw new HttpError(400, `Invalid fare for segment ${i + 1}`);
-        }
-        doc.segments[i].fareLkr = fare;
-      }
-
-      doc.markModified("segments");
     }
 
+    // ✅ THIS is the missing piece for TrainTimetablesPage
     if (weeklyTimetable !== undefined) {
       validateWeeklyTimetable(weeklyTimetable);
       doc.weeklyTimetable = weeklyTimetable;

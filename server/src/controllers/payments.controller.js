@@ -40,28 +40,37 @@ export async function createStripeSession(req, res, next) {
 
     const totalAmount = unitPrice * seats;
 
-    const booking = await RideBooking.create({
-      offerId: offer._id,
-      riderId: req.user.sub,
-      driverId: offer.driverId,
-      seatsBooked: seats,
-      status: "pending",
-      paymentStatus: "unpaid",
-      amount: totalAmount,
-      currency: "lkr",
-      stripeSessionId: "",
-      offerSnapshot: {
-        originAddress: offer.origin?.address || "",
-        destinationAddress: offer.destination?.address || "",
-        pickupTime: offer.pickupTime || null,
-        priceLkr: unitPrice,
-        driverName: offer.driverSnapshot?.name || "",
-        driverEmail: offer.driverSnapshot?.email || "",
-        vehicleType: offer.vehicleSnapshot?.type || "",
-        vehicleNumber: offer.vehicleSnapshot?.number || "",
-        vehicleColor: offer.vehicleSnapshot?.color || "",
-      },
-    });
+    let booking;
+
+    try {
+      booking = await RideBooking.create({
+        offerId: offer._id,
+        riderId: req.user.sub,
+        driverId: offer.driverId,
+        seatsBooked: seats,
+        status: "pending",
+        paymentStatus: "unpaid",
+        amount: totalAmount,
+        currency: "lkr",
+        stripeSessionId: "",
+        offerSnapshot: {
+          originAddress: offer.origin?.address || "",
+          destinationAddress: offer.destination?.address || "",
+          pickupTime: offer.pickupTime || null,
+          priceLkr: unitPrice,
+          driverName: offer.driverSnapshot?.name || "",
+          driverEmail: offer.driverSnapshot?.email || "",
+          vehicleType: offer.vehicleSnapshot?.type || "",
+          vehicleNumber: offer.vehicleSnapshot?.number || "",
+          vehicleColor: offer.vehicleSnapshot?.color || "",
+        },
+      });
+    } catch (e) {
+      if (e?.code === 11000) {
+        throw new HttpError(409, "You already booked this ride.");
+      }
+      throw e;
+    }
 
     const base = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
@@ -140,7 +149,6 @@ export async function verifyStripePayment(req, res, next) {
       throw new HttpError(402, "Payment not completed");
     }
 
-    // prevent duplicate seat deduction
     if (booking.paymentStatus === "paid" && booking.status === "confirmed") {
       return res.json({ ok: true, booking });
     }
@@ -161,7 +169,6 @@ export async function verifyStripePayment(req, res, next) {
       booking.status = "rejected";
       booking.paymentStatus = "failed";
       await booking.save();
-
       throw new HttpError(409, "Ride sold out while paying. Booking rejected.");
     }
 

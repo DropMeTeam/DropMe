@@ -41,6 +41,7 @@ export default function CheckoutPage() {
       });
 
       const url = res?.data?.url;
+
       if (!url) {
         setErrMsg("Stripe URL missing. Check server /api/payments/stripe/session response.");
         return;
@@ -48,7 +49,17 @@ export default function CheckoutPage() {
 
       window.location.assign(url);
     } catch (e) {
-      setErrMsg(e?.response?.data?.message || e.message || "Proceed failed");
+      const serverMessage =
+        e?.response?.data?.message ||
+        e?.response?.data?.error ||
+        e?.response?.data?.details ||
+        "";
+
+      if (e?.response?.status === 409 && !serverMessage) {
+        setErrMsg("You already booked this ride.");
+      } else {
+        setErrMsg(serverMessage || e.message || "Proceed failed");
+      }
     } finally {
       setProceeding(false);
     }

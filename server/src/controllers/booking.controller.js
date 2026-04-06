@@ -175,6 +175,13 @@ function fitText(doc, text, x, y, w, options = {}) {
   });
 }
 
+function getLogoSource(req) {
+  return (
+    process.env.RECEIPT_LOGO_URL ||
+    `${req.protocol}://${req.get("host")}/uploads/dropme.jpeg`
+  );
+}
+
 export async function downloadReceipt(req, res, next) {
   try {
     const bookingId = req.params.bookingId;
@@ -219,8 +226,7 @@ export async function downloadReceipt(req, res, next) {
       "";
 
     const vehicleType = offer?.vehicleSnapshot?.type || booking?.offerSnapshot?.vehicleType || "—";
-    const vehicleNumber =
-      offer?.vehicleSnapshot?.number || booking?.offerSnapshot?.vehicleNumber || "—";
+    const vehicleNumber = offer?.vehicleSnapshot?.number || booking?.offerSnapshot?.vehicleNumber || "—";
     const vehicleColor = offer?.vehicleSnapshot?.color || booking?.offerSnapshot?.vehicleColor || "—";
     const vehiclePhotoUrl =
       offer?.vehicleSnapshot?.photoUrl ||
@@ -263,6 +269,8 @@ export async function downloadReceipt(req, res, next) {
     });
 
     const qrBuffer = Buffer.from(qrDataUrl.split(",")[1], "base64");
+    const logoUrl = getLogoSource(req);
+    const logoBuffer = await loadImageBuffer(logoUrl);
     const driverImageBuffer = await loadImageBuffer(driverPhotoUrl);
     const vehicleImageBuffer = await loadImageBuffer(vehiclePhotoUrl);
 
@@ -289,39 +297,81 @@ export async function downloadReceipt(req, res, next) {
 
     drawRoundedBox(doc, x, y, w, h, 24, "#050505", "#1f1f1f");
 
-    doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(24);
-    doc.text("DropMe Receipt", x + 24, y + 18);
+    if (logoBuffer) {
+      doc.image(logoBuffer, x + w / 2 - 34, y + 14, {
+        fit: [68, 68],
+        align: "center",
+        valign: "center",
+      });
+    } else {
+      doc.save();
+      doc.circle(x + w / 2, y + 48, 24).fill("#111111");
+      doc.restore();
+
+      doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(16);
+      doc.text("D", x + w / 2 - 5, y + 41);
+    }
+
+    doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(22);
+    doc.text("DropMe Receipt", x + 24, y + 88, {
+      width: w - 48,
+      align: "center",
+    });
 
     doc.fillColor("#9CA3AF").font("Helvetica").fontSize(10);
-    doc.text("Smart ride booking confirmation", x + 24, y + 48);
+    doc.text("Smart ride booking confirmation", x + 24, y + 114, {
+      width: w - 48,
+      align: "center",
+    });
 
     doc.save();
     doc.roundedRect(x + w - 145, y + 20, 110, 24, 12).fill("#111111");
     doc.restore();
-    doc.fillColor("#86EFAC").font("Helvetica-Bold").fontSize(10);
+    doc.fillColor("#ed2b2b").font("Helvetica-Bold").fontSize(10);
     doc.text(String(paymentStatus).toUpperCase(), x + w - 132, y + 28, {
       width: 84,
       align: "center",
     });
 
-    drawRoundedBox(doc, x + 20, y + 76, w - 40, 84, 18, "#0d0d0d", "#262626");
+    // route box moved down and kept wide
+    const routeBoxY = y + 164;
+    const routeBoxH = 110;
+    drawRoundedBox(doc, x + 20, routeBoxY, w - 40, routeBoxH, 18, "#0d0d0d", "#262626");
 
     doc.fillColor("#6B7280").font("Helvetica").fontSize(10);
-    doc.text("TRIP ROUTE", x + 36, y + 92);
+    doc.text("TRIP ROUTE", x + 36, routeBoxY + 16);
+
+    // balanced left/right widths
+    const leftRouteX = x + 36;
+    const arrowX = x + 240;
+    const rightRouteX = x + 286;
+    const routeColWidth = 205;
 
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(15);
-    doc.text(origin, x + 36, y + 112, { width: 200 });
+    doc.text(origin, leftRouteX, routeBoxY + 34, {
+      width: routeColWidth,
+      height: 62,
+      ellipsis: true,
+    });
 
     doc.fillColor("#9CA3AF").font("Helvetica-Bold").fontSize(18);
-    doc.text("→", x + 242, y + 112);
+    doc.text("--- >", arrowX, routeBoxY + 34);
 
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(15);
-    doc.text(destination, x + 270, y + 112, { width: 230 });
+    doc.text(destination, rightRouteX, routeBoxY + 34, {
+      width: routeColWidth,
+      height: 62,
+      ellipsis: true,
+    });
 
-    drawRoundedBox(doc, x + 20, y + 178, 330, 194, 18, "#0d0d0d", "#262626");
+    // all lower boxes moved down
+    const middleBoxY = y + 294;
+    const bottomBoxY = y + 498;
+
+    drawRoundedBox(doc, x + 20, middleBoxY, 330, 190, 18, "#0d0d0d", "#262626");
 
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(13);
-    doc.text("Booking Summary", x + 36, y + 196);
+    doc.text("Booking Summary", x + 36, middleBoxY + 14);
 
     const rows = [
       ["Receipt ID", bookingId],
@@ -334,7 +384,7 @@ export async function downloadReceipt(req, res, next) {
       ["Paid At", paidAt],
     ];
 
-    let rowY = y + 226;
+    let rowY = middleBoxY + 36;
     for (const [label, value] of rows) {
       doc.fillColor("#9CA3AF").font("Helvetica").fontSize(10);
       doc.text(label, x + 36, rowY);
@@ -342,95 +392,95 @@ export async function downloadReceipt(req, res, next) {
       doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(10);
       fitText(doc, value, x + 162, rowY, 155);
 
-      rowY += 21;
+      rowY += 18;
     }
 
-    drawRoundedBox(doc, x + 366, y + 178, 170, 194, 18, "#0d0d0d", "#262626");
+    drawRoundedBox(doc, x + 366, middleBoxY, 170, 190, 18, "#0d0d0d", "#262626");
 
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(13);
-    doc.text("QR Verify", x + 418, y + 196, { width: 70, align: "center" });
+    doc.text("QR Verify", x + 418, middleBoxY + 14, { width: 70, align: "center" });
 
-    doc.image(qrBuffer, x + 392, y + 224, {
+    doc.image(qrBuffer, x + 392, middleBoxY + 32, {
       fit: [118, 118],
       align: "center",
       valign: "center",
     });
 
     doc.fillColor("#9CA3AF").font("Helvetica").fontSize(8);
-    doc.text("Scan for booking details", x + 390, y + 348, {
+    doc.text("Scan for booking details", x + 390, middleBoxY + 138, {
       width: 122,
       align: "center",
     });
 
-    drawRoundedBox(doc, x + 20, y + 390, 250, 132, 18, "#0d0d0d", "#262626");
+    drawRoundedBox(doc, x + 20, bottomBoxY, 250, 116, 18, "#0d0d0d", "#262626");
 
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(13);
-    doc.text("Driver Details", x + 36, y + 408);
+    doc.text("Driver Details", x + 36, bottomBoxY + 12);
 
     doc.fillColor("#9CA3AF").font("Helvetica").fontSize(10);
-    doc.text("Name", x + 36, y + 438);
+    doc.text("Name", x + 36, bottomBoxY + 46);
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(10);
-    fitText(doc, driverName, x + 86, y + 438, 90);
+    fitText(doc, driverName, x + 86, bottomBoxY + 46, 90);
 
     doc.fillColor("#9CA3AF").font("Helvetica").fontSize(10);
-    doc.text("Email", x + 36, y + 460);
+    doc.text("Email", x + 36, bottomBoxY + 66);
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(10);
-    fitText(doc, driverEmail, x + 86, y + 460, 90);
+    fitText(doc, driverEmail, x + 86, bottomBoxY + 66, 90);
 
     if (driverImageBuffer) {
       doc.save();
-      doc.roundedRect(x + 176, y + 426, 70, 78, 12).clip();
-      doc.image(driverImageBuffer, x + 176, y + 426, {
+      doc.roundedRect(x + 176, bottomBoxY + 10, 70, 78, 12).clip();
+      doc.image(driverImageBuffer, x + 176, bottomBoxY + 10, {
         fit: [70, 78],
         align: "center",
         valign: "center",
       });
       doc.restore();
-      doc.roundedRect(x + 176, y + 426, 70, 78, 12).stroke("#2a2a2a");
+      doc.roundedRect(x + 176, bottomBoxY + 10, 70, 78, 12).stroke("#2a2a2a");
     } else {
       doc.save();
-      doc.roundedRect(x + 176, y + 426, 70, 78, 12).fill("#121212");
+      doc.roundedRect(x + 176, bottomBoxY + 10, 70, 78, 12).fill("#121212");
       doc.restore();
       doc.fillColor("#6B7280").font("Helvetica").fontSize(8);
-      doc.text("No Image", x + 191, y + 463);
+      doc.text("No Image", x + 191, bottomBoxY + 47);
     }
 
-    drawRoundedBox(doc, x + 286, y + 390, 250, 132, 18, "#0d0d0d", "#262626");
+    drawRoundedBox(doc, x + 286, bottomBoxY, 250, 116, 18, "#0d0d0d", "#262626");
 
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(13);
-    doc.text("Vehicle Details", x + 302, y + 408);
+    doc.text("Vehicle Details", x + 302, bottomBoxY + 12);
 
     doc.fillColor("#9CA3AF").font("Helvetica").fontSize(10);
-    doc.text("Type", x + 302, y + 434);
+    doc.text("Type", x + 302, bottomBoxY + 44);
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(10);
-    fitText(doc, vehicleType, x + 360, y + 434, 88);
+    fitText(doc, vehicleType, x + 360, bottomBoxY + 44, 88);
 
     doc.fillColor("#9CA3AF").font("Helvetica").fontSize(10);
-    doc.text("Number", x + 302, y + 456);
+    doc.text("Number", x + 302, bottomBoxY + 64);
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(10);
-    fitText(doc, vehicleNumber, x + 360, y + 456, 88);
+    fitText(doc, vehicleNumber, x + 360, bottomBoxY + 64, 88);
 
     doc.fillColor("#9CA3AF").font("Helvetica").fontSize(10);
-    doc.text("Color", x + 302, y + 478);
+    doc.text("Color", x + 302, bottomBoxY + 84);
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(10);
-    fitText(doc, vehicleColor, x + 360, y + 478, 88);
+    fitText(doc, vehicleColor, x + 360, bottomBoxY + 84, 88);
 
     if (vehicleImageBuffer) {
       doc.save();
-      doc.roundedRect(x + 454, y + 424, 66, 82, 12).clip();
-      doc.image(vehicleImageBuffer, x + 454, y + 424, {
+      doc.roundedRect(x + 454, bottomBoxY + 8, 66, 82, 12).clip();
+      doc.image(vehicleImageBuffer, x + 454, bottomBoxY + 8, {
         fit: [66, 82],
         align: "center",
         valign: "center",
       });
       doc.restore();
-      doc.roundedRect(x + 454, y + 424, 66, 82, 12).stroke("#2a2a2a");
+      doc.roundedRect(x + 454, bottomBoxY + 8, 66, 82, 12).stroke("#2a2a2a");
     } else {
       doc.save();
-      doc.roundedRect(x + 454, y + 424, 66, 82, 12).fill("#121212");
+      doc.roundedRect(x + 454, bottomBoxY + 8, 66, 82, 12).fill("#121212");
       doc.restore();
       doc.fillColor("#6B7280").font("Helvetica").fontSize(8);
-      doc.text("No Image", x + 468, y + 462);
+      doc.text("No Image", x + 468, bottomBoxY + 46);
     }
 
     doc.fillColor("#6B7280").font("Helvetica").fontSize(9);

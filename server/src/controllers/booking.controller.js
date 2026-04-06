@@ -140,7 +140,7 @@ export async function cancelBooking(req, res, next) {
   }
 }
 
-async function loadImageBuffer(src) {
+async function loadImageBuffer(src, req) {
   try {
     if (!src || typeof src !== "string") return null;
 
@@ -149,14 +149,19 @@ async function loadImageBuffer(src) {
       return base64 ? Buffer.from(base64, "base64") : null;
     }
 
-    if (src.startsWith("http://") || src.startsWith("https://")) {
-      const response = await fetch(src);
-      if (!response.ok) return null;
-      const arr = await response.arrayBuffer();
-      return Buffer.from(arr);
+    let finalUrl = src;
+
+    if (src.startsWith("/")) {
+      finalUrl = `${req.protocol}://${req.get("host")}${src}`;
+    } else if (!src.startsWith("http://") && !src.startsWith("https://")) {
+      return null;
     }
 
-    return null;
+    const response = await fetch(finalUrl);
+    if (!response.ok) return null;
+
+    const arr = await response.arrayBuffer();
+    return Buffer.from(arr);
   } catch {
     return null;
   }
@@ -221,8 +226,15 @@ export async function downloadReceipt(req, res, next) {
     const driverEmail = offer?.driverSnapshot?.email || booking?.offerSnapshot?.driverEmail || "—";
     const driverPhotoUrl =
       offer?.driverSnapshot?.photoUrl ||
+      offer?.driverSnapshot?.avatarUrl ||
+      offer?.driverSnapshot?.imageUrl ||
+      offer?.driverSnapshot?.profileImage ||
       booking?.offerSnapshot?.driverPhotoUrl ||
+      booking?.offerSnapshot?.driverAvatarUrl ||
+      booking?.offerSnapshot?.driverImageUrl ||
       booking?.driverPhotoUrl ||
+      booking?.driverAvatarUrl ||
+      booking?.driverImageUrl ||
       "";
 
     const vehicleType = offer?.vehicleSnapshot?.type || booking?.offerSnapshot?.vehicleType || "—";
@@ -230,8 +242,12 @@ export async function downloadReceipt(req, res, next) {
     const vehicleColor = offer?.vehicleSnapshot?.color || booking?.offerSnapshot?.vehicleColor || "—";
     const vehiclePhotoUrl =
       offer?.vehicleSnapshot?.photoUrl ||
+      offer?.vehicleSnapshot?.imageUrl ||
+      offer?.vehicleSnapshot?.vehicleImageUrl ||
       booking?.offerSnapshot?.vehiclePhotoUrl ||
+      booking?.offerSnapshot?.vehicleImageUrl ||
       booking?.vehiclePhotoUrl ||
+      booking?.vehicleImageUrl ||
       "";
 
     const paymentStatus = booking.paymentStatus || booking.status || "—";
@@ -270,9 +286,9 @@ export async function downloadReceipt(req, res, next) {
 
     const qrBuffer = Buffer.from(qrDataUrl.split(",")[1], "base64");
     const logoUrl = getLogoSource(req);
-    const logoBuffer = await loadImageBuffer(logoUrl);
-    const driverImageBuffer = await loadImageBuffer(driverPhotoUrl);
-    const vehicleImageBuffer = await loadImageBuffer(vehiclePhotoUrl);
+    const logoBuffer = await loadImageBuffer(logoUrl, req);
+    const driverImageBuffer = await loadImageBuffer(driverPhotoUrl, req);
+    const vehicleImageBuffer = await loadImageBuffer(vehiclePhotoUrl, req);
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="DropMe-Receipt-${bookingId}.pdf"`);
@@ -333,7 +349,6 @@ export async function downloadReceipt(req, res, next) {
       align: "center",
     });
 
-    // route box moved down and kept wide
     const routeBoxY = y + 164;
     const routeBoxH = 110;
     drawRoundedBox(doc, x + 20, routeBoxY, w - 40, routeBoxH, 18, "#0d0d0d", "#262626");
@@ -341,7 +356,6 @@ export async function downloadReceipt(req, res, next) {
     doc.fillColor("#6B7280").font("Helvetica").fontSize(10);
     doc.text("TRIP ROUTE", x + 36, routeBoxY + 16);
 
-    // balanced left/right widths
     const leftRouteX = x + 36;
     const arrowX = x + 240;
     const rightRouteX = x + 286;
@@ -355,7 +369,7 @@ export async function downloadReceipt(req, res, next) {
     });
 
     doc.fillColor("#9CA3AF").font("Helvetica-Bold").fontSize(18);
-    doc.text("--- >", arrowX, routeBoxY + 34);
+    doc.text("--->", arrowX, routeBoxY + 34);
 
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(15);
     doc.text(destination, rightRouteX, routeBoxY + 34, {
@@ -364,7 +378,6 @@ export async function downloadReceipt(req, res, next) {
       ellipsis: true,
     });
 
-    // all lower boxes moved down
     const middleBoxY = y + 294;
     const bottomBoxY = y + 498;
 

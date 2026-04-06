@@ -544,8 +544,8 @@ export default function TrainTimetablesPage() {
                 </div>
               </div>
 
-              <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_330px]">
-                <section className="space-y-5">
+              <div className="mt-5 grid gap-5">
+                <section className="space-y-5 min-w-0">
                   {mode === "route" ? (
                     <RouteBuilder
                       stations={stations}
@@ -572,8 +572,8 @@ export default function TrainTimetablesPage() {
                   ) : null}
                 </section>
 
-                <aside className="space-y-4 xl:border-l xl:border-white/10 xl:pl-5">
-                  <section className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                <aside className="grid gap-4 border-t border-white/10 pt-5 xl:grid-cols-[minmax(0,1fr)_330px]">
+                  <section className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4 min-w-0">
                     <h3 className="text-base font-semibold text-white">Segment Fares</h3>
                     <p className="mt-1 text-sm text-white/45">
                       Update adjacent stop fares for the selected route.
@@ -623,13 +623,15 @@ export default function TrainTimetablesPage() {
                     </div>
                   </section>
 
-                  <ManageScheduleActionPanel
-                    busy={busy}
-                    hasSelection={Boolean(selectedId)}
-                    onSave={saveChanges}
-                    onReset={resetEditor}
-                    onDelete={deleteSelectedTrain}
-                  />
+                  <div className="xl:self-start">
+                    <ManageScheduleActionPanel
+                      busy={busy}
+                      hasSelection={Boolean(selectedId)}
+                      onSave={saveChanges}
+                      onReset={resetEditor}
+                      onDelete={deleteSelectedTrain}
+                    />
+                  </div>
                 </aside>
               </div>
             </div>

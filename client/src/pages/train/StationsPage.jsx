@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../../lib/api";
 
-import "./components/stations-theme.css";
-import StationSidebarHeader from "./components/StationSidebarHeader";
-import StationSearchBar from "./components/StationSearchBar";
-import StationAlert from "./components/StationAlert";
-import StationFormCard from "./components/StationFormCard";
-import StationListSection from "./components/StationListSection";
-import StationMapPanel from "./components/StationMapPanel";
+import "./components/stations/stations-theme.css";
+import StationSidebarHeader from "./components/stations/StationSidebarHeader";
+import StationSearchBar from "./components/stations/StationSearchBar";
+import StationAlert from "./components/stations/StationAlert";
+import StationFormCard from "./components/stations/StationFormCard";
+import StationListSection from "./components/stations/StationListSection";
+import StationMapPanel from "./components/stations/StationMapPanel";
 
 export default function StationsPage() {
   const [stations, setStations] = useState([]);

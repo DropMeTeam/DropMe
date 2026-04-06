@@ -8,7 +8,7 @@ import {
   useMapEvents,
 } from "react-leaflet";
 import { Crosshair, Minus, Plus } from "lucide-react";
-import { fixLeafletIcon } from "../lib/leafletIcons";
+import { fixLeafletIcon } from "../../lib/leafletIcons";
 import StationStatusLegend from "./StationStatusLegend";
 
 fixLeafletIcon();

@@ -1,10 +1,16 @@
 import mongoose from "mongoose";
 
+export const ALLOWED_SEATS_BY_TYPE = {
+  Normal: [42, 44, 49, 54],
+  "Semi-luxury": [32, 35, 40],
+  Luxury: [45, 49, 50],
+  Expressway: [32, 35, 40, 45, 49, 50],
+};
+
 const BusSchema = new mongoose.Schema(
   {
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
 
-    // Bus core identity
     plateNumber: { type: String, required: true, trim: true, uppercase: true, index: true },
 
     busType: {
@@ -15,24 +21,33 @@ const BusSchema = new mongoose.Schema(
 
     color: { type: String, trim: true, default: "" },
 
-    // seat count selected from allowed list per type
-    seatsTotal: { type: Number, required: true, min: 25, max: 60 },
+    seatsTotal: {
+      type: Number,
+      required: true,
+      validate: {
+        validator(value) {
+          const allowedSeats = ALLOWED_SEATS_BY_TYPE[this.busType] || [];
+          return allowedSeats.includes(Number(value));
+        },
+        message(props) {
+          const busType = this?.busType || "selected bus type";
+          const allowedSeats = ALLOWED_SEATS_BY_TYPE[busType] || [];
+          return `Invalid seat count for ${busType}. Allowed values: ${allowedSeats.join(", ")}`;
+        },
+      },
+    },
 
-    // NEW: bus features selected by owner
     features: {
       type: [String],
       default: [],
     },
 
-    // route binding: must be an admin-created route
     routeId: { type: mongoose.Schema.Types.ObjectId, ref: "BusRoute", required: true, index: true },
 
-    // Photos / compliance artifacts
     photoUrl: { type: String, default: "" },
     registrationPhotoUrl: { type: String, default: "" },
     permitPhotoUrl: { type: String, default: "" },
 
-    // Governance lifecycle
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
@@ -49,3 +64,4 @@ const BusSchema = new mongoose.Schema(
 BusSchema.index({ owner: 1, plateNumber: 1 }, { unique: true });
 
 export const Bus = mongoose.model("Bus", BusSchema);
+export default Bus;

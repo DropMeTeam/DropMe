@@ -84,8 +84,23 @@ function findNearestPoint(passengerPoint, routePoints, radiusKm) {
   return nearestMatch;
 }
 
-function shortLabel(label = "") {
-  return String(label).split(",")[0].trim();
+function getSegmentDistanceKm(routePoints, fromOrder, toOrder) {
+  if (!Array.isArray(routePoints) || routePoints.length < 2) return 0;
+
+  const startIndex = Math.min(fromOrder, toOrder);
+  const endIndex = Math.max(fromOrder, toOrder);
+
+  let total = 0;
+
+  for (let index = startIndex; index < endIndex; index += 1) {
+    const currentPoint = routePoints[index];
+    const nextPoint = routePoints[index + 1];
+
+    if (!currentPoint || !nextPoint) continue;
+    total += getDistanceKm(currentPoint, nextPoint);
+  }
+
+  return Number(total.toFixed(1));
 }
 
 function buildMatchedRoute(route, passengerFrom, passengerTo, radiusKm) {
@@ -107,9 +122,16 @@ function buildMatchedRoute(route, passengerFrom, passengerTo, radiusKm) {
     fromMatch,
     toMatch,
     travelDirection,
-    passengerStartLabel: shortLabel(fromMatch.label),
-    passengerEndLabel: shortLabel(toMatch.label),
+    passengerDistanceKm: getSegmentDistanceKm(
+      orderedPoints,
+      fromMatch.routeOrder,
+      toMatch.routeOrder
+    ),
   };
+}
+
+function shortLabel(label = "") {
+  return String(label).split(",")[0].trim();
 }
 
 export default function BusRouteCards({
@@ -241,7 +263,7 @@ function RouteCard({ route, selected, onClick }) {
         }
       }}
       className={[
-        "group overflow-hidden rounded-[22px] border bg-[linear-gradient(180deg,#040816_0%,#02050d_100%)] shadow-[0_14px_36px_rgba(0,0,0,0.32)] transition-all duration-300 cursor-pointer",
+        "group cursor-pointer overflow-hidden rounded-[22px] border bg-[linear-gradient(180deg,#040816_0%,#02050d_100%)] shadow-[0_14px_36px_rgba(0,0,0,0.32)] transition-all duration-300",
         selected
           ? "border-sky-400/60 shadow-[0_18px_42px_rgba(56,189,248,0.18)]"
           : "border-white/10 hover:border-white/20 hover:shadow-[0_18px_42px_rgba(0,0,0,0.42)]",

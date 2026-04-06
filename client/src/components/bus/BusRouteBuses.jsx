@@ -7,8 +7,11 @@ import {
   Ticket,
   ArrowRight,
   Route as RouteIcon,
+  LayoutGrid,
 } from "lucide-react";
 import { api } from "../../lib/api";
+import { calculateBusFare, formatLkr } from "../../lib/busFare";
+import { getBusLayoutType } from "../../lib/busSeatLayout";
 
 function shortLabel(label = "") {
   return String(label).split(",")[0].trim();
@@ -59,10 +62,13 @@ export default function BusRouteBuses({
             Direction: {route?.travelDirection === "B_TO_A" ? "Reverse" : "Forward"} ·
             Date: {searchData?.date || "-"}
           </p>
+          <p className="mt-1 text-xs text-white/45">
+            Passenger Distance: {Number(route?.passengerDistanceKm || 0).toFixed(1)} km
+          </p>
         </div>
 
-        <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-2 text-xs text-amber-200">
-          Ticket price and seat arrangement are not implemented yet
+        <div className="rounded-2xl border border-sky-400/20 bg-sky-500/10 px-4 py-2 text-xs text-sky-200">
+          Dynamic fare + seat layout ready
         </div>
       </div>
 
@@ -81,6 +87,16 @@ export default function BusRouteBuses({
               const bus = item.bus || {};
               const busPhoto = buildAbsoluteImageUrl(bus.photoUrl);
 
+              const fare = calculateBusFare({
+                busType: bus.busType,
+                distanceKm: route?.passengerDistanceKm || 0,
+              });
+
+              const seatLayoutType = getBusLayoutType(
+                bus.busType,
+                Number(bus.seatsTotal || 0)
+              );
+
               return (
                 <article
                   key={bus._id || bus.id || bus.plateNumber}
@@ -93,6 +109,9 @@ export default function BusRouteBuses({
                         schedule: item.schedule,
                         route,
                         searchData,
+                        ticketPriceLkr: fare.fareLkr,
+                        passengerDistanceKm: fare.distanceKm,
+                        seatLayoutType,
                       },
                     })
                   }
@@ -105,6 +124,9 @@ export default function BusRouteBuses({
                           schedule: item.schedule,
                           route,
                           searchData,
+                          ticketPriceLkr: fare.fareLkr,
+                          passengerDistanceKm: fare.distanceKm,
+                          seatLayoutType,
                         },
                       });
                     }
@@ -152,13 +174,19 @@ export default function BusRouteBuses({
                       <MetricRow
                         icon={<Ticket className="h-4 w-4" />}
                         label="Ticket price"
-                        value="Not set yet"
+                        value={formatLkr(fare.fareLkr)}
                       />
 
                       <MetricRow
                         icon={<RouteIcon className="h-4 w-4" />}
-                        label="Direction"
-                        value={route?.travelDirection === "B_TO_A" ? "Reverse" : "Forward"}
+                        label="Passenger distance"
+                        value={`${fare.distanceKm} km`}
+                      />
+
+                      <MetricRow
+                        icon={<LayoutGrid className="h-4 w-4" />}
+                        label="Seat layout"
+                        value={seatLayoutType}
                       />
                     </div>
 

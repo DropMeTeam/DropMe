@@ -34,8 +34,7 @@ export default function DriverDashboard() {
     staleTime: 0,
   });
 
-  // ✅ offers filter
-  const [offersView, setOffersView] = useState("upcoming"); // upcoming | past | all
+  const [offersView, setOffersView] = useState("upcoming");
 
   const offersQ = useQuery({
     queryKey: ["my-offers", offersView],
@@ -52,21 +51,23 @@ export default function DriverDashboard() {
   const status = reg?.status || "not_submitted";
   const isApproved = status === "approved";
 
-  // ===== Profile edit state =====
+  // profile edit state
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
+  const [contactNo, setContactNo] = useState("");
   const [avatarFile, setAvatarFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  // ✅ offer actions
+  // offer actions
   const [deletingId, setDeletingId] = useState(null);
   const [completingId, setCompletingId] = useState(null);
   const [offersMsg, setOffersMsg] = useState("");
 
   useEffect(() => {
     if (user?.name) setName(user.name);
-  }, [user?.name]);
+    setContactNo(user?.contactNo || "");
+  }, [user?.name, user?.contactNo]);
 
   async function saveProfile(e) {
     e.preventDefault();
@@ -77,13 +78,17 @@ export default function DriverDashboard() {
       if (avatarFile) {
         const fd = new FormData();
         fd.append("name", name);
+        fd.append("contactNo", contactNo);
         fd.append("avatar", avatarFile);
 
         await api.patch("/api/users/me", fd, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       } else {
-        await api.patch("/api/users/me", { name });
+        await api.patch("/api/users/me", {
+          name,
+          contactNo,
+        });
       }
 
       setEditing(false);
@@ -128,7 +133,6 @@ export default function DriverDashboard() {
     setCompletingId(id);
 
     try {
-      // ✅ uses your updateOffer endpoint
       await api.patch(`/api/offers/${id}`, { status: "completed" });
       await qc.invalidateQueries({ queryKey: ["my-offers"] });
       setOffersMsg("Ride marked as completed ✅");
@@ -150,7 +154,7 @@ export default function DriverDashboard() {
 
   return (
     <div className="grid gap-6">
-      {/* ✅ PROFILE CARD */}
+      {/* PROFILE CARD */}
       <div className="card p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -162,7 +166,7 @@ export default function DriverDashboard() {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="h-full w-full grid place-items-center text-xs text-zinc-400">
+                <div className="grid h-full w-full place-items-center text-xs text-zinc-400">
                   No photo
                 </div>
               )}
@@ -171,6 +175,9 @@ export default function DriverDashboard() {
             <div>
               <div className="text-lg font-semibold">{user?.name || "Driver"}</div>
               <div className="text-sm text-zinc-400">{user?.email || "—"}</div>
+              <div className="text-sm text-zinc-400">
+                Contact No: {user?.contactNo || "Not added"}
+              </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className={statusBadge(status)}>
                   Registration: {status}
@@ -219,7 +226,21 @@ export default function DriverDashboard() {
           >
             <div className="grid gap-1">
               <label className="text-xs text-zinc-400">Name</label>
-              <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+              <input
+                className="input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+
+            <div className="grid gap-1">
+              <label className="text-xs text-zinc-400">Contact Number</label>
+              <input
+                className="input"
+                value={contactNo}
+                onChange={(e) => setContactNo(e.target.value)}
+                placeholder="Enter contact number"
+              />
             </div>
 
             <div className="grid gap-1">
@@ -244,6 +265,7 @@ export default function DriverDashboard() {
                   setEditing(false);
                   setAvatarFile(null);
                   setName(user?.name || "");
+                  setContactNo(user?.contactNo || "");
                   setMsg("");
                 }}
               >
@@ -254,7 +276,7 @@ export default function DriverDashboard() {
         ) : null}
       </div>
 
-      {/* ✅ DRIVER REGISTRATION DETAILS CARD */}
+      {/* DRIVER REGISTRATION DETAILS CARD */}
       <div className="card p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -327,7 +349,7 @@ export default function DriverDashboard() {
         </div>
       </div>
 
-      {/* ✅ OFFERS */}
+      {/* OFFERS */}
       <div className="card p-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm font-semibold">Offers</div>
@@ -336,7 +358,6 @@ export default function DriverDashboard() {
           </div>
         </div>
 
-        {/* tabs */}
         <div className="mt-3 flex flex-wrap gap-2">
           {[
             { id: "upcoming", label: "Upcoming" },
@@ -407,7 +428,6 @@ export default function DriverDashboard() {
                         Pickup: {o?.pickupTime ? new Date(o.pickupTime).toLocaleString() : "—"}
                       </div>
 
-                      {/* ✅ Past view: show "Mark Completed" button if not completed */}
                       {showCompletionUI && !isCompleted ? (
                         <div className="mt-3">
                           <button
@@ -422,8 +442,7 @@ export default function DriverDashboard() {
                       ) : null}
                     </div>
 
-                    {/* actions */}
-                    <div className="flex flex-col gap-2 min-w-[110px]">
+                    <div className="flex min-w-[110px] flex-col gap-2">
                       <Link
                         to={`/driver/offers/${o._id}/edit`}
                         className="btn btn-outline border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15"

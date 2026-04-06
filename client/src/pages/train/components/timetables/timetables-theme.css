@@ -1,0 +1,24 @@
+.train-timetable-manager {
+  background:
+    radial-gradient(circle at top left, rgba(30, 64, 175, 0.16), transparent 24%),
+    radial-gradient(circle at top right, rgba(15, 23, 42, 0.35), transparent 28%),
+    linear-gradient(180deg, #040914 0%, #020710 100%);
+}
+
+.timetable-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.timetable-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.timetable-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.timetable-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}

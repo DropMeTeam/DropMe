@@ -8,14 +8,15 @@ import {
 } from "../controllers/offer.controller.js";
 import { searchOffers } from "../controllers/offer.search.controller.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
-import { RideOffer } from "../models/RideOffer.js"; // ✅ ADD THIS
+import { RideOffer } from "../models/RideOffer.js"; 
+
 
 export const offersRouter = Router();
 
 offersRouter.post("/", requireAuth, requireRole("driver", "admin"), createOffer);
 offersRouter.get("/my", requireAuth, requireRole("driver", "admin"), myOffers);
 
-// passenger search (public)
+
 offersRouter.get("/search", searchOffers);
 
 

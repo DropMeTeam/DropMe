@@ -21,12 +21,12 @@ const RideBookingSchema = new mongoose.Schema(
       default: "unpaid",
       index: true,
     },
+
     amount: { type: Number, default: 0 },
     currency: { type: String, default: "lkr" },
     stripeSessionId: { type: String, default: "" },
     paidAt: { type: Date, default: null },
 
-    // ✅ snapshot for dashboard/receipt even if offer changes
     offerSnapshot: {
       originAddress: { type: String, default: "" },
       destinationAddress: { type: String, default: "" },

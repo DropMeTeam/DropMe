@@ -1,4 +1,3 @@
-// models/RideOffer.js
 import mongoose from "mongoose";
 
 const GeoPointSchema = new mongoose.Schema(
@@ -19,7 +18,12 @@ const LocationSchema = new mongoose.Schema(
 
 const RideOfferSchema = new mongoose.Schema(
   {
-    driverId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    driverId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
 
     origin: { type: LocationSchema, required: true },
     destination: { type: LocationSchema, required: true },
@@ -32,21 +36,27 @@ const RideOfferSchema = new mongoose.Schema(
 
     routePolyline: { type: String, default: "" },
 
-    //  optional simple price
+    // NEW: store trip distance in KM
+    distanceKm: { type: Number, default: 0, min: 0 },
+
+    // price per seat
     priceLkr: { type: Number, default: 0, min: 0 },
 
-    // your existing pricing block (keep)
     pricing: {
       baseFee: { type: Number, default: 120 },
       pricePerKm: { type: Number, default: 80 },
       poolDiscountPct: { type: Number, default: 20 },
     },
 
-    // models/RideOffer.js (only the status part + new completedAt)
-status: { type: String, enum: ["open", "closed", "completed"], default: "open", index: true },
-completedAt: { type: Date, default: null },
+    status: {
+      type: String,
+      enum: ["open", "closed", "completed"],
+      default: "open",
+      index: true,
+    },
 
-    //  snapshot fields for passenger display
+    completedAt: { type: Date, default: null },
+
     driverSnapshot: {
       name: { type: String, default: "" },
       email: { type: String, default: "" },
@@ -66,8 +76,5 @@ completedAt: { type: Date, default: null },
 
 RideOfferSchema.index({ "origin.point": "2dsphere" });
 RideOfferSchema.index({ "destination.point": "2dsphere" });
-
-
-
 
 export const RideOffer = mongoose.model("RideOffer", RideOfferSchema);

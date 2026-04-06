@@ -1,7 +1,7 @@
 import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/api";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 export default function CheckoutPage() {
   const { offerId } = useParams();
@@ -22,6 +22,14 @@ export default function CheckoutPage() {
   const driver = offer?.driverSnapshot || {};
   const vehicle = offer?.vehicleSnapshot || {};
 
+  const unitPrice = Number(offer?.priceLkr || 0);
+
+  const totalPrice = useMemo(() => {
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) return 0;
+    if (!Number.isFinite(seats) || seats < 1) return unitPrice;
+    return unitPrice * seats;
+  }, [unitPrice, seats]);
+
   async function proceed() {
     try {
       setErrMsg("");
@@ -38,7 +46,6 @@ export default function CheckoutPage() {
         return;
       }
 
-      // ✅ best way to redirect
       window.location.assign(url);
     } catch (e) {
       setErrMsg(e?.response?.data?.message || e.message || "Proceed failed");
@@ -55,19 +62,26 @@ export default function CheckoutPage() {
       <div className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-white/5 p-6">
         <h1 className="text-xl font-semibold">Proceed & Checkout</h1>
 
-        <div className="mt-4 text-sm text-white/70 space-y-2">
+        <div className="mt-4 space-y-2 text-sm text-white/70">
           <div>
             <b>Route:</b> {offer.origin?.address} → {offer.destination?.address}
           </div>
+
           <div>
             <b>Pickup:</b>{" "}
             {offer.pickupTime ? new Date(offer.pickupTime).toLocaleString() : "—"}
           </div>
+
           <div>
             <b>Seats:</b> {seats}
           </div>
+
           <div>
-            <b>Price:</b> LKR {offer.priceLkr}
+            <b>Price per ticket:</b> LKR {unitPrice.toLocaleString()}
+          </div>
+
+          <div>
+            <b>Total payment:</b> LKR {totalPrice.toLocaleString()}
           </div>
 
           <hr className="my-3 border-white/10" />
@@ -75,6 +89,7 @@ export default function CheckoutPage() {
           <div>
             <b>Driver:</b> {driver.name || "—"} ({driver.email || "—"})
           </div>
+
           <div>
             <b>Vehicle:</b> {vehicle.type || "—"} • {vehicle.number || "—"} •{" "}
             {vehicle.color || "—"}
@@ -90,12 +105,15 @@ export default function CheckoutPage() {
           >
             Back
           </button>
+
           <button
             onClick={proceed}
             disabled={proceeding}
-            className="rounded-xl bg-white text-black px-4 py-2 font-semibold disabled:opacity-60"
+            className="rounded-xl bg-white px-4 py-2 font-semibold text-black disabled:opacity-60"
           >
-            {proceeding ? "Redirecting..." : "Proceed to Payment"}
+            {proceeding
+              ? "Redirecting..."
+              : `Proceed to Payment • LKR ${totalPrice.toLocaleString()}`}
           </button>
         </div>
       </div>

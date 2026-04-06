@@ -12,7 +12,6 @@ export async function createBooking(req, res, next) {
       throw new HttpError(400, "Invalid seatsBooked");
     }
 
-    // 1) Reserve seats atomically
     const offer = await RideOffer.findOneAndUpdate(
       { _id: offerId, status: "open", seatsAvailable: { $gte: seatsBooked } },
       { $inc: { seatsAvailable: -seatsBooked } },
@@ -21,7 +20,6 @@ export async function createBooking(req, res, next) {
 
     if (!offer) throw new HttpError(409, "Not enough seats or offer not available");
 
-    // 2) Create booking record (unique constraint avoids duplicates)
     let booking;
     try {
       booking = await RideBooking.create({
@@ -32,16 +30,13 @@ export async function createBooking(req, res, next) {
         status: "pending",
       });
     } catch (e) {
-      // rollback seats if booking insert fails
       await RideOffer.updateOne({ _id: offer._id }, { $inc: { seatsAvailable: seatsBooked } });
 
-      // ✅ duplicate booking
       if (e?.code === 11000) throw new HttpError(409, "You already booked this offer.");
 
       throw e;
     }
 
-    // 3) Notify driver
     req.io?.to(`driver:${String(offer.driverId)}`).emit("booking:new", {
       bookingId: String(booking._id),
       offerId: String(offer._id),
@@ -94,7 +89,6 @@ export async function updateBookingStatus(req, res, next) {
     const isAdmin = req.user?.role === "admin";
     if (!isOwner && !isAdmin) throw new HttpError(403, "Not allowed");
 
-    // ✅ prevent double refund
     if (booking.status !== "pending") {
       throw new HttpError(400, `Cannot change status from ${booking.status}`);
     }
@@ -158,45 +152,46 @@ export async function downloadReceipt(req, res, next) {
 
     if (!booking) throw new HttpError(404, "Booking not found");
 
-    //  rider OR driver OR (admin role if you have it)
     const isRider = String(booking.riderId) === String(req.user.sub);
     const isDriver = String(booking.driverId) === String(req.user.sub);
-    const isAdmin = req.user?.role === "admin"; // if you use ADMIN_* roles, see note below
+    const isAdmin = req.user?.role === "admin";
 
     if (!isRider && !isDriver && !isAdmin) throw new HttpError(403, "Not allowed");
 
-    
     if (booking.status !== "confirmed" && booking.paymentStatus !== "paid") {
       throw new HttpError(400, "Receipt available only after payment/confirmation");
     }
 
     const offer = booking.offerId || null;
 
-    const origin = offer?.origin?.address || "—";
-    const destination = offer?.destination?.address || "—";
-    const pickupTime = offer?.pickupTime ? new Date(offer.pickupTime).toLocaleString() : "—";
+    const origin = offer?.origin?.address || booking?.offerSnapshot?.originAddress || "—";
+    const destination = offer?.destination?.address || booking?.offerSnapshot?.destinationAddress || "—";
+    const pickupTime = offer?.pickupTime
+      ? new Date(offer.pickupTime).toLocaleString()
+      : booking?.offerSnapshot?.pickupTime
+      ? new Date(booking.offerSnapshot.pickupTime).toLocaleString()
+      : "—";
 
-    const driverName = offer?.driverSnapshot?.name || "—";
-    const driverEmail = offer?.driverSnapshot?.email || "—";
+    const driverName = offer?.driverSnapshot?.name || booking?.offerSnapshot?.driverName || "—";
+    const driverEmail = offer?.driverSnapshot?.email || booking?.offerSnapshot?.driverEmail || "—";
 
-    const vehicleType = offer?.vehicleSnapshot?.type || "—";
-    const vehicleNumber = offer?.vehicleSnapshot?.number || "—";
-    const vehicleColor = offer?.vehicleSnapshot?.color || "—";
+    const vehicleType = offer?.vehicleSnapshot?.type || booking?.offerSnapshot?.vehicleType || "—";
+    const vehicleNumber = offer?.vehicleSnapshot?.number || booking?.offerSnapshot?.vehicleNumber || "—";
+    const vehicleColor = offer?.vehicleSnapshot?.color || booking?.offerSnapshot?.vehicleColor || "—";
 
-    // Payment fields may or may not exist in your schema yet
     const paymentStatus = booking.paymentStatus || booking.status || "—";
-    const amount = booking.amount ?? offer?.priceLkr ?? 0;
+    const amount = Number(booking.amount ?? 0);
     const currency = (booking.currency || "lkr").toUpperCase();
     const paidAt = booking.paidAt ? new Date(booking.paidAt).toLocaleString() : "—";
+    const seatsBooked = Number(booking.seatsBooked || 1);
+    const unitPrice = Number(booking?.offerSnapshot?.priceLkr || offer?.priceLkr || 0);
 
-    // headers
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="DropMe-Receipt-${bookingId}.pdf"`);
 
     const doc = new PDFDocument({ size: "A4", margin: 50 });
     doc.pipe(res);
 
-    // ---- PDF content ----
     doc.fontSize(20).text("DropMe - Booking Receipt", { align: "center" });
     doc.moveDown();
 
@@ -211,10 +206,11 @@ export async function downloadReceipt(req, res, next) {
     doc.fontSize(11);
     doc.text(`Route: ${origin}  →  ${destination}`);
     doc.text(`Pickup: ${pickupTime}`);
-    doc.text(`Seats Booked: ${booking.seatsBooked}`);
+    doc.text(`Seats Booked: ${seatsBooked}`);
+    doc.text(`Price Per Ticket: ${currency} ${unitPrice.toLocaleString()}`);
+    doc.text(`Total Amount: ${currency} ${amount.toLocaleString()}`);
     doc.text(`Booking Status: ${booking.status || "—"}`);
     doc.text(`Payment Status: ${paymentStatus}`);
-    doc.text(`Amount: ${currency} ${amount}`);
     doc.text(`Paid At: ${paidAt}`);
     doc.moveDown();
 

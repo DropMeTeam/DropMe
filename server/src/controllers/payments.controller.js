@@ -10,18 +10,36 @@ export async function createStripeSession(req, res, next) {
     const { offerId, seatsBooked } = req.body || {};
     const seats = Number(seatsBooked || 1);
 
-    if (!offerId) throw new HttpError(400, "offerId is required");
-    if (!Number.isFinite(seats) || seats < 1 || seats > 6) throw new HttpError(400, "Invalid seatsBooked");
+    if (!offerId) {
+      throw new HttpError(400, "offerId is required");
+    }
+
+    if (!Number.isFinite(seats) || seats < 1 || seats > 6) {
+      throw new HttpError(400, "Invalid seatsBooked");
+    }
 
     const offer = await RideOffer.findById(offerId).lean();
-    if (!offer) throw new HttpError(404, "Offer not found");
-    if (offer.status !== "open") throw new HttpError(409, "Offer not open");
-    if ((offer.seatsAvailable ?? 0) < seats) throw new HttpError(409, "Not enough seats");
 
-    const amount = Number(offer.priceLkr || 0);
-    if (amount <= 0) throw new HttpError(400, "Offer price not set");
+    if (!offer) {
+      throw new HttpError(404, "Offer not found");
+    }
 
-    // ✅ create pending booking (NO seat change yet)
+    if (offer.status !== "open") {
+      throw new HttpError(409, "Offer not open");
+    }
+
+    if ((offer.seatsAvailable ?? 0) < seats) {
+      throw new HttpError(409, "Not enough seats");
+    }
+
+    const unitPrice = Number(offer.priceLkr || 0);
+
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      throw new HttpError(400, "Offer price not set");
+    }
+
+    const totalAmount = unitPrice * seats;
+
     const booking = await RideBooking.create({
       offerId: offer._id,
       riderId: req.user.sub,
@@ -29,14 +47,14 @@ export async function createStripeSession(req, res, next) {
       seatsBooked: seats,
       status: "pending",
       paymentStatus: "unpaid",
-      amount,
+      amount: totalAmount,
       currency: "lkr",
       stripeSessionId: "",
       offerSnapshot: {
         originAddress: offer.origin?.address || "",
         destinationAddress: offer.destination?.address || "",
         pickupTime: offer.pickupTime || null,
-        priceLkr: amount,
+        priceLkr: unitPrice,
         driverName: offer.driverSnapshot?.name || "",
         driverEmail: offer.driverSnapshot?.email || "",
         vehicleType: offer.vehicleSnapshot?.type || "",
@@ -47,7 +65,6 @@ export async function createStripeSession(req, res, next) {
 
     const base = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
-    // ⚠️ Stripe currency: if "lkr" fails, change to "usd" in both currency fields
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
@@ -59,20 +76,33 @@ export async function createStripeSession(req, res, next) {
               name: "DropMe Ride Booking",
               description: `${offer.origin?.address || ""} → ${offer.destination?.address || ""}`,
             },
-            unit_amount: Math.round(amount * 100),
+            unit_amount: Math.round(unitPrice * 100),
           },
-          quantity: 1,
+          quantity: seats,
         },
       ],
       success_url: `${base}/checkout/success?bookingId=${booking._id}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}/checkout/cancel?bookingId=${booking._id}`,
-      metadata: { bookingId: String(booking._id), offerId: String(offer._id) },
+      metadata: {
+        bookingId: String(booking._id),
+        offerId: String(offer._id),
+        seatsBooked: String(seats),
+        unitPrice: String(unitPrice),
+        totalAmount: String(totalAmount),
+      },
     });
 
     booking.stripeSessionId = session.id;
     await booking.save();
 
-    res.json({ ok: true, url: session.url, bookingId: booking._id });
+    res.json({
+      ok: true,
+      url: session.url,
+      bookingId: booking._id,
+      seatsBooked: seats,
+      unitPrice,
+      totalAmount,
+    });
   } catch (err) {
     next(err);
   }
@@ -82,26 +112,48 @@ export async function verifyStripePayment(req, res, next) {
   try {
     const bookingId = String(req.query.bookingId || "");
     const sessionId = String(req.query.session_id || "");
-    if (!bookingId || !sessionId) throw new HttpError(400, "bookingId and session_id are required");
+
+    if (!bookingId || !sessionId) {
+      throw new HttpError(400, "bookingId and session_id are required");
+    }
 
     const booking = await RideBooking.findById(bookingId);
-    if (!booking) throw new HttpError(404, "Booking not found");
+
+    if (!booking) {
+      throw new HttpError(404, "Booking not found");
+    }
 
     const isOwner = String(booking.riderId) === String(req.user.sub);
     const isAdmin = req.user?.role === "admin";
-    if (!isOwner && !isAdmin) throw new HttpError(403, "Not allowed");
+
+    if (!isOwner && !isAdmin) {
+      throw new HttpError(403, "Not allowed");
+    }
 
     if (booking.stripeSessionId && booking.stripeSessionId !== sessionId) {
       throw new HttpError(400, "Session mismatch");
     }
 
     const session = await stripe.checkout.sessions.retrieve(sessionId);
-    if (session.payment_status !== "paid") throw new HttpError(402, "Payment not completed");
 
-    // ✅ decrease seats AFTER payment
+    if (session.payment_status !== "paid") {
+      throw new HttpError(402, "Payment not completed");
+    }
+
+    // prevent duplicate seat deduction
+    if (booking.paymentStatus === "paid" && booking.status === "confirmed") {
+      return res.json({ ok: true, booking });
+    }
+
     const offer = await RideOffer.findOneAndUpdate(
-      { _id: booking.offerId, status: "open", seatsAvailable: { $gte: booking.seatsBooked } },
-      { $inc: { seatsAvailable: -booking.seatsBooked } },
+      {
+        _id: booking.offerId,
+        status: "open",
+        seatsAvailable: { $gte: booking.seatsBooked },
+      },
+      {
+        $inc: { seatsAvailable: -booking.seatsBooked },
+      },
       { new: true }
     );
 
@@ -109,6 +161,7 @@ export async function verifyStripePayment(req, res, next) {
       booking.status = "rejected";
       booking.paymentStatus = "failed";
       await booking.save();
+
       throw new HttpError(409, "Ride sold out while paying. Booking rejected.");
     }
 
@@ -117,7 +170,7 @@ export async function verifyStripePayment(req, res, next) {
     booking.paidAt = new Date();
     await booking.save();
 
-    res.json({ ok: true, booking });
+    res.json({ ok: true, booking, offer });
   } catch (err) {
     next(err);
   }

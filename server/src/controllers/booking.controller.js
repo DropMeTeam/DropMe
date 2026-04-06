@@ -186,6 +186,12 @@ export async function downloadReceipt(req, res, next) {
     const seatsBooked = Number(booking.seatsBooked || 1);
     const unitPrice = Number(booking?.offerSnapshot?.priceLkr || offer?.priceLkr || 0);
 
+    const routeDistanceText =
+      booking?.routeDistanceText ||
+      (Number.isFinite(Number(booking?.routeDistanceKm)) && Number(booking.routeDistanceKm) > 0
+        ? `${Number(booking.routeDistanceKm).toFixed(1)} km`
+        : "");
+
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="DropMe-Receipt-${bookingId}.pdf"`);
 
@@ -206,6 +212,9 @@ export async function downloadReceipt(req, res, next) {
     doc.fontSize(11);
     doc.text(`Route: ${origin}  →  ${destination}`);
     doc.text(`Pickup: ${pickupTime}`);
+    if (routeDistanceText) {
+      doc.text(`Distance: ${routeDistanceText}`);
+    }
     doc.text(`Seats Booked: ${seatsBooked}`);
     doc.text(`Price Per Ticket: ${currency} ${unitPrice.toLocaleString()}`);
     doc.text(`Total Amount: ${currency} ${amount.toLocaleString()}`);

@@ -12,6 +12,8 @@ export default function CheckoutPage() {
   const [errMsg, setErrMsg] = useState("");
 
   const seats = Math.max(1, Number(sp.get("seats") || 1));
+  const routeDistanceKm = Math.max(0, Number(sp.get("distanceKm") || 0));
+  const routeDistanceText = routeDistanceKm > 0 ? `${routeDistanceKm.toFixed(1)} km` : "";
 
   const { data, isLoading } = useQuery({
     queryKey: ["offer-public", offerId],
@@ -38,10 +40,10 @@ export default function CheckoutPage() {
       const res = await api.post("/api/payments/stripe/session", {
         offerId,
         seatsBooked: seats,
+        routeDistanceKm,
       });
 
       const url = res?.data?.url;
-
       if (!url) {
         setErrMsg("Stripe URL missing. Check server /api/payments/stripe/session response.");
         return;
@@ -69,7 +71,7 @@ export default function CheckoutPage() {
   if (!offer) return <div className="p-8 text-white">Offer not found</div>;
 
   return (
-    <div className="min-h-screen bg-[#060812] text-white p-6">
+    <div className="min-h-screen bg-[#060812] p-6 text-white">
       <div className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-white/5 p-6">
         <h1 className="text-xl font-semibold">Proceed & Checkout</h1>
 
@@ -82,6 +84,12 @@ export default function CheckoutPage() {
             <b>Pickup:</b>{" "}
             {offer.pickupTime ? new Date(offer.pickupTime).toLocaleString() : "—"}
           </div>
+
+          {routeDistanceText ? (
+            <div>
+              <b>Distance:</b> {routeDistanceText}
+            </div>
+          ) : null}
 
           <div>
             <b>Seats:</b> {seats}
@@ -102,8 +110,7 @@ export default function CheckoutPage() {
           </div>
 
           <div>
-            <b>Vehicle:</b> {vehicle.type || "—"} • {vehicle.number || "—"} •{" "}
-            {vehicle.color || "—"}
+            <b>Vehicle:</b> {vehicle.type || "—"} • {vehicle.number || "—"} • {vehicle.color || "—"}
           </div>
         </div>
 
@@ -122,9 +129,7 @@ export default function CheckoutPage() {
             disabled={proceeding}
             className="rounded-xl bg-white px-4 py-2 font-semibold text-black disabled:opacity-60"
           >
-            {proceeding
-              ? "Redirecting..."
-              : `Proceed to Payment • LKR ${totalPrice.toLocaleString()}`}
+            {proceeding ? "Redirecting..." : `Proceed to Payment • LKR ${totalPrice.toLocaleString()}`}
           </button>
         </div>
       </div>

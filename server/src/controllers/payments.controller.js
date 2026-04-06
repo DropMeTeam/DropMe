@@ -5,9 +5,20 @@ import { HttpError } from "../utils/httpError.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
+function normalizeDistanceKm(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < 0) return 0;
+  return Number(num.toFixed(1));
+}
+
+function buildDistanceText(distanceKm) {
+  if (!Number.isFinite(distanceKm) || distanceKm <= 0) return "";
+  return `${distanceKm.toFixed(1)} km`;
+}
+
 export async function createStripeSession(req, res, next) {
   try {
-    const { offerId, seatsBooked } = req.body || {};
+    const { offerId, seatsBooked, routeDistanceKm } = req.body || {};
     const seats = Number(seatsBooked || 1);
 
     if (!offerId) {
@@ -40,6 +51,9 @@ export async function createStripeSession(req, res, next) {
 
     const totalAmount = unitPrice * seats;
 
+    const normalizedDistanceKm = normalizeDistanceKm(routeDistanceKm);
+    const routeDistanceText = buildDistanceText(normalizedDistanceKm);
+
     let booking;
 
     try {
@@ -53,6 +67,10 @@ export async function createStripeSession(req, res, next) {
         amount: totalAmount,
         currency: "lkr",
         stripeSessionId: "",
+
+        routeDistanceKm: normalizedDistanceKm,
+        routeDistanceText,
+
         offerSnapshot: {
           originAddress: offer.origin?.address || "",
           destinationAddress: offer.destination?.address || "",
@@ -63,6 +81,8 @@ export async function createStripeSession(req, res, next) {
           vehicleType: offer.vehicleSnapshot?.type || "",
           vehicleNumber: offer.vehicleSnapshot?.number || "",
           vehicleColor: offer.vehicleSnapshot?.color || "",
+          routeDistanceKm: normalizedDistanceKm,
+          routeDistanceText,
         },
       });
     } catch (e) {
@@ -98,6 +118,7 @@ export async function createStripeSession(req, res, next) {
         seatsBooked: String(seats),
         unitPrice: String(unitPrice),
         totalAmount: String(totalAmount),
+        routeDistanceKm: String(normalizedDistanceKm),
       },
     });
 
@@ -111,6 +132,8 @@ export async function createStripeSession(req, res, next) {
       seatsBooked: seats,
       unitPrice,
       totalAmount,
+      routeDistanceKm: normalizedDistanceKm,
+      routeDistanceText,
     });
   } catch (err) {
     next(err);

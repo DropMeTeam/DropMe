@@ -27,6 +27,10 @@ const RideBookingSchema = new mongoose.Schema(
     stripeSessionId: { type: String, default: "" },
     paidAt: { type: Date, default: null },
 
+    // booking-specific search distance
+    routeDistanceKm: { type: Number, default: 0 },
+    routeDistanceText: { type: String, default: "" },
+
     offerSnapshot: {
       originAddress: { type: String, default: "" },
       destinationAddress: { type: String, default: "" },
@@ -37,6 +41,10 @@ const RideBookingSchema = new mongoose.Schema(
       vehicleType: { type: String, default: "" },
       vehicleNumber: { type: String, default: "" },
       vehicleColor: { type: String, default: "" },
+
+      // snapshot copy for receipt/dashboard safety
+      routeDistanceKm: { type: Number, default: 0 },
+      routeDistanceText: { type: String, default: "" },
     },
   },
   { timestamps: true }

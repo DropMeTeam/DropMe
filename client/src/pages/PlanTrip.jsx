@@ -6,11 +6,11 @@ import { getRoute } from "../lib/osrm";
 import { api } from "../lib/api";
 import { startLiveLocation, stopLiveLocation } from "../lib/geolocate";
 import { reverseGeocode } from "../lib/reverseGeocode";
-import { useNavigate } from "react-router-dom"; // ✅ ADD
+import { useNavigate } from "react-router-dom";
 
 export default function PlanTrip() {
   const { user } = useAuth();
-  const nav = useNavigate(); // ✅ ADD
+  const nav = useNavigate();
 
   const [pickup, setPickup] = useState(null);
   const [dropoff, setDropoff] = useState(null);
@@ -31,14 +31,12 @@ export default function PlanTrip() {
   const [offers, setOffers] = useState([]);
   const [offersMsg, setOffersMsg] = useState("");
 
-  // GPS
   const [myLoc, setMyLoc] = useState(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState("");
   const [tracking, setTracking] = useState(false);
   const watchIdRef = useRef(null);
 
-  // Fly-to
   const [flyToKey, setFlyToKey] = useState(0);
   const [flyToTarget, setFlyToTarget] = useState(null);
   const flewRef = useRef(false);
@@ -58,6 +56,12 @@ export default function PlanTrip() {
   const minPickupTime = useMemo(() => {
     return toDatetimeLocalString(new Date(Date.now() + FUTURE_BUFFER_MS));
   }, []);
+
+  const distanceKm = useMemo(() => {
+    const meters = Number(meta?.distanceMeters || 0);
+    if (!Number.isFinite(meters) || meters <= 0) return 0;
+    return Number((meters / 1000).toFixed(1));
+  }, [meta]);
 
   function parsePickupTime(value) {
     const dt = new Date(value);
@@ -248,7 +252,6 @@ export default function PlanTrip() {
   return (
     <div className="min-h-screen bg-[#060812] text-white">
       <div className="mx-auto max-w-6xl px-6 py-8 grid grid-cols-12 gap-6">
-        {/* LEFT */}
         <div className="col-span-12 lg:col-span-4 space-y-4">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <div className="flex items-start justify-between gap-4">
@@ -396,7 +399,7 @@ export default function PlanTrip() {
                 <div className="rounded-xl bg-black/30 border border-white/10 p-4 text-sm">
                   <div className="flex justify-between">
                     <span className="text-white/60">Distance</span>
-                    <span>{(meta.distanceMeters / 1000).toFixed(1)} km</span>
+                    <span>{distanceKm.toFixed(1)} km</span>
                   </div>
                   <div className="flex justify-between mt-2">
                     <span className="text-white/60">ETA</span>
@@ -416,7 +419,6 @@ export default function PlanTrip() {
           </div>
         </div>
 
-        {/* RIGHT */}
         <div className="col-span-12 lg:col-span-8">
           <MapPicker
             pickup={pickup}
@@ -486,14 +488,17 @@ export default function PlanTrip() {
                           <div>Seats: {o?.seatsAvailable}/{o?.seatsTotal}</div>
                           <div>{o?.priceLkr ? `LKR ${o.priceLkr}` : "—"}</div>
 
-                          {/* ✅ redirect to checkout */}
                           <button
                             type="button"
                             disabled={!canBook}
-                            onClick={() => nav(`/checkout/${o._id}?seats=${seatsToBook}`)}
+                            onClick={() =>
+                              nav(`/checkout/${o._id}?seats=${seatsToBook}&distanceKm=${distanceKm}`)
+                            }
                             className={
                               "mt-3 rounded-xl px-3 py-2 text-sm font-semibold transition " +
-                              (canBook ? "bg-white text-black hover:opacity-90" : "bg-white/10 text-white/40 cursor-not-allowed")
+                              (canBook
+                                ? "bg-white text-black hover:opacity-90"
+                                : "bg-white/10 text-white/40 cursor-not-allowed")
                             }
                           >
                             Proceed

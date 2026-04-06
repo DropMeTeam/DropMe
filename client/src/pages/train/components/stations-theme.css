@@ -1,0 +1,44 @@
+.station-admin-shell {
+  background:
+    radial-gradient(circle at top left, rgba(30, 64, 175, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(15, 23, 42, 0.35), transparent 26%),
+    linear-gradient(180deg, #040914 0%, #020710 100%);
+}
+
+.station-list-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.station-list-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.station-list-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.station-list-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.station-map-wrap .leaflet-container {
+  background: #dbeafe;
+  font-family: inherit;
+}
+
+.station-map-wrap .leaflet-control-container {
+  display: none;
+}
+
+.station-map-wrap .leaflet-popup-content-wrapper,
+.station-map-wrap .leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.97);
+  color: #0f172a;
+}
+
+.station-map-wrap .leaflet-popup-content {
+  margin: 12px 14px;
+  line-height: 1.5;
+}

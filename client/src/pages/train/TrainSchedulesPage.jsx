@@ -251,9 +251,9 @@ export default function TrainSchedulesPage() {
   );
 
   return (
-    <div className="train-schedules-shell min-h-screen bg-[#040914] px-4 py-4 text-white lg:px-6">
-      <div className="mx-auto grid max-w-[1680px] gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(460px,0.85fr)]">
-        <section className="space-y-5">
+    <div className="train-schedules-shell min-h-full bg-[#040914] px-1 py-1 text-white md:px-2">
+      <div className="grid w-full min-w-0 gap-4 2xl:gap-5">
+        <section className="space-y-5 min-w-0">
           <TrainSchedulesHeader
             stationCount={scheduleStats.stationCount}
             scheduleCount={scheduleStats.scheduleCount}
@@ -273,7 +273,7 @@ export default function TrainSchedulesPage() {
             setActive={setActive}
           />
 
-          <div className="grid gap-5 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(21,30,43,0.96)_0%,rgba(11,17,27,0.96)_100%)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.32)] xl:grid-cols-[minmax(0,1.2fr)_320px]">
+          <div className="grid gap-4 rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(21,30,43,0.96)_0%,rgba(11,17,27,0.96)_100%)] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.32)] xl:grid-cols-[minmax(0,1.2fr)_300px]">
             <section className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
                 <div>
@@ -349,14 +349,16 @@ export default function TrainSchedulesPage() {
           </div>
         </section>
 
-        <RoutePreviewPanel
-          stopsOrdered={stopsOrdered}
-          polyline={routePolyline}
-          totalKm={totalKm}
-          totalMin={totalMin}
-          stopCount={stopsOrdered.filter((stop) => stop.stationId).length}
-          segmentCount={scheduleStats.segmentCount}
-        />
+        <section className="min-w-0">
+          <RoutePreviewPanel
+            stopsOrdered={stopsOrdered}
+            polyline={routePolyline}
+            totalKm={totalKm}
+            totalMin={totalMin}
+            stopCount={stopsOrdered.filter((stop) => stop.stationId).length}
+            segmentCount={scheduleStats.segmentCount}
+          />
+        </section>
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ import {
   createTrainBookingCheckout,
   listMyTrainBookings,
   getMyTrainBookingById,
+  downloadMyTrainTicket,
   cancelMyTrainBooking,
 } from "./controllers/trainBooking.controller.js";
 import { requireAuth, requireRole } from "../../middleware/auth.js";
@@ -43,6 +44,13 @@ trainRouter.get(
   requireAuth,
   requireRole("rider"),
   getMyTrainBookingById
+);
+
+trainRouter.get(
+  "/bookings/:id/ticket",
+  requireAuth,
+  requireRole("rider"),
+  downloadMyTrainTicket
 );
 
 trainRouter.patch(

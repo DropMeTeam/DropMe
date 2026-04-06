@@ -45,7 +45,7 @@ const trainBookingSchema = new mongoose.Schema(
 
     travelDate: {
       type: String,
-      required: true, // YYYY-MM-DD
+      required: true,
       index: true,
     },
 
@@ -94,6 +94,22 @@ const trainBookingSchema = new mongoose.Schema(
       default: "",
     },
 
+    paidAt: {
+      type: Date,
+      default: null,
+    },
+
+    ticketNumber: {
+      type: String,
+      default: "",
+      index: true,
+    },
+
+    ticketEmailSentAt: {
+      type: Date,
+      default: null,
+    },
+
     journeySnapshot: {
       trainNo: { type: String, default: "" },
       trainName: { type: String, default: "" },
@@ -101,19 +117,29 @@ const trainBookingSchema = new mongoose.Schema(
       arrivalTime: { type: String, default: "" },
       durationLabel: { type: String, default: "" },
 
-      // new fields
       durationMinutes: {
         type: Number,
         default: 0,
         min: 0,
       },
+
       distanceKm: {
         type: Number,
         default: 0,
         min: 0,
       },
-      farePerSeatLkr: { type: Number, default: 0, min: 0 },
-      fareBreakdownTotalLkr: { type: Number, default: 0, min: 0 },
+
+      farePerSeatLkr: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      fareBreakdownTotalLkr: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
     },
   },
   { timestamps: true }

@@ -2,8 +2,11 @@ import { TrainSchedule } from "../models/TrainSchedule.js";
 import { TrainBooking } from "../models/TrainBooking.js";
 import { HttpError } from "../../../utils/httpError.js";
 import { calculateJourneyFare } from "../utils/trainFare.js";
+import {
+  generateTrainTicketPdfBuffer,
+  getTrainTicketFilename,
+} from "../utils/trainTicket.js";
 
-// Keep backend booking creation aligned with Stripe minimum.
 const MIN_TRAIN_PAYMENT_LKR = Number(process.env.MIN_TRAIN_PAYMENT_LKR || 200);
 
 function getUserId(req) {
@@ -26,12 +29,6 @@ function toSafeNonNegativeNumber(value, fallback = 0) {
   return Number.isFinite(num) && num >= 0 ? num : fallback;
 }
 
-/**
- * Create a pending train booking.
- * Then frontend can call:
- * POST /api/payments/stripe/train/session
- * with { bookingId }
- */
 export async function createTrainBookingCheckout(req, res, next) {
   try {
     const passengerId = getUserId(req);
@@ -68,7 +65,6 @@ export async function createTrainBookingCheckout(req, res, next) {
       throw new HttpError(404, "Train schedule not found");
     }
 
-    // Recalculate fare on server
     const travelDay = getTravelDay(travelDate);
     const { farePerSeatLkr } = calculateJourneyFare(
       schedule,
@@ -79,15 +75,10 @@ export async function createTrainBookingCheckout(req, res, next) {
 
     const serverTotalFare = farePerSeatLkr * seatCount;
 
-    if (!Number.isFinite(serverTotalFare) || serverTotalFare <= 0) {
-      throw new HttpError(400, "Calculated train fare is invalid");
-    }
-
-    // Prevent creating bookings that Stripe can never charge.
-    if (serverTotalFare < MIN_TRAIN_PAYMENT_LKR) {
+    if (!Number.isFinite(serverTotalFare) || serverTotalFare < MIN_TRAIN_PAYMENT_LKR) {
       throw new HttpError(
         400,
-        `Minimum train payment is LKR ${MIN_TRAIN_PAYMENT_LKR}. Current total is LKR ${serverTotalFare.toFixed(2)}. Increase seats or fare before checkout.`
+        `Minimum train payment is LKR ${MIN_TRAIN_PAYMENT_LKR}. Current total is LKR ${serverTotalFare.toFixed(2)}.`
       );
     }
 
@@ -111,6 +102,9 @@ export async function createTrainBookingCheckout(req, res, next) {
       paymentStatus: "pending",
       stripeSessionId: "",
       paymentReference: "",
+      paidAt: null,
+      ticketNumber: "",
+      ticketEmailSentAt: null,
       journeySnapshot: {
         trainNo: journeySnapshot.trainNo || schedule.trainNo || "",
         trainName: journeySnapshot.trainName || schedule.trainName || "",
@@ -188,6 +182,44 @@ export async function getMyTrainBookingById(req, res, next) {
   }
 }
 
+export async function downloadMyTrainTicket(req, res, next) {
+  try {
+    const passengerId = getUserId(req);
+    const { id } = req.params;
+
+    if (!passengerId) {
+      throw new HttpError(401, "Unauthorized");
+    }
+
+    const booking = await TrainBooking.findById(id).lean();
+
+    if (!booking) {
+      throw new HttpError(404, "Train booking not found");
+    }
+
+    const isOwner = String(booking.passengerId) === passengerId;
+    if (!isOwner) {
+      throw new HttpError(403, "Not allowed");
+    }
+
+    if (booking.paymentStatus !== "paid" || booking.bookingStatus !== "booked") {
+      throw new HttpError(400, "Ticket is available only after successful payment");
+    }
+
+    const pdfBuffer = await generateTrainTicketPdfBuffer(booking);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${getTrainTicketFilename(booking)}"`
+    );
+
+    return res.end(pdfBuffer);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function cancelMyTrainBooking(req, res, next) {
   try {
     const passengerId = getUserId(req);
@@ -220,34 +252,6 @@ export async function cancelMyTrainBooking(req, res, next) {
     return res.json({
       ok: true,
       message: "Train booking cancelled",
-      booking,
-    });
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function markTrainBookingPaid(req, res, next) {
-  try {
-    const { id } = req.params;
-
-    const booking = await TrainBooking.findById(id);
-    if (!booking) {
-      throw new HttpError(404, "Train booking not found");
-    }
-
-    booking.bookingStatus = "booked";
-    booking.paymentStatus = "paid";
-
-    if (req.body?.paymentReference) {
-      booking.paymentReference = String(req.body.paymentReference);
-    }
-
-    await booking.save();
-
-    return res.json({
-      ok: true,
-      message: "Train booking marked as paid",
       booking,
     });
   } catch (err) {

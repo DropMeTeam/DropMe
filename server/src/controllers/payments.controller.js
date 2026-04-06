@@ -3,12 +3,16 @@ import { RideOffer } from "../models/RideOffer.js";
 import { RideBooking } from "../models/RideBooking.js";
 import { HttpError } from "../utils/httpError.js";
 import { TrainBooking } from "../modules/train/models/TrainBooking.js";
+import {
+  generateTrainTicketPdfBuffer,
+  getTrainTicketNumber,
+} from "../modules/train/utils/trainTicket.js";
+import { sendTrainTicketEmail } from "../utils/mailer.js";
 
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
   : null;
 
-// Safe floor for tiny train payments.
 const MIN_TRAIN_PAYMENT_LKR = Number(process.env.MIN_TRAIN_PAYMENT_LKR || 200);
 
 function getUserId(req) {
@@ -251,7 +255,6 @@ export async function createTrainStripeSession(req, res, next) {
       throw new HttpError(400, "Train booking amount is invalid");
     }
 
-    // Block tiny train payments before Stripe call.
     if (amount < MIN_TRAIN_PAYMENT_LKR) {
       throw new HttpError(
         400,
@@ -362,6 +365,11 @@ export async function verifyTrainStripePayment(req, res, next) {
       throw new HttpError(400, "Session mismatch");
     }
 
+    // Prevent re-processing and duplicate email sends.
+    if (booking.paymentStatus === "paid" && booking.bookingStatus === "booked") {
+      return res.json({ ok: true, booking });
+    }
+
     const stripeClient = requireStripeClient();
     const session = await stripeClient.checkout.sessions.retrieve(sessionId);
 
@@ -375,8 +383,31 @@ export async function verifyTrainStripePayment(req, res, next) {
       session.payment_intent || booking.paymentReference || ""
     );
     booking.stripeSessionId = session.id;
+    booking.paidAt = booking.paidAt || new Date();
+    booking.ticketNumber = booking.ticketNumber || getTrainTicketNumber(booking);
 
     await booking.save();
+
+    // Best-effort email delivery: payment must stay successful even if email fails.
+    try {
+      const pdfBuffer = await generateTrainTicketPdfBuffer(
+        booking.toObject ? booking.toObject() : booking
+      );
+
+      const emailed = await sendTrainTicketEmail({
+        to: booking.passengerSnapshot?.email || "",
+        name: booking.passengerSnapshot?.name || "",
+        booking: booking.toObject ? booking.toObject() : booking,
+        pdfBuffer,
+      });
+
+      if (emailed) {
+        booking.ticketEmailSentAt = new Date();
+        await booking.save();
+      }
+    } catch (mailErr) {
+      console.error("Train ticket email send failed:", mailErr);
+    }
 
     return res.json({ ok: true, booking });
   } catch (err) {

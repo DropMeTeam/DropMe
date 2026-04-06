@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import {
   formatBookingDate,
   formatTime12,
@@ -8,7 +8,25 @@ import {
   isBookingCancellable,
 } from "./bookings.utils";
 
-export default function BookingJourneyCard({ booking, onCancel, cancelling = false }) {
+function formatFare(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "--";
+  return amount.toFixed(2);
+}
+
+function getApiBase() {
+  return (
+    import.meta.env.VITE_API_BASE_URL ||
+    import.meta.env.VITE_API_ORIGIN ||
+    "http://localhost:5000"
+  ).replace(/\/$/, "");
+}
+
+export default function BookingJourneyCard({
+  booking,
+  onCancel,
+  cancelling = false,
+}) {
   const snapshot = getJourneySnapshot(booking);
   const status = getBookingStatusMeta(booking);
 
@@ -26,12 +44,22 @@ export default function BookingJourneyCard({ booking, onCancel, cancelling = fal
 
   const departureTime = snapshot?.departureTime || booking?.departureTime || "";
   const arrivalTime = snapshot?.arrivalTime || booking?.arrivalTime || "";
-  const durationLabel = snapshot?.durationLabel || booking?.durationLabel || "Direct";
+  const durationLabel =
+    snapshot?.durationLabel || booking?.durationLabel || "Direct";
+
   const bookingRef =
+    booking?.ticketNumber ||
     booking?.referenceNo ||
     booking?.bookingRef ||
     booking?._id?.slice(-8)?.toUpperCase() ||
     "BOOKING";
+
+  const isPaidTicket =
+    booking?.paymentStatus === "paid" && booking?.bookingStatus === "booked";
+
+  const ticketHref = booking?._id
+    ? `${getApiBase()}/api/train/bookings/${booking._id}/ticket`
+    : "#";
 
   return (
     <article className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(22,24,30,0.97),rgba(12,14,20,0.98))] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.22)] transition hover:border-white/15 md:p-5">
@@ -117,10 +145,42 @@ export default function BookingJourneyCard({ booking, onCancel, cancelling = fal
                 Fare
               </div>
               <div className="mt-2 text-sm font-semibold text-white">
-                LKR {booking?.totalFareLkr || "--"}
+                LKR {formatFare(booking?.totalFareLkr)}
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-white/8 pt-4">
+          {isPaidTicket ? (
+            <a
+              href={ticketHref}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-2xl border border-cyan-400/25 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-400/15"
+            >
+              <Download className="h-4 w-4" />
+              Download Ticket
+            </a>
+          ) : null}
+
+          {isBookingCancellable(booking) ? (
+            <button
+              type="button"
+              onClick={() => onCancel?.(booking)}
+              disabled={cancelling}
+              className="inline-flex items-center gap-2 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {cancelling ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                "Cancel Booking"
+              )}
+            </button>
+          ) : null}
         </div>
       </div>
     </article>

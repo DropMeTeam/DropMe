@@ -13,6 +13,7 @@ import DriverRegistrationPage from "./pages/driver/DriverRegistrationPage";
 import PrivateDriverApprovalsPage from "./pages/private/PrivateDriverApprovalsPage";
 
 import TrainAdminDashboard from "./pages/train/TrainAdminDashboard";
+import TrainAdminLayout from "./pages/train/TrainAdminLayout";
 import BusAdminDashboard from "./pages/bus/BusAdminDashboard";
 import PrivateAdminDashboard from "./pages/private/PrivateAdminDashboard";
 
@@ -104,34 +105,15 @@ export default function App() {
           path="/train"
           element={
             <RequireRole allow={["ADMIN_TRAIN"]}>
-              <TrainAdminDashboard />
+              <TrainAdminLayout />
             </RequireRole>
           }
-        />
-        <Route
-          path="/train/stations"
-          element={
-            <RequireRole allow={["ADMIN_TRAIN"]}>
-              <StationsPage />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/train/schedules"
-          element={
-            <RequireRole allow={["ADMIN_TRAIN"]}>
-              <TrainSchedulesPage />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/train/timetables"
-          element={
-            <RequireRole allow={["ADMIN_TRAIN"]}>
-              <TrainTimetablesPage />
-            </RequireRole>
-          }
-        />
+        >
+          <Route index element={<TrainAdminDashboard />} />
+          <Route path="stations" element={<StationsPage />} />
+          <Route path="schedules" element={<TrainSchedulesPage />} />
+          <Route path="timetables" element={<TrainTimetablesPage />} />
+        </Route>
 
         <Route
           path="/bus"

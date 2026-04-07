@@ -20,6 +20,7 @@ import PrivateAdminDashboard from "./pages/private/PrivateAdminDashboard";
 import StationsPage from "./pages/train/StationsPage";
 import TrainSchedulesPage from "./pages/train/TrainSchedulesPage";
 import TrainTimetablesPage from "./pages/train/TrainTimetablesPage";
+import TrainTicketVerifyPage from "./pages/train/TrainTicketVerifyPage";
 
 import TrainSearchPage from "./pages/train-passenger/TrainSearchPage";
 import TrainScheduleDetailsPage from "./pages/train-passenger/TrainScheduleDetailsPage";
@@ -113,6 +114,7 @@ export default function App() {
           <Route path="stations" element={<StationsPage />} />
           <Route path="schedules" element={<TrainSchedulesPage />} />
           <Route path="timetables" element={<TrainTimetablesPage />} />
+          <Route path="ticket-verify" element={<TrainTicketVerifyPage />} />
         </Route>
 
         <Route

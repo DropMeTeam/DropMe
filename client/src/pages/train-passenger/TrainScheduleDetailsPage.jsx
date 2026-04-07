@@ -6,6 +6,7 @@ import TrainScheduleHeroSection from "./components/train-schedule-details/TrainS
 import TrainScheduleActions from "./components/train-schedule-details/TrainScheduleActions";
 import TrainStopsTimelineSection from "./components/train-schedule-details/TrainStopsTimelineSection";
 import TrainScheduleStateCard from "./components/train-schedule-details/TrainScheduleStateCard";
+import { normalizeDayParamToShort } from "./components/train-schedule-details/trainScheduleDetails.utils";
 
 export default function TrainScheduleDetailsPage() {
   const { id } = useParams();
@@ -13,7 +14,22 @@ export default function TrainScheduleDetailsPage() {
 
   // Keep the existing URL-driven day selection so the booking flow and detail fetch
   // stay aligned with the current backend contract.
-  const requestedDay = searchParams.get("day") || "";
+  const rawDayFromUrl = searchParams.get("day") || "";
+  const requestedDay = useMemo(
+    () => normalizeDayParamToShort(rawDayFromUrl),
+    [rawDayFromUrl]
+  );
+
+  // Legacy URLs may use full names (e.g. Monday); normalize query to short codes.
+  useEffect(() => {
+    if (!rawDayFromUrl) return;
+    const n = normalizeDayParamToShort(rawDayFromUrl);
+    if (n && n !== rawDayFromUrl) {
+      const next = new URLSearchParams(searchParams);
+      next.set("day", n);
+      setSearchParams(next, { replace: true });
+    }
+  }, [rawDayFromUrl, searchParams, setSearchParams]);
 
   const [schedule, setSchedule] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -58,9 +74,10 @@ export default function TrainScheduleDetailsPage() {
 
   const handleDayChange = (nextDay) => {
     const nextParams = new URLSearchParams(searchParams);
+    const n = normalizeDayParamToShort(nextDay);
 
-    if (nextDay) {
-      nextParams.set("day", nextDay);
+    if (n) {
+      nextParams.set("day", n);
     } else {
       nextParams.delete("day");
     }

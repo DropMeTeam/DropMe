@@ -19,6 +19,164 @@ function pretty(v) {
   return v ? String(v) : "—";
 }
 
+function formatDateTime(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
+}
+
+function bookingTone(status) {
+  const base =
+    "inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide";
+
+  if (status === "confirmed") {
+    return `${base} border-emerald-400/40 bg-emerald-500/10 text-emerald-200`;
+  }
+
+  if (status === "pending") {
+    return `${base} border-yellow-400/40 bg-yellow-500/10 text-yellow-200`;
+  }
+
+  if (status === "rejected") {
+    return `${base} border-red-400/40 bg-red-500/10 text-red-200`;
+  }
+
+  if (status === "cancelled") {
+    return `${base} border-zinc-600 bg-zinc-800/50 text-zinc-300`;
+  }
+
+  return `${base} border-zinc-700 bg-zinc-950/30 text-zinc-300`;
+}
+
+function paymentTone(status) {
+  const base =
+    "inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide";
+
+  if (status === "paid") {
+    return `${base} border-sky-400/40 bg-sky-500/10 text-sky-200`;
+  }
+
+  if (status === "failed") {
+    return `${base} border-red-400/40 bg-red-500/10 text-red-200`;
+  }
+
+  return `${base} border-zinc-700 bg-zinc-950/30 text-zinc-300`;
+}
+
+function canMarkPassengerRideCompleted(booking) {
+  return (
+    booking?.status === "confirmed" &&
+    booking?.paymentStatus === "paid" &&
+    !booking?.rideCompleted
+  );
+}
+
+function PassengerCard({ booking, onComplete, marking }) {
+  const rider = booking?.riderId && typeof booking.riderId === "object" ? booking.riderId : null;
+  const riderName = rider?.name || "Passenger";
+  const riderInitial = riderName?.trim()?.charAt(0)?.toUpperCase() || "P";
+  const rideDone = Boolean(booking?.rideCompleted);
+
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-black/20 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
+            {rider?.avatarUrl ? (
+              <img
+                src={rider.avatarUrl}
+                alt={riderName}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="grid h-full w-full place-items-center text-sm font-semibold text-zinc-300">
+                {riderInitial}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="text-sm font-semibold text-white">{riderName}</div>
+            <div className="text-xs text-zinc-400">{rider?.email || "—"}</div>
+            <div className="text-xs text-zinc-400">
+              Contact No: {rider?.contactNo || "Not added"}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={bookingTone(booking?.status)}>{booking?.status || "unknown"}</span>
+          <span className={paymentTone(booking?.paymentStatus)}>
+            {booking?.paymentStatus || "unknown"}
+          </span>
+          {rideDone ? (
+            <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
+              Ride Completed
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
+          <div className="text-[11px] uppercase tracking-wide text-zinc-500">Seats</div>
+          <div className="mt-1 text-sm font-semibold text-white">
+            {booking?.seatsBooked || 0}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
+          <div className="text-[11px] uppercase tracking-wide text-zinc-500">Amount</div>
+          <div className="mt-1 text-sm font-semibold text-white">
+            LKR {Number(booking?.amount || 0).toLocaleString()}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
+          <div className="text-[11px] uppercase tracking-wide text-zinc-500">Booked At</div>
+          <div className="mt-1 text-sm font-semibold text-white">
+            {formatDateTime(booking?.createdAt)}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
+          <div className="text-[11px] uppercase tracking-wide text-zinc-500">
+            Ride Completed At
+          </div>
+          <div className="mt-1 text-sm font-semibold text-white">
+            {rideDone ? formatDateTime(booking?.rideCompletedAt) : "Not yet"}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="text-xs text-zinc-400">
+          Route distance: {booking?.routeDistanceText || "—"}
+        </div>
+
+        {canMarkPassengerRideCompleted(booking) ? (
+          <button
+            type="button"
+            className="btn btn-outline border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15 disabled:opacity-60"
+            onClick={() => onComplete(booking)}
+            disabled={marking}
+          >
+            {marking ? "Marking..." : "Mark Passenger Completed"}
+          </button>
+        ) : rideDone ? (
+          <div className="text-xs font-medium text-emerald-300">
+            Passenger ride already completed
+          </div>
+        ) : (
+          <div className="text-xs text-zinc-500">
+            Completion available only for confirmed and paid bookings.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function DriverDashboard() {
   const qc = useQueryClient();
 
@@ -63,6 +221,13 @@ export default function DriverDashboard() {
   const [deletingId, setDeletingId] = useState(null);
   const [completingId, setCompletingId] = useState(null);
   const [offersMsg, setOffersMsg] = useState("");
+
+  // passenger actions
+  const [openPassengersByOfferId, setOpenPassengersByOfferId] = useState({});
+  const [offerPassengersMap, setOfferPassengersMap] = useState({});
+  const [passengersLoadingByOfferId, setPassengersLoadingByOfferId] = useState({});
+  const [passengersErrorByOfferId, setPassengersErrorByOfferId] = useState({});
+  const [passengerCompletingId, setPassengerCompletingId] = useState(null);
 
   useEffect(() => {
     if (user?.name) setName(user.name);
@@ -140,6 +305,82 @@ export default function DriverDashboard() {
       setOffersMsg(e?.response?.data?.message || "Failed to mark completed");
     } finally {
       setCompletingId(null);
+    }
+  }
+
+  async function togglePassengers(offerId) {
+    if (!offerId) return;
+
+    const willOpen = !openPassengersByOfferId[offerId];
+
+    setOpenPassengersByOfferId((prev) => ({
+      ...prev,
+      [offerId]: willOpen,
+    }));
+
+    if (!willOpen || offerPassengersMap[offerId]) return;
+
+    setPassengersErrorByOfferId((prev) => ({
+      ...prev,
+      [offerId]: "",
+    }));
+    setPassengersLoadingByOfferId((prev) => ({
+      ...prev,
+      [offerId]: true,
+    }));
+
+    try {
+      const { data } = await api.get(`/api/bookings/offers/${offerId}`);
+      setOfferPassengersMap((prev) => ({
+        ...prev,
+        [offerId]: Array.isArray(data?.bookings) ? data.bookings : [],
+      }));
+    } catch (e) {
+      setPassengersErrorByOfferId((prev) => ({
+        ...prev,
+        [offerId]: e?.response?.data?.message || "Failed to load passengers",
+      }));
+    } finally {
+      setPassengersLoadingByOfferId((prev) => ({
+        ...prev,
+        [offerId]: false,
+      }));
+    }
+  }
+
+  async function markPassengerCompleted(booking) {
+    if (!booking?._id) return;
+
+    const riderName =
+      booking?.riderId && typeof booking.riderId === "object"
+        ? booking.riderId?.name || "this passenger"
+        : "this passenger";
+
+    const ok = window.confirm(`Mark ride completed for ${riderName}?`);
+    if (!ok) return;
+
+    setOffersMsg("");
+    setPassengerCompletingId(booking._id);
+
+    try {
+      const { data } = await api.patch(`/api/bookings/${booking._id}/complete-ride`);
+      const updatedBooking = data?.booking;
+
+      setOfferPassengersMap((prev) => {
+        const current = Array.isArray(prev[booking.offerId]) ? prev[booking.offerId] : [];
+        return {
+          ...prev,
+          [booking.offerId]: current.map((item) =>
+            item._id === booking._id ? { ...item, ...updatedBooking } : item
+          ),
+        };
+      });
+
+      setOffersMsg(data?.message || "Passenger ride marked as completed ✅");
+    } catch (e) {
+      setOffersMsg(e?.response?.data?.message || "Failed to mark passenger ride completed");
+    } finally {
+      setPassengerCompletingId(null);
     }
   }
 
@@ -398,13 +639,19 @@ export default function DriverDashboard() {
             (offersQ.data?.offers || []).map((o) => {
               const isPast = o?.pickupTime ? new Date(o.pickupTime).getTime() < Date.now() : false;
               const isCompleted = o?.status === "completed";
-
               const showCompletionUI = offersView === "past" || (offersView === "all" && isPast);
+
+              const passengers = Array.isArray(offerPassengersMap[o._id])
+                ? offerPassengersMap[o._id]
+                : [];
+              const confirmedPassengers = passengers.filter((b) => b?.status === "confirmed");
+              const completedPassengers = passengers.filter((b) => b?.rideCompleted);
+              const isPassengersOpen = Boolean(openPassengersByOfferId[o._id]);
 
               return (
                 <div key={o._id} className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
+                    <div className="flex-1">
                       <div className="text-sm font-medium">
                         Seats: {o?.seatsAvailable}/{o?.seatsTotal} • {o?.status}
 
@@ -426,6 +673,30 @@ export default function DriverDashboard() {
                       </div>
                       <div className="mt-1 text-xs text-zinc-400">
                         Pickup: {o?.pickupTime ? new Date(o.pickupTime).toLocaleString() : "—"}
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => togglePassengers(o._id)}
+                          className="btn btn-outline"
+                        >
+                          {isPassengersOpen ? "Hide Passengers" : "View Passengers"}
+                        </button>
+
+                        {offerPassengersMap[o._id] ? (
+                          <>
+                            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-zinc-300">
+                              Total Passengers: {passengers.length}
+                            </span>
+                            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-zinc-300">
+                              Confirmed: {confirmedPassengers.length}
+                            </span>
+                            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-zinc-300">
+                              Ride Completed: {completedPassengers.length}
+                            </span>
+                          </>
+                        ) : null}
                       </div>
 
                       {showCompletionUI && !isCompleted ? (
@@ -461,6 +732,38 @@ export default function DriverDashboard() {
                       </button>
                     </div>
                   </div>
+
+                  {isPassengersOpen ? (
+                    <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <div className="text-sm font-semibold text-white">Passengers for this ride</div>
+                          <div className="text-xs text-zinc-400">
+                            Driver can review passenger details and mark each drop-off as completed.
+                          </div>
+                        </div>
+                      </div>
+
+                      {passengersLoadingByOfferId[o._id] ? (
+                        <div className="text-sm text-zinc-400">Loading passengers...</div>
+                      ) : passengersErrorByOfferId[o._id] ? (
+                        <div className="text-sm text-red-300">{passengersErrorByOfferId[o._id]}</div>
+                      ) : !passengers.length ? (
+                        <div className="text-sm text-zinc-400">No passenger bookings found for this ride.</div>
+                      ) : (
+                        <div className="grid gap-3">
+                          {passengers.map((booking) => (
+                            <PassengerCard
+                              key={booking._id}
+                              booking={booking}
+                              onComplete={markPassengerCompleted}
+                              marking={passengerCompletingId === booking._id}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               );
             })

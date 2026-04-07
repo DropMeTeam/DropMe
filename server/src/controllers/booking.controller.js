@@ -72,7 +72,13 @@ export async function offerBookings(req, res, next) {
     const isAdmin = req.user?.role === "admin";
     if (!isOwner && !isAdmin) throw new HttpError(403, "Not allowed");
 
-    const bookings = await RideBooking.find({ offerId: offer._id }).sort({ createdAt: -1 });
+    const bookings = await RideBooking.find({ offerId: offer._id })
+      .populate({
+        path: "riderId",
+        select: "name email contactNo avatarUrl",
+      })
+      .sort({ rideCompleted: 1, createdAt: -1 });
+
     res.json({ ok: true, bookings });
   } catch (err) {
     next(err);
@@ -116,6 +122,60 @@ export async function updateBookingStatus(req, res, next) {
     });
 
     res.json({ ok: true, booking });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function markPassengerRideCompleted(req, res, next) {
+  try {
+    const booking = await RideBooking.findById(req.params.bookingId).populate({
+      path: "riderId",
+      select: "name email contactNo avatarUrl",
+    });
+
+    if (!booking) throw new HttpError(404, "Booking not found");
+
+    const isOwner = String(booking.driverId) === String(req.user.sub);
+    const isAdmin = req.user?.role === "admin";
+    if (!isOwner && !isAdmin) throw new HttpError(403, "Not allowed");
+
+    if (booking.status !== "confirmed") {
+      throw new HttpError(400, "Only confirmed bookings can be marked as ride completed");
+    }
+
+    if (booking.paymentStatus !== "paid") {
+      throw new HttpError(400, "Only paid bookings can be marked as ride completed");
+    }
+
+    if (booking.rideCompleted) {
+      return res.json({
+        ok: true,
+        message: "Passenger ride already marked as completed",
+        booking,
+      });
+    }
+
+    booking.rideCompleted = true;
+    booking.rideCompletedAt = new Date();
+    booking.rideCompletedByDriverId = req.user.sub;
+    await booking.save();
+
+    req.io?.to(`rider:${String(booking.riderId?._id || booking.riderId)}`).emit(
+      "booking:ride-completed",
+      {
+        bookingId: String(booking._id),
+        offerId: String(booking.offerId),
+        rideCompleted: true,
+        rideCompletedAt: booking.rideCompletedAt,
+      }
+    );
+
+    res.json({
+      ok: true,
+      message: "Passenger ride marked as completed",
+      booking,
+    });
   } catch (err) {
     next(err);
   }

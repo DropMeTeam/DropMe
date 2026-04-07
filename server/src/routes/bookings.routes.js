@@ -6,11 +6,11 @@ import {
   offerBookings,
   updateBookingStatus,
   cancelBooking,
-  downloadReceipt, 
+  downloadReceipt,
+  markPassengerRideCompleted,
 } from "../controllers/booking.controller.js";
 
 export const bookingsRouter = Router();
-
 
 bookingsRouter.post(
   "/offers/:id/book",
@@ -35,7 +35,14 @@ bookingsRouter.patch(
   updateBookingStatus
 );
 
-// cancel checkout 
+bookingsRouter.patch(
+  "/:bookingId/complete-ride",
+  requireAuth,
+  requireRole("driver", "admin"),
+  markPassengerRideCompleted
+);
+
+// cancel checkout
 bookingsRouter.post(
   "/:bookingId/cancel",
   requireAuth,
@@ -43,7 +50,7 @@ bookingsRouter.post(
   cancelBooking
 );
 
-// PDF receipt 
+// PDF receipt
 bookingsRouter.get(
   "/:bookingId/receipt",
   requireAuth,

@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { RideOffer } from "../models/RideOffer.js";
 import { RideBooking } from "../models/RideBooking.js";
+import { User } from "../models/User.js";
 import { HttpError } from "../utils/httpError.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -54,6 +55,28 @@ export async function createStripeSession(req, res, next) {
     const normalizedDistanceKm = normalizeDistanceKm(routeDistanceKm);
     const routeDistanceText = buildDistanceText(normalizedDistanceKm);
 
+    // fallback: use driver's current registered vehicle photo
+    let fallbackVehiclePhotoUrl = "";
+    if (
+      !offer?.vehicleSnapshot?.photoUrl &&
+      !offer?.vehicleSnapshot?.imageUrl &&
+      !offer?.vehicleSnapshot?.vehicleImageUrl
+    ) {
+      const driver = await User.findById(offer.driverId).lean();
+      fallbackVehiclePhotoUrl =
+        driver?.driverRegistration?.vehicle?.photoUrl ||
+        driver?.driverRegistration?.vehicle?.imageUrl ||
+        driver?.driverRegistration?.vehicle?.vehicleImageUrl ||
+        "";
+    }
+
+    const finalVehiclePhotoUrl =
+      offer?.vehicleSnapshot?.photoUrl ||
+      offer?.vehicleSnapshot?.imageUrl ||
+      offer?.vehicleSnapshot?.vehicleImageUrl ||
+      fallbackVehiclePhotoUrl ||
+      "";
+
     let booking;
 
     try {
@@ -76,11 +99,20 @@ export async function createStripeSession(req, res, next) {
           destinationAddress: offer.destination?.address || "",
           pickupTime: offer.pickupTime || null,
           priceLkr: unitPrice,
+
           driverName: offer.driverSnapshot?.name || "",
           driverEmail: offer.driverSnapshot?.email || "",
+          driverAvatarUrl:
+            offer.driverSnapshot?.avatarUrl ||
+            offer.driverSnapshot?.photoUrl ||
+            offer.driverSnapshot?.imageUrl ||
+            "",
+
           vehicleType: offer.vehicleSnapshot?.type || "",
           vehicleNumber: offer.vehicleSnapshot?.number || "",
           vehicleColor: offer.vehicleSnapshot?.color || "",
+          vehiclePhotoUrl: finalVehiclePhotoUrl,
+
           routeDistanceKm: normalizedDistanceKm,
           routeDistanceText,
         },

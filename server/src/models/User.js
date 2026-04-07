@@ -45,12 +45,11 @@ const UserSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true, select: false },
 
-    // role enum: add BUS_OWNER
-role: {
-  type: String,
-  enum: ["rider", "driver", "BUS_OWNER", "ADMIN_TRAIN", "ADMIN_BUS", "ADMIN_PRIVATE"],
-  default: "rider",
-},
+    role: {
+      type: String,
+      enum: ["rider", "driver", "ADMIN_TRAIN", "ADMIN_BUS", "ADMIN_PRIVATE"],
+      default: "rider",
+    },
 
     avatarUrl: { type: String, default: "" },
 

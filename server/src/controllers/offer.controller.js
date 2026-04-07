@@ -1,18 +1,11 @@
-import { User } from "../models/User.js";
 import { RideOffer } from "../models/RideOffer.js";
 import { CreateOfferSchema, UpdateOfferSchema } from "../validators/ride.validators.js";
+import { User } from "../models/User.js";
 
 function isOwnerOrAdmin(req, offer) {
-  const userId = String(req.user?.sub || "");
-  const offerOwnerId = String(offer?.driverId || "");
-  const role = String(req.user?.role || "");
-
-  return (
-    userId === offerOwnerId ||
-    role === "admin" ||
-    role === "ADMIN" ||
-    role.startsWith("ADMIN_")
-  );
+  const isOwner = String(offer.driverId) === String(req.user.sub);
+  const isAdmin = req.user?.role === "admin";
+  return isOwner || isAdmin;
 }
 
 export async function createOffer(req, res, next) {
@@ -55,17 +48,24 @@ export async function createOffer(req, res, next) {
       },
       pickupTime: new Date(body.pickupTime),
       timeWindowMins: body.timeWindowMins ?? 15,
+
       seatsTotal,
       seatsAvailable: seatsTotal,
+
       routePolyline: body.routePolyline ?? "",
+
+      // NEW
       distanceKm: Number(body.distanceKm || 0),
+
       priceLkr: body.priceLkr ?? 0,
       status: "open",
+
       driverSnapshot: {
         name: driver?.name || "",
         email: driver?.email || "",
         avatarUrl: driver?.avatarUrl || "",
       },
+
       vehicleSnapshot: {
         type: regVehicle?.type || "",
         number: regVehicle?.number || "",
@@ -91,7 +91,7 @@ export async function myOffers(req, res, next) {
     if (view === "upcoming") {
       q.pickupTime = { $gte: now };
     } else if (view === "past") {
-      q.$or = [{ pickupTime: { $lt: now } }, { status: "closed" }, { status: "completed" }];
+      q.$or = [{ pickupTime: { $lt: now } }, { status: "closed" }];
     }
 
     let sort = { createdAt: -1 };
@@ -99,24 +99,6 @@ export async function myOffers(req, res, next) {
     if (view === "past") sort = { pickupTime: -1 };
 
     const offers = await RideOffer.find(q).sort(sort);
-    res.json({ offers });
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function searchOffers(req, res, next) {
-  try {
-    const now = new Date();
-    const q = {
-      status: "open",
-      pickupTime: { $gte: now },
-    };
-
-    const offers = await RideOffer.find(q)
-      .sort({ pickupTime: 1, createdAt: -1 })
-      .limit(100);
-
     res.json({ offers });
   } catch (err) {
     next(err);
@@ -173,6 +155,8 @@ export async function updateOffer(req, res, next) {
     if (typeof body.timeWindowMins === "number") offer.timeWindowMins = body.timeWindowMins;
     if (typeof body.routePolyline === "string") offer.routePolyline = body.routePolyline;
     if (typeof body.priceLkr === "number") offer.priceLkr = body.priceLkr;
+
+    // NEW
     if (typeof body.distanceKm === "number") offer.distanceKm = body.distanceKm;
 
     if (typeof body.seatsTotal === "number") {
@@ -182,7 +166,12 @@ export async function updateOffer(req, res, next) {
 
     if (body.status) {
       offer.status = body.status;
-      offer.completedAt = body.status === "completed" ? new Date() : null;
+
+      if (body.status === "completed") {
+        offer.completedAt = new Date();
+      } else {
+        offer.completedAt = null;
+      }
     }
 
     await offer.save();

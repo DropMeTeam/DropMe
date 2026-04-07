@@ -3,6 +3,8 @@ import { RideBooking } from "../models/RideBooking.js";
 import { HttpError } from "../utils/httpError.js";
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
+import fs from "fs/promises";
+import path from "path";
 
 export async function createBooking(req, res, next) {
   try {
@@ -149,19 +151,46 @@ async function loadImageBuffer(src, req) {
       return base64 ? Buffer.from(base64, "base64") : null;
     }
 
-    let finalUrl = src;
+    const normalized = src.replace(/\\/g, "/").trim();
 
-    if (src.startsWith("/")) {
-      finalUrl = `${req.protocol}://${req.get("host")}${src}`;
-    } else if (!src.startsWith("http://") && !src.startsWith("https://")) {
-      return null;
+    if (normalized.startsWith("/uploads/")) {
+      const filePath = path.join(process.cwd(), normalized.replace(/^\//, ""));
+      return await fs.readFile(filePath);
     }
 
-    const response = await fetch(finalUrl);
-    if (!response.ok) return null;
+    if (normalized.startsWith("uploads/")) {
+      const filePath = path.join(process.cwd(), normalized);
+      return await fs.readFile(filePath);
+    }
 
-    const arr = await response.arrayBuffer();
-    return Buffer.from(arr);
+    if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+      try {
+        const url = new URL(normalized);
+        if (url.pathname.startsWith("/uploads/")) {
+          const filePath = path.join(process.cwd(), url.pathname.replace(/^\//, ""));
+          return await fs.readFile(filePath);
+        }
+      } catch {
+        // fallback to fetch
+      }
+
+      const response = await fetch(normalized);
+      if (!response.ok) return null;
+
+      const arr = await response.arrayBuffer();
+      return Buffer.from(arr);
+    }
+
+    if (normalized.startsWith("/")) {
+      const finalUrl = `${req.protocol}://${req.get("host")}${normalized}`;
+      const response = await fetch(finalUrl);
+      if (!response.ok) return null;
+
+      const arr = await response.arrayBuffer();
+      return Buffer.from(arr);
+    }
+
+    return null;
   } catch {
     return null;
   }
@@ -222,30 +251,32 @@ export async function downloadReceipt(req, res, next) {
       ? new Date(booking.offerSnapshot.pickupTime).toLocaleString()
       : "—";
 
-    const driverName = offer?.driverSnapshot?.name || booking?.offerSnapshot?.driverName || "—";
-    const driverEmail = offer?.driverSnapshot?.email || booking?.offerSnapshot?.driverEmail || "—";
+    const driverName = booking?.offerSnapshot?.driverName || offer?.driverSnapshot?.name || "—";
+    const driverEmail = booking?.offerSnapshot?.driverEmail || offer?.driverSnapshot?.email || "—";
+
     const driverPhotoUrl =
+      booking?.offerSnapshot?.driverPhotoUrl ||
+      booking?.offerSnapshot?.driverAvatarUrl ||
+      booking?.offerSnapshot?.driverImageUrl ||
       offer?.driverSnapshot?.photoUrl ||
       offer?.driverSnapshot?.avatarUrl ||
       offer?.driverSnapshot?.imageUrl ||
       offer?.driverSnapshot?.profileImage ||
-      booking?.offerSnapshot?.driverPhotoUrl ||
-      booking?.offerSnapshot?.driverAvatarUrl ||
-      booking?.offerSnapshot?.driverImageUrl ||
       booking?.driverPhotoUrl ||
       booking?.driverAvatarUrl ||
       booking?.driverImageUrl ||
       "";
 
-    const vehicleType = offer?.vehicleSnapshot?.type || booking?.offerSnapshot?.vehicleType || "—";
-    const vehicleNumber = offer?.vehicleSnapshot?.number || booking?.offerSnapshot?.vehicleNumber || "—";
-    const vehicleColor = offer?.vehicleSnapshot?.color || booking?.offerSnapshot?.vehicleColor || "—";
+    const vehicleType = booking?.offerSnapshot?.vehicleType || offer?.vehicleSnapshot?.type || "—";
+    const vehicleNumber = booking?.offerSnapshot?.vehicleNumber || offer?.vehicleSnapshot?.number || "—";
+    const vehicleColor = booking?.offerSnapshot?.vehicleColor || offer?.vehicleSnapshot?.color || "—";
+
     const vehiclePhotoUrl =
+      booking?.offerSnapshot?.vehiclePhotoUrl ||
+      booking?.offerSnapshot?.vehicleImageUrl ||
       offer?.vehicleSnapshot?.photoUrl ||
       offer?.vehicleSnapshot?.imageUrl ||
       offer?.vehicleSnapshot?.vehicleImageUrl ||
-      booking?.offerSnapshot?.vehiclePhotoUrl ||
-      booking?.offerSnapshot?.vehicleImageUrl ||
       booking?.vehiclePhotoUrl ||
       booking?.vehicleImageUrl ||
       "";

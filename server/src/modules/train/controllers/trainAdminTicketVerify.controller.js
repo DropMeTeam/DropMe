@@ -10,6 +10,15 @@ function deriveVerificationStatus(booking) {
   if (booking.paymentStatus !== "paid" || booking.bookingStatus !== "booked") {
     return "unpaid";
   }
+
+  // Expiry check (YYYY-MM-DD comparison)
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10); // "YYYY-MM-DD"
+  if (booking.travelDate < todayStr) return "expired";
+
+  // Usage check
+  if (booking.ticketUsageStatus === "used") return "already_used";
+
   return "valid";
 }
 
@@ -33,7 +42,51 @@ function serializeBooking(booking) {
     ticketEmailSentAt: booking.ticketEmailSentAt
       ? new Date(booking.ticketEmailSentAt).toISOString()
       : null,
+    // Usage info
+    ticketUsageStatus: booking.ticketUsageStatus || "unused",
+    ticketUsedAt: booking.ticketUsedAt
+      ? new Date(booking.ticketUsedAt).toISOString()
+      : null,
+    ticketUsedBy: booking.ticketUsedBy || "",
   };
+}
+
+/**
+ * POST /api/admin/train/tickets/:id/mark-used
+ * Marks a valid ticket as used.
+ */
+export async function markTrainTicketAsUsed(req, res, next) {
+  try {
+    const { id } = req.params;
+    const booking = await TrainBooking.findById(id);
+
+    if (!booking) {
+      throw new HttpError(404, "Booking not found");
+    }
+
+    const status = deriveVerificationStatus(booking);
+
+    if (status === "cancelled") throw new HttpError(400, "Ticket is cancelled");
+    if (status === "unpaid") throw new HttpError(400, "Ticket is not paid");
+    if (status === "expired") throw new HttpError(400, "Ticket is expired");
+    if (status === "already_used")
+      throw new HttpError(400, "Ticket is already used");
+
+    // All good, mark it used
+    booking.ticketUsageStatus = "used";
+    booking.ticketUsedAt = new Date();
+    booking.ticketUsedBy = req.user?.name || req.user?.email || "Admin";
+
+    await booking.save();
+
+    return res.json({
+      ok: true,
+      verificationStatus: "already_used",
+      booking: serializeBooking(booking),
+    });
+  } catch (e) {
+    next(e);
+  }
 }
 
 async function findBookingByCode(raw) {

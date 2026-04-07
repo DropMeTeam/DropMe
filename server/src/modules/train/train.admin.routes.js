@@ -14,7 +14,10 @@ import {
   deleteSchedule,
 } from "./controllers/trainAdminSchedules.controller.js";
 
-import { verifyTrainTicketCode } from "./controllers/trainAdminTicketVerify.controller.js";
+import {
+  verifyTrainTicketCode,
+  markTrainTicketAsUsed,
+} from "./controllers/trainAdminTicketVerify.controller.js";
 
 import { requireAuth, requireRole } from "../../middleware/auth.js";
 
@@ -40,3 +43,4 @@ trainAdminRouter.delete("/schedules/:id", deleteSchedule);
 
 /* Manual ticket verification (conductor / no camera) */
 trainAdminRouter.post("/tickets/verify", verifyTrainTicketCode);
+trainAdminRouter.patch("/tickets/:id/mark-used", markTrainTicketAsUsed);

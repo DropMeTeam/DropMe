@@ -1,12 +1,23 @@
 import { useState } from "react";
-import { TicketCheck, Loader2 } from "lucide-react";
-import { verifyTrainTicketCode } from "../../lib/trainAdminApi";
+import { TicketCheck, Loader2, Check, AlertTriangle } from "lucide-react";
+import { verifyTrainTicketCode, markTrainTicketAsUsed } from "../../lib/trainAdminApi";
 
 const STATUS_BADGE = {
   valid: "border-emerald-400/30 bg-emerald-500/15 text-emerald-200",
   unpaid: "border-amber-400/30 bg-amber-500/15 text-amber-100",
   cancelled: "border-red-400/30 bg-red-500/15 text-red-100",
+  expired: "border-rose-400/30 bg-rose-500/15 text-rose-100",
+  already_used: "border-indigo-400/30 bg-indigo-500/15 text-indigo-100",
   not_found: "border-zinc-500/40 bg-zinc-800/60 text-zinc-300",
+};
+
+const STATUS_LABEL = {
+  valid: "Valid",
+  unpaid: "Unpaid",
+  cancelled: "Cancelled",
+  expired: "Expired",
+  already_used: "Already used",
+  not_found: "Not found",
 };
 
 function formatLkr(n) {
@@ -15,9 +26,20 @@ function formatLkr(n) {
   return `LKR ${v.toFixed(2)}`;
 }
 
+function formatDateTime(iso) {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString();
+  } catch (e) {
+    return iso;
+  }
+}
+
 export default function TrainTicketVerifyPage() {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [marking, setMarking] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
 
@@ -43,6 +65,24 @@ export default function TrainTicketVerifyPage() {
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleMarkAsUsed() {
+    if (!result?.booking?.id || marking) return;
+
+    setError("");
+    setMarking(true);
+
+    try {
+      const data = await markTrainTicketAsUsed(result.booking.id);
+      setResult(data);
+    } catch (e) {
+      setError(
+        e?.response?.data?.message || e?.message || "Failed to mark ticket as used"
+      );
+    } finally {
+      setMarking(false);
     }
   }
 
@@ -121,7 +161,7 @@ export default function TrainTicketVerifyPage() {
             <span
               className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${STATUS_BADGE[status] || STATUS_BADGE.not_found}`}
             >
-              {status === "not_found" ? "Not found" : status}
+              {STATUS_LABEL[status] || "Unknown"}
             </span>
           </div>
 
@@ -130,7 +170,68 @@ export default function TrainTicketVerifyPage() {
           ) : null}
 
           {booking ? (
-            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+            <>
+              <div className="mt-4 space-y-4 border-b border-white/5 pb-6">
+                {status === "valid" ? (
+                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-400/20 bg-emerald-500/5 p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+                        <Check className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-emerald-200">Ticket is Valid</div>
+                        <div className="text-xs text-emerald-100/60">One-time check-in allowed.</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleMarkAsUsed}
+                      disabled={marking}
+                      className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-emerald-500 disabled:opacity-50"
+                    >
+                      {marking ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Marking…
+                        </>
+                      ) : (
+                        "Mark as Used"
+                      )}
+                    </button>
+                  </div>
+                ) : null}
+
+                {status === "already_used" ? (
+                  <div className="flex items-center gap-3 rounded-2xl border border-indigo-400/20 bg-indigo-500/5 p-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-400">
+                      <AlertTriangle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-indigo-200">Already Used</div>
+                      <div className="text-xs text-indigo-100/60">
+                        This ticket was checked on {formatDateTime(booking.ticketUsedAt)}
+                        {booking.ticketUsedBy ? ` by ${booking.ticketUsedBy}` : ""}.
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {status === "expired" ? (
+                  <div className="flex items-center gap-3 rounded-2xl border border-rose-400/20 bg-rose-500/5 p-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-500/20 text-rose-400">
+                      <AlertTriangle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-rose-200">Ticket Expired</div>
+                      <div className="text-xs text-rose-100/60">
+                        Travel date ({booking.travelDate}) has passed.
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <dl className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
               <div>
                 <dt className="text-xs uppercase tracking-wide text-white/40">Passenger</dt>
                 <dd className="mt-0.5 font-medium text-white">{booking.passengerName || "—"}</dd>
@@ -193,9 +294,10 @@ export default function TrainTicketVerifyPage() {
                 </dd>
               </div>
             </dl>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
+          </>
+        ) : null}
+      </div>
+    ) : null}
+  </div>
+);
 }

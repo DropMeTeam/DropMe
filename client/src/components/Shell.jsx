@@ -1,6 +1,6 @@
 import { Outlet, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../state/AuthContext";
-import { Car, LogOut, MapPinned, UserRound, Shield, TrainFront } from "lucide-react";
+import { Bus, Car, LogOut, MapPinned, UserRound, Shield } from "lucide-react";
 
 function isAdmin(role) {
   return role === "ADMIN_TRAIN" || role === "ADMIN_BUS" || role === "ADMIN_PRIVATE";
@@ -10,6 +10,7 @@ function dashboardPath(role) {
   if (role === "ADMIN_TRAIN") return "/train";
   if (role === "ADMIN_BUS") return "/bus";
   if (role === "ADMIN_PRIVATE") return "/private";
+  if (role === "BUS_OWNER") return "/owner";
   if (role === "driver") return "/driver";
   return "/rider";
 }
@@ -19,6 +20,7 @@ export default function Shell() {
   const nav = useNavigate();
 
   const showAdmin = !!user && isAdmin(user.role);
+  const isBusOwner = user?.role === "BUS_OWNER";
 
   return (
     <div className="min-h-screen">
@@ -36,10 +38,6 @@ export default function Shell() {
               <MapPinned className="h-4 w-4" /> Plan
             </Link>
 
-            <Link to="/train-service" className="pill">
-              <TrainFront className="h-4 w-4" /> Train
-            </Link>
-
             {user ? (
               <>
                 {showAdmin ? (
@@ -49,6 +47,16 @@ export default function Shell() {
                     type="button"
                   >
                     <Shield className="h-4 w-4" /> Admin
+                  </button>
+                ) : null}
+
+                {isBusOwner ? (
+                  <button
+                    className="pill"
+                    onClick={() => nav("/owner")}
+                    type="button"
+                  >
+                    <Bus className="h-4 w-4" /> My Fleet
                   </button>
                 ) : null}
 

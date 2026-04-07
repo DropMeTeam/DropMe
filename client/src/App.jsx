@@ -25,6 +25,15 @@ import TrainSearchPage from "./pages/train-passenger/TrainSearchPage";
 import TrainScheduleDetailsPage from "./pages/train-passenger/TrainScheduleDetailsPage";
 import MyTrainBookingsPage from "./pages/train-passenger/MyTrainBookingsPage";
 
+import BusOwnerDashboard from "./pages/owner/BusOwnerDashboard";
+import BusRoutesPage from "./pages/bus/BusRoutesPage";
+import CreateBusRoute from "./pages/bus/CreateBusRoute";
+import EditBusRoute from "./pages/bus/EditBusRoute";
+import BusApprovals from "./pages/bus/BusApprovals";
+import BusSchedulesPage from "./pages/bus/BusSchedulesPage";
+import BusBookingPage from "./pages/bus/BusBookingPage";
+import BusBookingDetailsPage from "./pages/bus/BusBookingDetailsPage";
+
 import CheckoutPage from "./pages/rides/CheckoutPage";
 import CheckoutSuccess from "./pages/rides/CheckoutSuccess";
 import CheckoutCancel from "./pages/rides/CheckoutCancel";
@@ -55,6 +64,7 @@ export default function App() {
         <Route index element={<Landing />} />
         <Route path="/plan" element={<PlanTrip />} />
 
+        {/* train passenger */}
         <Route path="/train-service" element={<TrainSearchPage />} />
         <Route path="/train-service/:id" element={<TrainScheduleDetailsPage />} />
         <Route
@@ -66,6 +76,11 @@ export default function App() {
           }
         />
 
+        {/* bus passenger */}
+        <Route path="/bus-booking" element={<BusBookingPage />} />
+        <Route path="/bus-booking/details" element={<BusBookingDetailsPage />} />
+
+        {/* rider */}
         <Route
           path="/rider"
           element={
@@ -75,6 +90,7 @@ export default function App() {
           }
         />
 
+        {/* private ride checkout */}
         <Route
           path="/checkout/:offerId"
           element={
@@ -100,28 +116,29 @@ export default function App() {
           }
         />
 
+        {/* driver */}
         <Route
           path="/driver"
           element={
-            <RequireRole allow={["driver"]}>
+            <Protected>
               <DriverDashboard />
-            </RequireRole>
+            </Protected>
           }
         />
         <Route
           path="/driver/register"
           element={
-            <RequireRole allow={["driver"]}>
+            <Protected>
               <DriverRegistrationPage />
-            </RequireRole>
+            </Protected>
           }
         />
         <Route
           path="/driver/offer"
           element={
-            <RequireRole allow={["driver"]}>
+            <Protected>
               <OfferRide />
-            </RequireRole>
+            </Protected>
           }
         />
         <Route
@@ -133,6 +150,7 @@ export default function App() {
           }
         />
 
+        {/* train admin */}
         <Route
           path="/train"
           element={
@@ -166,6 +184,7 @@ export default function App() {
           }
         />
 
+        {/* bus admin */}
         <Route
           path="/bus"
           element={
@@ -174,7 +193,48 @@ export default function App() {
             </RequireRole>
           }
         />
+        <Route
+          path="/bus/routes"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <BusRoutesPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/bus/routes/new"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <CreateBusRoute />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/bus/routes/:id"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <EditBusRoute />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/bus/approvals"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <BusApprovals />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/bus/schedules"
+          element={
+            <RequireRole allow={["ADMIN_BUS"]}>
+              <BusSchedulesPage />
+            </RequireRole>
+          }
+        />
 
+        {/* private admin */}
         <Route
           path="/private"
           element={
@@ -188,6 +248,16 @@ export default function App() {
           element={
             <RequireRole allow={["ADMIN_PRIVATE"]}>
               <PrivateDriverApprovalsPage />
+            </RequireRole>
+          }
+        />
+
+        {/* bus owner */}
+        <Route
+          path="/owner"
+          element={
+            <RequireRole allow={["BUS_OWNER"]}>
+              <BusOwnerDashboard />
             </RequireRole>
           }
         />

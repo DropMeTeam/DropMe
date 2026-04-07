@@ -1,17 +1,13 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import api from "../../lib/api";
+import api from "../../lib/api"; // if your api exports named api, change this to: import { api } from "../../lib/api";
 
 function statusBadge(status) {
-  const base =
-    "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold border";
-  if (status === "approved")
-    return `${base} border-emerald-400/40 bg-emerald-500/10 text-emerald-200`;
-  if (status === "pending")
-    return `${base} border-yellow-400/40 bg-yellow-500/10 text-yellow-200`;
-  if (status === "rejected")
-    return `${base} border-red-400/40 bg-red-500/10 text-red-200`;
+  const base = "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold border";
+  if (status === "approved") return `${base} border-emerald-400/40 bg-emerald-500/10 text-emerald-200`;
+  if (status === "pending") return `${base} border-yellow-400/40 bg-yellow-500/10 text-yellow-200`;
+  if (status === "rejected") return `${base} border-red-400/40 bg-red-500/10 text-red-200`;
   return `${base} border-zinc-700 bg-zinc-950/30 text-zinc-300`;
 }
 
@@ -51,7 +47,6 @@ export default function DriverDashboard() {
   const status = reg?.status || "not_submitted";
   const isApproved = status === "approved";
 
-  // profile edit state
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [contactNo, setContactNo] = useState("");
@@ -59,7 +54,6 @@ export default function DriverDashboard() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  // offer actions
   const [deletingId, setDeletingId] = useState(null);
   const [completingId, setCompletingId] = useState(null);
   const [offersMsg, setOffersMsg] = useState("");
@@ -154,17 +148,12 @@ export default function DriverDashboard() {
 
   return (
     <div className="grid gap-6">
-      {/* PROFILE CARD */}
       <div className="card p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="h-14 w-14 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
               {user?.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt="avatar"
-                  className="h-full w-full object-cover"
-                />
+                <img src={user.avatarUrl} alt="avatar" className="h-full w-full object-cover" />
               ) : (
                 <div className="grid h-full w-full place-items-center text-xs text-zinc-400">
                   No photo
@@ -188,11 +177,7 @@ export default function DriverDashboard() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <button
-              className="btn btn-outline"
-              type="button"
-              onClick={() => setEditing((v) => !v)}
-            >
+            <button className="btn btn-outline" type="button" onClick={() => setEditing((v) => !v)}>
               {editing ? "Close" : "Update Profile"}
             </button>
 
@@ -205,12 +190,7 @@ export default function DriverDashboard() {
                 Add Ride
               </Link>
             ) : (
-              <button
-                className="btn btn-outline"
-                type="button"
-                disabled
-                title="Approve registration to add rides"
-              >
+              <button className="btn btn-outline" type="button" disabled title="Approve registration to add rides">
                 Add Ride (Locked)
               </button>
             )}
@@ -220,17 +200,10 @@ export default function DriverDashboard() {
         {msg ? <div className="mt-3 text-sm text-zinc-300">{msg}</div> : null}
 
         {editing ? (
-          <form
-            onSubmit={saveProfile}
-            className="mt-5 grid gap-4 rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4"
-          >
+          <form onSubmit={saveProfile} className="mt-5 grid gap-4 rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4">
             <div className="grid gap-1">
               <label className="text-xs text-zinc-400">Name</label>
-              <input
-                className="input"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+              <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
 
             <div className="grid gap-1">
@@ -276,7 +249,6 @@ export default function DriverDashboard() {
         ) : null}
       </div>
 
-      {/* DRIVER REGISTRATION DETAILS CARD */}
       <div className="card p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -349,7 +321,6 @@ export default function DriverDashboard() {
         </div>
       </div>
 
-      {/* OFFERS */}
       <div className="card p-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm font-semibold">Offers</div>
@@ -398,7 +369,6 @@ export default function DriverDashboard() {
             (offersQ.data?.offers || []).map((o) => {
               const isPast = o?.pickupTime ? new Date(o.pickupTime).getTime() < Date.now() : false;
               const isCompleted = o?.status === "completed";
-
               const showCompletionUI = offersView === "past" || (offersView === "all" && isPast);
 
               return (
@@ -407,7 +377,6 @@ export default function DriverDashboard() {
                     <div>
                       <div className="text-sm font-medium">
                         Seats: {o?.seatsAvailable}/{o?.seatsTotal} • {o?.status}
-
                         {showCompletionUI ? (
                           isCompleted ? (
                             <span className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] border border-emerald-400/40 bg-emerald-500/10 text-emerald-200">
@@ -424,6 +393,7 @@ export default function DriverDashboard() {
                       <div className="mt-1 text-xs text-zinc-400">
                         {o?.origin?.address || "Origin"} → {o?.destination?.address || "Destination"}
                       </div>
+
                       <div className="mt-1 text-xs text-zinc-400">
                         Pickup: {o?.pickupTime ? new Date(o.pickupTime).toLocaleString() : "—"}
                       </div>

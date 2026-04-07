@@ -2,23 +2,20 @@ import { Router } from "express";
 import {
   createOffer,
   myOffers,
+  searchOffers,
   getOfferById,
   updateOffer,
   deleteOffer,
 } from "../controllers/offer.controller.js";
-import { searchOffers } from "../controllers/offer.search.controller.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
-import { RideOffer } from "../models/RideOffer.js"; 
-
+import { RideOffer } from "../models/RideOffer.js";
 
 export const offersRouter = Router();
 
 offersRouter.post("/", requireAuth, requireRole("driver", "admin"), createOffer);
 offersRouter.get("/my", requireAuth, requireRole("driver", "admin"), myOffers);
 
-
 offersRouter.get("/search", searchOffers);
-
 
 offersRouter.get("/public/:id", requireAuth, async (req, res, next) => {
   try {
@@ -30,7 +27,6 @@ offersRouter.get("/public/:id", requireAuth, async (req, res, next) => {
   }
 });
 
-// edit/delete lifecycle 
 offersRouter.get("/:id", requireAuth, requireRole("driver", "admin"), getOfferById);
 offersRouter.patch("/:id", requireAuth, requireRole("driver", "admin"), updateOffer);
 offersRouter.delete("/:id", requireAuth, requireRole("driver", "admin"), deleteOffer);

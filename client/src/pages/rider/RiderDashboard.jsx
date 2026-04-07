@@ -232,10 +232,8 @@ export default function RiderDashboard() {
           Your ride requests, profile details, and bookings.
         </div>
 
-        <div className="mt-4 flex gap-3">
-          <Link to="/plan" className="btn-primary btn">
-            Plan a new trip
-          </Link>
+        <div className="mt-4">
+          <Link to="/plan" className="btn-primary btn">Plan a new trip</Link>
         </div>
       </div>
 
@@ -249,7 +247,7 @@ export default function RiderDashboard() {
             >
               <div className="text-sm font-medium">{r.mode}</div>
               <div className="mt-1 text-xs text-zinc-400">
-                {r.origin?.address || "Origin"} → {r.destination?.address || "Destination"}
+                {r.origin.address || "Origin"} → {r.destination.address || "Destination"}
               </div>
               <div className="mt-1 text-xs text-zinc-400">Status: {r.status}</div>
             </div>

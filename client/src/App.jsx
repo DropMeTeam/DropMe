@@ -215,16 +215,17 @@ export default function App() {
             </RequireRole>
           }
         />
-      </Route>
 
-      <Route
-  path="/owner"
-  element={
-    <RequireRole allow={["BUS_OWNER"]}>
-      <BusOwnerDashboard />
-    </RequireRole>
-  }
-/>
+        {/* ✅ BUS OWNER */}
+        <Route
+          path="/owner"
+          element={
+            <RequireRole allow={["BUS_OWNER"]}>
+              <BusOwnerDashboard />
+            </RequireRole>
+          }
+        />
+      </Route>
 
       {/* auth routes */}
       <Route path="/login" element={<Login />} />

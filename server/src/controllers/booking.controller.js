@@ -1,10 +1,9 @@
 import { RideOffer } from "../models/RideOffer.js";
 import { RideBooking } from "../models/RideBooking.js";
+import { User } from "../models/User.js";
 import { HttpError } from "../utils/httpError.js";
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
-import fs from "fs/promises";
-import path from "path";
 
 export async function createBooking(req, res, next) {
   try {
@@ -151,46 +150,19 @@ async function loadImageBuffer(src, req) {
       return base64 ? Buffer.from(base64, "base64") : null;
     }
 
-    const normalized = src.replace(/\\/g, "/").trim();
+    let finalUrl = src;
 
-    if (normalized.startsWith("/uploads/")) {
-      const filePath = path.join(process.cwd(), normalized.replace(/^\//, ""));
-      return await fs.readFile(filePath);
+    if (src.startsWith("/")) {
+      finalUrl = `${req.protocol}://${req.get("host")}${src}`;
+    } else if (!src.startsWith("http://") && !src.startsWith("https://")) {
+      return null;
     }
 
-    if (normalized.startsWith("uploads/")) {
-      const filePath = path.join(process.cwd(), normalized);
-      return await fs.readFile(filePath);
-    }
+    const response = await fetch(finalUrl);
+    if (!response.ok) return null;
 
-    if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
-      try {
-        const url = new URL(normalized);
-        if (url.pathname.startsWith("/uploads/")) {
-          const filePath = path.join(process.cwd(), url.pathname.replace(/^\//, ""));
-          return await fs.readFile(filePath);
-        }
-      } catch {
-        // fallback to fetch
-      }
-
-      const response = await fetch(normalized);
-      if (!response.ok) return null;
-
-      const arr = await response.arrayBuffer();
-      return Buffer.from(arr);
-    }
-
-    if (normalized.startsWith("/")) {
-      const finalUrl = `${req.protocol}://${req.get("host")}${normalized}`;
-      const response = await fetch(finalUrl);
-      if (!response.ok) return null;
-
-      const arr = await response.arrayBuffer();
-      return Buffer.from(arr);
-    }
-
-    return null;
+    const arr = await response.arrayBuffer();
+    return Buffer.from(arr);
   } catch {
     return null;
   }
@@ -242,6 +214,15 @@ export async function downloadReceipt(req, res, next) {
 
     const offer = booking.offerId || null;
 
+    // fallback to current driver registration data
+    const driverUser = booking?.driverId
+      ? await User.findById(booking.driverId)
+          .select("avatarUrl driverRegistration")
+          .lean()
+      : null;
+
+    const regVehicle = driverUser?.driverRegistration?.vehicle || {};
+
     const origin = offer?.origin?.address || booking?.offerSnapshot?.originAddress || "—";
     const destination = offer?.destination?.address || booking?.offerSnapshot?.destinationAddress || "—";
 
@@ -251,32 +232,50 @@ export async function downloadReceipt(req, res, next) {
       ? new Date(booking.offerSnapshot.pickupTime).toLocaleString()
       : "—";
 
-    const driverName = booking?.offerSnapshot?.driverName || offer?.driverSnapshot?.name || "—";
-    const driverEmail = booking?.offerSnapshot?.driverEmail || offer?.driverSnapshot?.email || "—";
+    const driverName = offer?.driverSnapshot?.name || booking?.offerSnapshot?.driverName || "—";
+    const driverEmail = offer?.driverSnapshot?.email || booking?.offerSnapshot?.driverEmail || "—";
 
     const driverPhotoUrl =
-      booking?.offerSnapshot?.driverPhotoUrl ||
-      booking?.offerSnapshot?.driverAvatarUrl ||
-      booking?.offerSnapshot?.driverImageUrl ||
       offer?.driverSnapshot?.photoUrl ||
       offer?.driverSnapshot?.avatarUrl ||
       offer?.driverSnapshot?.imageUrl ||
       offer?.driverSnapshot?.profileImage ||
+      booking?.offerSnapshot?.driverPhotoUrl ||
+      booking?.offerSnapshot?.driverAvatarUrl ||
+      booking?.offerSnapshot?.driverImageUrl ||
+      driverUser?.avatarUrl ||
       booking?.driverPhotoUrl ||
       booking?.driverAvatarUrl ||
       booking?.driverImageUrl ||
       "";
 
-    const vehicleType = booking?.offerSnapshot?.vehicleType || offer?.vehicleSnapshot?.type || "—";
-    const vehicleNumber = booking?.offerSnapshot?.vehicleNumber || offer?.vehicleSnapshot?.number || "—";
-    const vehicleColor = booking?.offerSnapshot?.vehicleColor || offer?.vehicleSnapshot?.color || "—";
+    const vehicleType =
+      offer?.vehicleSnapshot?.type ||
+      booking?.offerSnapshot?.vehicleType ||
+      regVehicle?.type ||
+      "—";
+
+    const vehicleNumber =
+      offer?.vehicleSnapshot?.number ||
+      booking?.offerSnapshot?.vehicleNumber ||
+      regVehicle?.number ||
+      "—";
+
+    const vehicleColor =
+      offer?.vehicleSnapshot?.color ||
+      booking?.offerSnapshot?.vehicleColor ||
+      regVehicle?.color ||
+      "—";
 
     const vehiclePhotoUrl =
-      booking?.offerSnapshot?.vehiclePhotoUrl ||
-      booking?.offerSnapshot?.vehicleImageUrl ||
       offer?.vehicleSnapshot?.photoUrl ||
       offer?.vehicleSnapshot?.imageUrl ||
       offer?.vehicleSnapshot?.vehicleImageUrl ||
+      booking?.offerSnapshot?.vehiclePhotoUrl ||
+      booking?.offerSnapshot?.vehicleImageUrl ||
+      regVehicle?.photoUrl ||
+      regVehicle?.imageUrl ||
+      regVehicle?.vehicleImageUrl ||
       booking?.vehiclePhotoUrl ||
       booking?.vehicleImageUrl ||
       "";

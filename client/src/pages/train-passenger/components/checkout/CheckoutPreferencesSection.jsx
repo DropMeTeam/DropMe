@@ -1,15 +1,20 @@
 import { CalendarDays, ShieldCheck } from "lucide-react";
 import CheckoutSeatCounter from "./CheckoutSeatCounter";
 
+/** When no business max is set, use a far-future bound so the native date picker is not range-clamped (some UIs only show ~7 days without an explicit max). */
+const DEFAULT_TRAVEL_DATE_MAX = "2099-12-31";
+
 export default function CheckoutPreferencesSection({
   travelDate,
   onTravelDateChange,
   seats,
   onSeatsChange,
   minDate,
+  maxDate,
   minPaymentLkr,
   submitting,
 }) {
+  const effectiveMaxDate = maxDate ?? DEFAULT_TRAVEL_DATE_MAX;
   return (
     <section className="rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,#171b26_0%,#11151f_58%,#0b0e14_100%)] p-5 shadow-[0_20px_70px_rgba(0,0,0,0.32)] sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -52,6 +57,7 @@ export default function CheckoutPreferencesSection({
             type="date"
             value={travelDate}
             min={minDate}
+            max={effectiveMaxDate}
             onChange={(e) => onTravelDateChange(e.target.value)}
             disabled={submitting}
             className="w-full rounded-[18px] border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition focus:border-cyan-400/40"

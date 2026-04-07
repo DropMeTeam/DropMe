@@ -1,12 +1,30 @@
+/** Backend / API contract: Mon … Sun only */
+export const DAY_SHORT_CODES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
 export const DAY_OPTIONS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
+  { value: "Mon", label: "Monday" },
+  { value: "Tue", label: "Tuesday" },
+  { value: "Wed", label: "Wednesday" },
+  { value: "Thu", label: "Thursday" },
+  { value: "Fri", label: "Friday" },
+  { value: "Sat", label: "Saturday" },
+  { value: "Sun", label: "Sunday" },
 ];
+
+const FULL_NAME_TO_SHORT = Object.fromEntries(
+  DAY_OPTIONS.map((opt) => [opt.label, opt.value])
+);
+
+/**
+ * Maps full weekday names (or short codes) to backend short codes.
+ * Returns "" if empty/unknown.
+ */
+export function normalizeDayParamToShort(day) {
+  if (!day || typeof day !== "string") return "";
+  const trimmed = day.trim();
+  if (DAY_SHORT_CODES.includes(trimmed)) return trimmed;
+  return FULL_NAME_TO_SHORT[trimmed] || "";
+}
 
 export function formatTime12(time, fallback = "--") {
   if (!time || typeof time !== "string") return fallback;

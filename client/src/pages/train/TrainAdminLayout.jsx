@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -8,33 +8,40 @@ import {
   MapPinned,
   CalendarPlus2,
   CalendarCog,
+  TicketCheck,
 } from "lucide-react";
 
 const EXPANDED_WIDTH = 240;
 const COLLAPSED_WIDTH = 84;
 
 const navItems = [
-  { label: "Stations", to: "/train/stations", icon: MapPinned, end: false },
-  { label: "Create Schedule", to: "/train/schedules", icon: CalendarPlus2, end: false },
-  { label: "Manage Schedules", to: "/train/timetables", icon: CalendarCog, end: false },
+  { label: "Stations", to: "/train/stations", icon: MapPinned },
+  { label: "Create Schedule", to: "/train/schedules", icon: CalendarPlus2 },
+  { label: "Manage Schedules", to: "/train/timetables", icon: CalendarCog },
+  { label: "Verify Ticket", to: "/train/ticket-verify", icon: TicketCheck },
 ];
 
-function SidebarNavItem({ item, collapsed }) {
+function SidebarNavItem({ item, collapsed, onNavigate }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isActive = location.pathname === item.to;
   const Icon = item.icon;
 
   return (
-    <NavLink
-      to={item.to}
-      end={item.end}
-      className={({ isActive }) =>
-        [
-          "group relative flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm font-medium transition-all duration-200",
-          isActive
-            ? "border-blue-300/20 bg-blue-500/15 text-blue-100 shadow-[inset_0_0_0_1px_rgba(96,165,250,0.35),0_8px_24px_rgba(29,78,216,0.18)]"
-            : "border-white/10 bg-white/[0.02] text-white/70 hover:border-white/20 hover:bg-white/[0.05] hover:text-white",
-        ].join(" ")
-      }
+    <button
+      type="button"
+      onClick={() => {
+        navigate(item.to);
+        onNavigate?.();
+      }}
+      aria-current={isActive ? "page" : undefined}
       title={collapsed ? item.label : undefined}
+      className={[
+        "group relative flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left text-sm font-medium transition-all duration-200",
+        isActive
+          ? "border-blue-300/20 bg-blue-500/15 text-blue-100 shadow-[inset_0_0_0_1px_rgba(96,165,250,0.35),0_8px_24px_rgba(29,78,216,0.18)]"
+          : "border-white/10 bg-white/[0.02] text-white/70 hover:border-white/20 hover:bg-white/[0.05] hover:text-white",
+      ].join(" ")}
     >
       <Icon className="h-4 w-4 shrink-0" />
       <span
@@ -45,7 +52,7 @@ function SidebarNavItem({ item, collapsed }) {
       >
         {item.label}
       </span>
-    </NavLink>
+    </button>
   );
 }
 
@@ -74,9 +81,12 @@ function SidebarContent({ collapsed, onCollapseToggle, onNavigate }) {
 
       <nav className="flex-1 space-y-2 overflow-y-auto p-3">
         {navItems.map((item) => (
-          <div key={item.to} onClick={onNavigate} role="none">
-            <SidebarNavItem item={item} collapsed={collapsed} />
-          </div>
+          <SidebarNavItem
+            key={item.to}
+            item={item}
+            collapsed={collapsed}
+            onNavigate={onNavigate}
+          />
         ))}
       </nav>
     </div>

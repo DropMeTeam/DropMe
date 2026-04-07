@@ -110,6 +110,22 @@ const trainBookingSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Ticket usage for verification
+    ticketUsageStatus: {
+      type: String,
+      enum: ["unused", "used"],
+      default: "unused",
+      index: true,
+    },
+    ticketUsedAt: {
+      type: Date,
+      default: null,
+    },
+    ticketUsedBy: {
+      type: String,
+      default: "",
+    },
+
     journeySnapshot: {
       trainNo: { type: String, default: "" },
       trainName: { type: String, default: "" },

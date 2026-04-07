@@ -22,6 +22,7 @@ import TrainSchedulesPage from "./pages/train/TrainSchedulesPage";
 import TrainTimetablesPage from "./pages/train/TrainTimetablesPage";
 import TrainTicketVerifyPage from "./pages/train/TrainTicketVerifyPage";
 
+import Train from "./pages/train-passenger/Train";
 import TrainSearchPage from "./pages/train-passenger/TrainSearchPage";
 import TrainScheduleDetailsPage from "./pages/train-passenger/TrainScheduleDetailsPage";
 import MyTrainBookingsPage from "./pages/train-passenger/MyTrainBookingsPage";
@@ -48,7 +49,7 @@ export default function App() {
       <Route element={<Shell />}>
         <Route index element={<Landing />} />
         <Route path="/plan" element={<PlanTrip />} />
-
+        <Route path="/trains" element={<Train />} />
         <Route path="/train-service" element={<TrainSearchPage />} />
         <Route path="/train-service/:id" element={<TrainScheduleDetailsPage />} />
         <Route

@@ -36,7 +36,7 @@ export default function Shell() {
               <MapPinned className="h-4 w-4" /> Plan
             </Link>
 
-            <Link to="/train-service" className="pill">
+            <Link to="/trains" className="pill">
               <TrainFront className="h-4 w-4" /> Train
             </Link>
 

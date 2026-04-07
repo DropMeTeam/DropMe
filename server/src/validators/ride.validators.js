@@ -17,7 +17,10 @@ export const CreateOfferSchema = z.object({
   timeWindowMins: z.coerce.number().int().min(0).max(120).optional(),
   seatsTotal: z.coerce.number().int().min(1).max(6).optional(),
   routePolyline: z.string().optional(),
+
+  // NEW
   distanceKm: z.coerce.number().min(0).optional(),
+
   priceLkr: z.coerce.number().min(0).optional(),
 });
 
@@ -37,7 +40,10 @@ export const UpdateOfferSchema = z.object({
   timeWindowMins: z.coerce.number().int().min(0).max(120).optional(),
   seatsTotal: z.coerce.number().int().min(1).max(6).optional(),
   routePolyline: z.string().optional(),
+
+  // NEW
   distanceKm: z.coerce.number().min(0).optional(),
+
   priceLkr: z.coerce.number().min(0).optional(),
   status: z.enum(["open", "closed", "completed"]).optional(),
 });

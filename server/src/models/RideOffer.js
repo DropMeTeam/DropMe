@@ -27,14 +27,19 @@ const RideOfferSchema = new mongoose.Schema(
 
     origin: { type: LocationSchema, required: true },
     destination: { type: LocationSchema, required: true },
+
     pickupTime: { type: Date, required: true, index: true },
     timeWindowMins: { type: Number, default: 15, min: 0, max: 120 },
+
     seatsTotal: { type: Number, default: 3, min: 1, max: 6 },
     seatsAvailable: { type: Number, default: 3, min: 0, max: 6 },
+
     routePolyline: { type: String, default: "" },
 
+    // NEW: store trip distance in KM
     distanceKm: { type: Number, default: 0, min: 0 },
 
+    // price per seat
     priceLkr: { type: Number, default: 0, min: 0 },
 
     pricing: {

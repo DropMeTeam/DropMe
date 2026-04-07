@@ -1,5 +1,6 @@
 import { RideOffer } from "../models/RideOffer.js";
 import { RideBooking } from "../models/RideBooking.js";
+import { User } from "../models/User.js";
 import { HttpError } from "../utils/httpError.js";
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
@@ -213,6 +214,15 @@ export async function downloadReceipt(req, res, next) {
 
     const offer = booking.offerId || null;
 
+    // fallback to current driver registration data
+    const driverUser = booking?.driverId
+      ? await User.findById(booking.driverId)
+          .select("avatarUrl driverRegistration")
+          .lean()
+      : null;
+
+    const regVehicle = driverUser?.driverRegistration?.vehicle || {};
+
     const origin = offer?.origin?.address || booking?.offerSnapshot?.originAddress || "—";
     const destination = offer?.destination?.address || booking?.offerSnapshot?.destinationAddress || "—";
 
@@ -224,6 +234,7 @@ export async function downloadReceipt(req, res, next) {
 
     const driverName = offer?.driverSnapshot?.name || booking?.offerSnapshot?.driverName || "—";
     const driverEmail = offer?.driverSnapshot?.email || booking?.offerSnapshot?.driverEmail || "—";
+
     const driverPhotoUrl =
       offer?.driverSnapshot?.photoUrl ||
       offer?.driverSnapshot?.avatarUrl ||
@@ -232,20 +243,39 @@ export async function downloadReceipt(req, res, next) {
       booking?.offerSnapshot?.driverPhotoUrl ||
       booking?.offerSnapshot?.driverAvatarUrl ||
       booking?.offerSnapshot?.driverImageUrl ||
+      driverUser?.avatarUrl ||
       booking?.driverPhotoUrl ||
       booking?.driverAvatarUrl ||
       booking?.driverImageUrl ||
       "";
 
-    const vehicleType = offer?.vehicleSnapshot?.type || booking?.offerSnapshot?.vehicleType || "—";
-    const vehicleNumber = offer?.vehicleSnapshot?.number || booking?.offerSnapshot?.vehicleNumber || "—";
-    const vehicleColor = offer?.vehicleSnapshot?.color || booking?.offerSnapshot?.vehicleColor || "—";
+    const vehicleType =
+      offer?.vehicleSnapshot?.type ||
+      booking?.offerSnapshot?.vehicleType ||
+      regVehicle?.type ||
+      "—";
+
+    const vehicleNumber =
+      offer?.vehicleSnapshot?.number ||
+      booking?.offerSnapshot?.vehicleNumber ||
+      regVehicle?.number ||
+      "—";
+
+    const vehicleColor =
+      offer?.vehicleSnapshot?.color ||
+      booking?.offerSnapshot?.vehicleColor ||
+      regVehicle?.color ||
+      "—";
+
     const vehiclePhotoUrl =
       offer?.vehicleSnapshot?.photoUrl ||
       offer?.vehicleSnapshot?.imageUrl ||
       offer?.vehicleSnapshot?.vehicleImageUrl ||
       booking?.offerSnapshot?.vehiclePhotoUrl ||
       booking?.offerSnapshot?.vehicleImageUrl ||
+      regVehicle?.photoUrl ||
+      regVehicle?.imageUrl ||
+      regVehicle?.vehicleImageUrl ||
       booking?.vehiclePhotoUrl ||
       booking?.vehicleImageUrl ||
       "";

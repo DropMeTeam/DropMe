@@ -21,10 +21,6 @@ import StationsPage from "./pages/train/StationsPage";
 import TrainSchedulesPage from "./pages/train/TrainSchedulesPage";
 import TrainTimetablesPage from "./pages/train/TrainTimetablesPage";
 
-import TrainSearchPage from "./pages/train-passenger/TrainSearchPage";
-import TrainScheduleDetailsPage from "./pages/train-passenger/TrainScheduleDetailsPage";
-import MyTrainBookingsPage from "./pages/train-passenger/MyTrainBookingsPage";
-
 import BusOwnerDashboard from "./pages/owner/BusOwnerDashboard";
 import BusRoutesPage from "./pages/bus/BusRoutesPage";
 import CreateBusRoute from "./pages/bus/CreateBusRoute";
@@ -63,18 +59,6 @@ export default function App() {
       <Route element={<Shell />}>
         <Route index element={<Landing />} />
         <Route path="/plan" element={<PlanTrip />} />
-
-        {/* train passenger */}
-        <Route path="/train-service" element={<TrainSearchPage />} />
-        <Route path="/train-service/:id" element={<TrainScheduleDetailsPage />} />
-        <Route
-          path="/train-service/bookings"
-          element={
-            <Protected>
-              <MyTrainBookingsPage />
-            </Protected>
-          }
-        />
 
         {/* bus passenger */}
         <Route path="/bus-booking" element={<BusBookingPage />} />

@@ -98,9 +98,9 @@ export default function Shell() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6">
-        <Outlet />
-      </main>
+      <main className="mx-auto w-full max-w-[1800px] px-3 py-4 md:px-4 xl:px-5">
+  <Outlet />
+</main>
 
       <footer className="mx-auto max-w-6xl px-4 pb-10 pt-10 text-xs text-zinc-400">
         <div className="border-t border-zinc-800 pt-6">

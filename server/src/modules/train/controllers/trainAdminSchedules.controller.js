@@ -3,9 +3,6 @@ import { TrainSchedule } from "../models/TrainSchedule.js";
 import { Station } from "../models/Station.js";
 import { HttpError } from "../../../utils/httpError.js";
 
-/**
- * Distance (km) between two lat/lng points.
- */
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const toRad = (d) => (d * Math.PI) / 180;
@@ -19,12 +16,6 @@ function haversineKm(lat1, lon1, lat2, lon2) {
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-/**
- * Backend contract:
- * - min 2 stops
- * - unique order
- * - each stop must have stationId + departureTime
- */
 function validateStops(stops) {
   if (!Array.isArray(stops) || stops.length < 2) {
     throw new HttpError(400, "At least 2 stops required");
@@ -45,18 +36,11 @@ function validateStops(stops) {
   }
 
   const orders = stops.map((s) => Number(s.order));
-  const uniqOrders = new Set(orders);
-  if (uniqOrders.size !== orders.length) {
+  if (new Set(orders).size !== orders.length) {
     throw new HttpError(400, "Stop order values must be unique");
   }
 }
 
-/**
- * Weekly timetable validator (Mon–Sun)
- * - must be object
- * - each day must be array (can be empty)
- * - if day array present: each row must have stationId + order + departureTime
- */
 function validateWeeklyTimetable(weeklyTimetable) {
   if (weeklyTimetable === null || typeof weeklyTimetable !== "object") {
     throw new HttpError(400, "weeklyTimetable must be an object");
@@ -66,7 +50,8 @@ function validateWeeklyTimetable(weeklyTimetable) {
 
   for (const d of DAYS) {
     const rows = weeklyTimetable[d];
-    if (rows === undefined) continue; // allow partial day updates if you want
+
+    if (rows === undefined) continue;
 
     if (!Array.isArray(rows)) {
       throw new HttpError(400, `weeklyTimetable.${d} must be an array`);
@@ -74,13 +59,14 @@ function validateWeeklyTimetable(weeklyTimetable) {
 
     for (const r of rows) {
       if (!r.stationId) throw new HttpError(400, `weeklyTimetable.${d}: stationId required`);
-      if (!Number.isFinite(Number(r.order)))
+      if (!Number.isFinite(Number(r.order))) {
         throw new HttpError(400, `weeklyTimetable.${d}: order must be numeric`);
-      if (!r.departureTime)
+      }
+      if (!r.departureTime) {
         throw new HttpError(400, `weeklyTimetable.${d}: departureTime required`);
+      }
     }
 
-    // optional: order uniqueness per day
     const orders = rows.map((x) => Number(x.order));
     if (new Set(orders).size !== orders.length) {
       throw new HttpError(400, `weeklyTimetable.${d}: order must be unique`);
@@ -88,9 +74,6 @@ function validateWeeklyTimetable(weeklyTimetable) {
   }
 }
 
-/**
- * Computes segments + totalDistanceKm based on station coordinates.
- */
 async function computeSegments(stops) {
   const ordered = [...stops].sort((a, b) => Number(a.order) - Number(b.order));
 
@@ -118,20 +101,22 @@ async function computeSegments(stops) {
       );
     }
 
-    const d = haversineKm(aLat, aLng, bLat, bLng);
-    const distanceKm = Math.round(d * 1000) / 1000;
+    const distanceKm = Math.round(haversineKm(aLat, aLng, bLat, bLng) * 1000) / 1000;
 
     segments.push({
       fromStationId: ordered[i].stationId,
       toStationId: ordered[i + 1].stationId,
       distanceKm,
+      fareLkr: 0,
     });
 
     total += distanceKm;
   }
 
-  total = Math.round(total * 1000) / 1000;
-  return { segments, totalDistanceKm: total };
+  return {
+    segments,
+    totalDistanceKm: Math.round(total * 1000) / 1000,
+  };
 }
 
 function applyTimetablePopulate(q) {
@@ -169,7 +154,15 @@ export async function getSchedule(req, res, next) {
 
 export async function createSchedule(req, res, next) {
   try {
-    const { trainName, trainNo, seatCapacity, stops, active, weeklyTimetable } = req.body;
+    const {
+      trainName,
+      trainNo,
+      seatCapacity,
+      stops,
+      active,
+      weeklyTimetable,
+      segmentFares,
+    } = req.body;
 
     if (!trainNo) throw new HttpError(400, "trainNo is required");
 
@@ -180,6 +173,18 @@ export async function createSchedule(req, res, next) {
 
     validateStops(stops);
     const { segments, totalDistanceKm } = await computeSegments(stops);
+
+    if (!Array.isArray(segmentFares) || segmentFares.length !== segments.length) {
+      throw new HttpError(400, `Exactly ${segments.length} segment fares are required`);
+    }
+
+    for (let i = 0; i < segments.length; i++) {
+      const fare = Number(segmentFares[i]);
+      if (!Number.isFinite(fare) || fare < 0) {
+        throw new HttpError(400, `Invalid fare for segment ${i + 1}`);
+      }
+      segments[i].fareLkr = fare;
+    }
 
     if (weeklyTimetable !== undefined) {
       validateWeeklyTimetable(weeklyTimetable);
@@ -208,9 +213,16 @@ export async function updateSchedule(req, res, next) {
     const doc = await TrainSchedule.findById(req.params.id);
     if (!doc) throw new HttpError(404, "Schedule not found");
 
-    const { trainName, trainNo, seatCapacity, stops, active, weeklyTimetable } = req.body;
+    const {
+      trainName,
+      trainNo,
+      seatCapacity,
+      stops,
+      active,
+      weeklyTimetable,
+      segmentFares,
+    } = req.body;
 
-    // ✅ allow partial updates (timetables page sends only weeklyTimetable)
     if (trainNo !== undefined) doc.trainNo = String(trainNo).trim();
     if (trainName !== undefined) doc.trainName = trainName || "";
 
@@ -227,19 +239,58 @@ export async function updateSchedule(req, res, next) {
     if (stops !== undefined) {
       validateStops(stops);
       const { segments, totalDistanceKm } = await computeSegments(stops);
+
+      if (!Array.isArray(segmentFares) || segmentFares.length !== segments.length) {
+        throw new HttpError(
+          400,
+          `Stops changed. Exactly ${segments.length} segment fares are required`
+        );
+      }
+
+      for (let i = 0; i < segments.length; i++) {
+        const fare = Number(segmentFares[i]);
+        if (!Number.isFinite(fare) || fare < 0) {
+          throw new HttpError(400, `Invalid fare for segment ${i + 1}`);
+        }
+        segments[i].fareLkr = fare;
+      }
+
       doc.stops = stops;
       doc.segments = segments;
       doc.totalDistanceKm = totalDistanceKm;
+      doc.markModified("stops");
+      doc.markModified("segments");
+    } else if (segmentFares !== undefined) {
+      if (!Array.isArray(segmentFares) || segmentFares.length !== doc.segments.length) {
+        throw new HttpError(
+          400,
+          `Exactly ${doc.segments.length} segment fares are required`
+        );
+      }
+
+      for (let i = 0; i < doc.segments.length; i++) {
+        const fare = Number(segmentFares[i]);
+        if (!Number.isFinite(fare) || fare < 0) {
+          throw new HttpError(400, `Invalid fare for segment ${i + 1}`);
+        }
+        doc.segments[i].fareLkr = fare;
+      }
+
+      doc.markModified("segments");
     }
 
-    // ✅ THIS is the missing piece for TrainTimetablesPage
     if (weeklyTimetable !== undefined) {
       validateWeeklyTimetable(weeklyTimetable);
       doc.weeklyTimetable = weeklyTimetable;
+      doc.markModified("weeklyTimetable");
     }
 
     await doc.save();
-    res.json({ schedule: doc });
+
+    const q = TrainSchedule.findById(doc._id);
+    const schedule = await applyTimetablePopulate(q).lean();
+
+    res.json({ schedule });
   } catch (e) {
     next(e);
   }

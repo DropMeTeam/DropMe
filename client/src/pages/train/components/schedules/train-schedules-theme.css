@@ -1,0 +1,26 @@
+.train-schedules-shell {
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 30%),
+    radial-gradient(circle at right center, rgba(15, 23, 42, 0.28), transparent 30%),
+    linear-gradient(180deg, #040914 0%, #030712 100%);
+}
+
+.train-schedules-shell .leaflet-container {
+  background: #dbeafe;
+  font-family: inherit;
+}
+
+.train-schedules-shell .leaflet-control-attribution,
+.train-schedules-shell .leaflet-control-zoom {
+  font-family: inherit;
+}
+
+.train-schedules-shell .leaflet-popup-content-wrapper,
+.train-schedules-shell .leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+}
+
+.train-schedules-shell .leaflet-popup-content {
+  margin: 12px 14px;
+}

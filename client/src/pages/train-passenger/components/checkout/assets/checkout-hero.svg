@@ -1,0 +1,80 @@
+<svg width="1600" height="600" viewBox="0 0 1600 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="800" y1="0" x2="800" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0D1828"/>
+      <stop offset="0.55" stop-color="#0A101A"/>
+      <stop offset="1" stop-color="#070A12"/>
+    </linearGradient>
+    <linearGradient id="railGlow" x1="800" y1="330" x2="800" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0EA5E9" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#0EA5E9" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="leftWall" x1="0" y1="0" x2="500" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111827"/>
+      <stop offset="1" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="rightWall" x1="1600" y1="0" x2="1100" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111827"/>
+      <stop offset="1" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="trainBody" x1="680" y1="188" x2="920" y2="188" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111827"/>
+      <stop offset="0.52" stop-color="#0EA5E9"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <radialGradient id="centerGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(800 285) rotate(90) scale(220 420)">
+      <stop stop-color="#38BDF8" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#38BDF8" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur40" x="-80" y="-80" width="1760" height="760" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="40"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="600" fill="url(#bg)"/>
+  <rect x="0" y="0" width="480" height="600" fill="url(#leftWall)"/>
+  <rect x="1120" y="0" width="480" height="600" fill="url(#rightWall)"/>
+
+  <path d="M590 0L0 600H350L720 0H590Z" fill="#050A12"/>
+  <path d="M1010 0L1600 600H1250L880 0H1010Z" fill="#050A12"/>
+
+  <g opacity="0.95">
+    <rect x="650" y="60" width="24" height="220" rx="12" fill="#111827"/>
+    <rect x="690" y="60" width="22" height="220" rx="11" fill="#0EA5E9"/>
+    <rect x="730" y="60" width="18" height="220" rx="9" fill="#111827"/>
+    <rect x="852" y="60" width="18" height="220" rx="9" fill="#111827"/>
+    <rect x="888" y="60" width="22" height="220" rx="11" fill="#0EA5E9"/>
+    <rect x="926" y="60" width="24" height="220" rx="12" fill="#111827"/>
+  </g>
+
+  <path d="M0 320L520 248" stroke="#1E293B" stroke-width="4"/>
+  <path d="M1600 320L1080 248" stroke="#1E293B" stroke-width="4"/>
+  <path d="M0 372L560 290" stroke="#111827" stroke-width="6"/>
+  <path d="M1600 372L1040 290" stroke="#111827" stroke-width="6"/>
+
+  <rect x="760" y="160" width="80" height="220" rx="40" fill="#0A1120" stroke="#1E293B" stroke-width="3"/>
+  <path d="M800 194C834 194 862 222 862 256V338C862 357.882 845.882 374 826 374H774C754.118 374 738 357.882 738 338V256C738 222 766 194 800 194Z" fill="url(#trainBody)"/>
+  <path d="M800 214C825.405 214 846 234.595 846 260V336C846 349.255 835.255 360 822 360H778C764.745 360 754 349.255 754 336V260C754 234.595 774.595 214 800 214Z" fill="#0B1220"/>
+  <path d="M785 240H815C827.15 240 837 249.85 837 262V300H763V262C763 249.85 772.85 240 785 240Z" fill="#111827"/>
+  <path d="M800 300L825 336H775L800 300Z" fill="#0EA5E9"/>
+  <circle cx="775" cy="336" r="7" fill="#38BDF8"/>
+  <circle cx="825" cy="336" r="7" fill="#38BDF8"/>
+
+  <path d="M780 380H820L980 600H620L780 380Z" fill="url(#railGlow)"/>
+  <path d="M750 410L690 600" stroke="#334155" stroke-width="4"/>
+  <path d="M850 410L910 600" stroke="#334155" stroke-width="4"/>
+  <path d="M800 410V600" stroke="#64748B" stroke-width="5" stroke-dasharray="18 22"/>
+
+  <g filter="url(#blur40)">
+    <ellipse cx="800" cy="285" rx="180" ry="120" fill="url(#centerGlow)"/>
+    <ellipse cx="640" cy="280" rx="100" ry="50" fill="#0EA5E9" fill-opacity="0.12"/>
+    <ellipse cx="960" cy="280" rx="100" ry="50" fill="#0EA5E9" fill-opacity="0.12"/>
+  </g>
+
+  <rect x="58" y="92" width="212" height="12" rx="6" fill="#38BDF8" fill-opacity="0.18"/>
+  <rect x="1330" y="92" width="212" height="12" rx="6" fill="#38BDF8" fill-opacity="0.18"/>
+  <rect x="42" y="130" width="248" height="10" rx="5" fill="#38BDF8" fill-opacity="0.08"/>
+  <rect x="1310" y="130" width="248" height="10" rx="5" fill="#38BDF8" fill-opacity="0.08"/>
+
+  <path d="M0 540H1600" stroke="#0EA5E9" stroke-opacity="0.08"/>
+</svg>

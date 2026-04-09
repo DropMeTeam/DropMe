@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -11,6 +11,7 @@ import {
   Sparkles,
   Route as RouteIcon,
   CreditCard,
+  Loader2,
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { calculateBusFare, formatLkr } from "../../lib/busFare";
@@ -19,6 +20,29 @@ import BusSeatLayoutPreview from "../../components/bus/BusSeatLayoutPreview";
 
 function shortLabel(label = "") {
   return String(label).split(",")[0].trim();
+}
+
+function normalizeSeatList(value) {
+  return Array.isArray(value)
+    ? value.map((seat) => String(seat).trim().toUpperCase()).filter(Boolean)
+    : [];
+}
+
+function mapPaymentErrorMessage(error) {
+  const rawMessage =
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    "Proceed to payment failed";
+
+  if (
+    /at least 50 cents/i.test(rawMessage) ||
+    /converts to approximately/i.test(rawMessage)
+  ) {
+    return "This ticket amount is too low for Stripe checkout. Increase the fare or use another payment method.";
+  }
+
+  return rawMessage;
 }
 
 export default function BusBookingDetailsPage() {
@@ -30,10 +54,18 @@ export default function BusBookingDetailsPage() {
   const schedule = state?.schedule || null;
   const searchData = state?.searchData || null;
 
-  const [selectedSeats, setSelectedSeats] = useState([]);
-  const reservedSeats = [];
+  const pickupLabel = route?.fromMatch?.label || searchData?.from?.label || "";
+  const dropoffLabel = route?.toMatch?.label || searchData?.to?.label || "";
 
-  if (!bus || !route || !searchData) {
+  const [selectedSeats, setSelectedSeats] = useState([]);
+  const [bookedSeats, setBookedSeats] = useState([]);
+  const [pendingSeats, setPendingSeats] = useState([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState("");
+  const [proceeding, setProceeding] = useState(false);
+  const [errMsg, setErrMsg] = useState("");
+
+  if (!bus || !route || !searchData || !schedule) {
     return (
       <div className="min-h-screen bg-[#060812] px-6 py-10 text-white">
         <div className="mx-auto max-w-4xl rounded-3xl border border-white/10 bg-white/[0.03] p-8">
@@ -64,23 +96,127 @@ export default function BusBookingDetailsPage() {
 
   const totalAmount = computedFare.fareLkr * selectedSeats.length;
 
+  const reservedSeats = useMemo(
+    () => [...new Set([...bookedSeats, ...pendingSeats])],
+    [bookedSeats, pendingSeats]
+  );
+
+  const selectedReservedSeat = useMemo(
+    () => selectedSeats.find((seat) => reservedSeats.includes(seat)),
+    [selectedSeats, reservedSeats]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAvailability() {
+      try {
+        setAvailabilityLoading(true);
+        setAvailabilityError("");
+
+        const { data } = await api.get("/api/bus/bookings/availability", {
+          params: {
+            scheduleId: schedule?._id,
+            travelDate: searchData?.date,
+            pickupLabel,
+            dropoffLabel,
+          },
+        });
+
+        if (cancelled) return;
+
+        const nextBookedSeats = normalizeSeatList(data?.bookedSeats);
+        const nextPendingSeats = normalizeSeatList(data?.pendingSeats);
+        const nextReservedSeats = [...new Set([...nextBookedSeats, ...nextPendingSeats])];
+
+        setBookedSeats(nextBookedSeats);
+        setPendingSeats(nextPendingSeats);
+
+        setSelectedSeats((prev) =>
+          prev.filter(
+            (seat) => !nextReservedSeats.includes(String(seat).trim().toUpperCase())
+          )
+        );
+      } catch (error) {
+        if (cancelled) return;
+        setAvailabilityError(
+          error?.response?.data?.message || "Failed to load seat availability"
+        );
+        setBookedSeats([]);
+        setPendingSeats([]);
+      } finally {
+        if (!cancelled) {
+          setAvailabilityLoading(false);
+        }
+      }
+    }
+
+    loadAvailability();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [schedule?._id, searchData?.date, pickupLabel, dropoffLabel]);
+
   function handleSeatToggle(seatNo) {
+    const normalizedSeatNo = String(seatNo).trim().toUpperCase();
+
+    if (reservedSeats.includes(normalizedSeatNo)) return;
+
     setSelectedSeats((prev) =>
-      prev.includes(seatNo)
-        ? prev.filter((item) => item !== seatNo)
-        : [...prev, seatNo]
+      prev.includes(normalizedSeatNo)
+        ? prev.filter((item) => item !== normalizedSeatNo)
+        : [...prev, normalizedSeatNo]
     );
   }
 
-  function handleProceedToPayment() {
+  async function handleProceedToPayment() {
     if (!selectedSeats.length) {
       alert("Please select at least one seat.");
       return;
     }
 
-    // Next step:
-    // navigate("/bus-booking/payment", { state: { ... } });
-    alert("Proceed to payment flow will be connected next.");
+    if (selectedReservedSeat) {
+      setErrMsg(`Seat ${selectedReservedSeat} is no longer available.`);
+      return;
+    }
+
+    try {
+      setErrMsg("");
+      setProceeding(true);
+
+      const checkoutRes = await api.post("/api/bus/bookings/checkout", {
+        scheduleId: schedule._id,
+        travelDate: searchData.date,
+        pickupLabel,
+        dropoffLabel,
+        seatNumbers: selectedSeats,
+      });
+
+      const bookingId = checkoutRes?.data?.booking?._id;
+      if (!bookingId) {
+        setErrMsg("Bus booking was not created correctly.");
+        return;
+      }
+
+      const paymentRes = await api.post("/api/payments/stripe/bus/session", {
+        bookingId,
+      });
+
+      const url = paymentRes?.data?.url;
+      if (!url) {
+        setErrMsg(
+          "Stripe URL missing. Check server /api/payments/stripe/bus/session response."
+        );
+        return;
+      }
+
+      window.location.assign(url);
+    } catch (error) {
+      setErrMsg(mapPaymentErrorMessage(error));
+    } finally {
+      setProceeding(false);
+    }
   }
 
   return (
@@ -95,7 +231,6 @@ export default function BusBookingDetailsPage() {
         </button>
 
         <div className="grid gap-6 xl:grid-cols-[0.95fr_1.25fr]">
-          {/* LEFT: Booking Details */}
           <section className="rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(8,12,24,0.96)_0%,rgba(4,7,15,0.98)_100%)] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
             <div className="flex items-start gap-4">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
@@ -140,7 +275,7 @@ export default function BusBookingDetailsPage() {
               <InfoRow
                 icon={<MapPin className="h-4 w-4" />}
                 label="Passenger journey"
-                value={`${shortLabel(searchData?.from?.label)} -> ${shortLabel(searchData?.to?.label)}`}
+                value={`${shortLabel(pickupLabel)} -> ${shortLabel(dropoffLabel)}`}
               />
 
               <InfoRow
@@ -173,21 +308,45 @@ export default function BusBookingDetailsPage() {
                 value={`${schedule?.stopTimes?.length || 0} stops`}
               />
             </div>
+
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+              <div className="text-sm text-white/60">
+                {availabilityLoading ? "Checking seat availability..." : "Seat availability loaded"}
+              </div>
+
+              {availabilityError ? (
+                <div className="mt-2 text-sm text-red-300">{availabilityError}</div>
+              ) : (
+                <div className="mt-3 flex flex-wrap gap-4 text-xs text-white/65">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full bg-rose-500/80" />
+                    Booked seats: {bookedSeats.length}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full bg-amber-400/80" />
+                    Pending seats: {pendingSeats.length}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full bg-sky-500/80" />
+                    Your selected seats
+                  </div>
+                </div>
+              )}
+            </div>
           </section>
 
-          {/* RIGHT: Seat Arrangement */}
           <div>
             <BusSeatLayoutPreview
               busType={bus.busType}
               seatsTotal={bus.seatsTotal}
               selectedSeats={selectedSeats}
-              reservedSeats={reservedSeats}
+              reservedSeats={bookedSeats}
+              pendingSeats={pendingSeats}
               onSeatToggle={handleSeatToggle}
             />
           </div>
         </div>
 
-        {/* BOTTOM SUMMARY */}
         <section className="mt-6 rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(8,12,24,0.96)_0%,rgba(4,7,15,0.98)_100%)] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
           <div className="grid gap-6 lg:grid-cols-[1fr_auto_auto] lg:items-center">
             <div>
@@ -206,11 +365,15 @@ export default function BusBookingDetailsPage() {
                     </span>
                   ))
                 ) : (
-                  <span className="text-sm text-white/50">
-                    No seats selected
-                  </span>
+                  <span className="text-sm text-white/50">No seats selected</span>
                 )}
               </div>
+
+              {errMsg ? (
+                <div className="mt-4 text-[15px] leading-7 text-rose-300">
+                  {errMsg}
+                </div>
+              ) : null}
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-black/20 px-6 py-4">
@@ -225,11 +388,15 @@ export default function BusBookingDetailsPage() {
             <button
               type="button"
               onClick={handleProceedToPayment}
-              disabled={!selectedSeats.length}
+              disabled={!selectedSeats.length || proceeding || availabilityLoading}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <CreditCard className="h-4 w-4" />
-              Proceed to Payment
+              {proceeding ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CreditCard className="h-4 w-4" />
+              )}
+              {proceeding ? "Redirecting..." : "Proceed to Payment"}
             </button>
           </div>
         </section>

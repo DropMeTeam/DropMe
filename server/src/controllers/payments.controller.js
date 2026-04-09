@@ -8,10 +8,46 @@ import {
   generateTrainTicketPdfBuffer,
   getTrainTicketNumber,
 } from "../modules/train/utils/trainTicket.js";
-import { sendTrainTicketEmail } from "../utils/mailer.js";
+
+import { generateBusTicketPdfBuffer } from "../modules/bus/utils/busTicketPdf.js";
+import {
+  sendTrainTicketEmail,
+  sendBusTicketEmail,
+} from "../utils/mailer.js";
+import { BusBooking } from "../modules/bus/models/BusBooking.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const MIN_TRAIN_PAYMENT_LKR = Number(process.env.MIN_TRAIN_PAYMENT_LKR || 200);
+
+
+const BUS_PAYMENT_HOLD_MINUTES = 10;
+
+function isBusPendingHoldActive(booking) {
+  if (
+    booking?.bookingStatus !== "pending_payment" ||
+    booking?.paymentStatus !== "pending"
+  ) {
+    return false;
+  }
+
+  const createdAtMs = new Date(booking.createdAt).getTime();
+  if (!Number.isFinite(createdAtMs)) return false;
+
+  return Date.now() - createdAtMs <= BUS_PAYMENT_HOLD_MINUTES * 60 * 1000;
+}
+
+function isBusBlockingBooking(booking) {
+  if (booking?.bookingStatus === "booked" && booking?.paymentStatus === "paid") {
+    return true;
+  }
+
+  return isBusPendingHoldActive(booking);
+}
+
+function hasBusSegmentOverlap(a = [], b = []) {
+  const set = new Set(a);
+  return b.some((key) => set.has(key));
+}
 
 function normalizeDistanceKm(value) {
   const num = Number(value);
@@ -451,6 +487,213 @@ export async function verifyTrainStripePayment(req, res, next) {
       }
     } catch (mailErr) {
       console.error("Train ticket email send failed:", mailErr);
+    }
+
+    return res.json({ ok: true, booking });
+  } catch (err) {
+    next(err);
+  }
+}
+
+
+export async function createBusStripeSession(req, res, next) {
+  try {
+    requireRider(req);
+
+    const { bookingId } = req.body || {};
+    if (!bookingId) {
+      throw new HttpError(400, "bookingId is required");
+    }
+
+    const booking = await BusBooking.findById(bookingId);
+    if (!booking) {
+      throw new HttpError(404, "Bus booking not found");
+    }
+
+    const userId = getUserId(req);
+    const isOwner = String(booking.passengerId) === userId;
+
+    if (!isOwner) {
+      throw new HttpError(403, "Only the booking rider can pay for this bus booking");
+    }
+
+    if (booking.bookingStatus === "cancelled") {
+      throw new HttpError(409, "Booking is cancelled");
+    }
+
+    if (booking.bookingStatus === "failed") {
+      throw new HttpError(409, "Booking is marked as failed");
+    }
+
+    if (booking.paymentStatus === "paid") {
+      throw new HttpError(409, "Booking is already paid");
+    }
+
+    const amount = Number(booking.totalAmountLkr || 0);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new HttpError(400, "Bus booking amount is invalid");
+    }
+
+    const unitAmount = Math.round(amount * 100);
+    if (!Number.isInteger(unitAmount) || unitAmount <= 0) {
+      throw new HttpError(400, "Bus booking amount is invalid for Stripe");
+    }
+
+    const stripeClient = requireStripeClient();
+    const base = getClientBaseUrl();
+
+    let session;
+    try {
+      session = await stripeClient.checkout.sessions.create({
+        mode: "payment",
+        payment_method_types: ["card"],
+        client_reference_id: String(booking._id),
+        customer_email: booking.passengerSnapshot?.email || undefined,
+        line_items: [
+          {
+            price_data: {
+              currency: "lkr",
+              product_data: {
+                name: "DropMe Bus Ticket",
+                description:
+                  `${booking.pickupStop?.label || ""} → ${booking.dropoffStop?.label || ""}` +
+                  `${booking.journeySnapshot?.busNumber ? ` | Bus ${booking.journeySnapshot.busNumber}` : ""}` +
+                  `${booking.travelDate ? ` | ${booking.travelDate}` : ""}`,
+              },
+              unit_amount: unitAmount,
+            },
+            quantity: 1,
+          },
+        ],
+        success_url:
+          `${base}/bus-booking/checkout/success` +
+          `?bookingId=${booking._id}` +
+          `&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url:
+          `${base}/bus-booking/checkout/cancel` +
+          `?bookingId=${booking._id}`,
+        metadata: {
+          bookingId: String(booking._id),
+          module: "bus",
+          passengerId: String(booking.passengerId),
+          scheduleId: String(booking.scheduleId || ""),
+          travelDate: String(booking.travelDate || ""),
+        },
+      });
+    } catch (err) {
+      booking.bookingStatus = "failed";
+      booking.paymentStatus = "failed";
+      await booking.save();
+      throw new HttpError(err?.statusCode || 500, getSafeStripeMessage(err));
+    }
+
+    booking.stripeSessionId = session.id;
+    booking.bookingStatus = "pending_payment";
+    booking.paymentStatus = "pending";
+    await booking.save();
+
+    return res.json({
+      ok: true,
+      url: session.url,
+      bookingId: booking._id,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function verifyBusStripePayment(req, res, next) {
+  try {
+    requireRider(req);
+
+    const bookingId = String(req.query.bookingId || "");
+    const sessionId = String(req.query.session_id || "");
+
+    if (!bookingId || !sessionId) {
+      throw new HttpError(400, "bookingId and session_id are required");
+    }
+
+    const booking = await BusBooking.findById(bookingId);
+    if (!booking) {
+      throw new HttpError(404, "Bus booking not found");
+    }
+
+    const userId = getUserId(req);
+    const isOwner = String(booking.passengerId) === userId;
+
+    if (!isOwner) {
+      throw new HttpError(403, "Only the booking rider can verify this payment");
+    }
+
+    if (booking.stripeSessionId && booking.stripeSessionId !== sessionId) {
+      throw new HttpError(400, "Session mismatch");
+    }
+
+    if (booking.paymentStatus === "paid" && booking.bookingStatus === "booked") {
+      return res.json({ ok: true, booking });
+    }
+
+    const stripeClient = requireStripeClient();
+    const session = await stripeClient.checkout.sessions.retrieve(sessionId);
+
+    if (session.payment_status !== "paid") {
+      throw new HttpError(402, "Payment not completed");
+    }
+
+    const otherBookings = await BusBooking.find({
+      _id: { $ne: booking._id },
+      scheduleId: booking.scheduleId,
+      travelDate: booking.travelDate,
+    }).lean();
+
+    const hasConflict = otherBookings.some((otherBooking) => {
+      if (!isBusBlockingBooking(otherBooking)) return false;
+      if (!hasBusSegmentOverlap(otherBooking.segmentKeys, booking.segmentKeys)) return false;
+
+      return otherBooking.seatNumbers.some((seat) =>
+        booking.seatNumbers.includes(String(seat).trim().toUpperCase())
+      );
+    });
+
+    if (hasConflict) {
+      booking.bookingStatus = "failed";
+      booking.paymentStatus = "failed";
+      await booking.save();
+
+      throw new HttpError(
+        409,
+        "Selected seat was already sold for this journey segment while payment was processing"
+      );
+    }
+
+    booking.bookingStatus = "booked";
+    booking.paymentStatus = "paid";
+    booking.paymentReference = String(
+      session.payment_intent || booking.paymentReference || ""
+    );
+    booking.stripeSessionId = session.id;
+    booking.paidAt = booking.paidAt || new Date();
+
+    await booking.save();
+
+    try {
+      const pdfBuffer = await generateBusTicketPdfBuffer(
+        booking.toObject ? booking.toObject() : booking
+      );
+
+      const emailed = await sendBusTicketEmail({
+        to: booking.passengerSnapshot?.email || "",
+        name: booking.passengerSnapshot?.name || "",
+        booking: booking.toObject ? booking.toObject() : booking,
+        pdfBuffer,
+      });
+
+      if (emailed) {
+        booking.ticketEmailSentAt = new Date();
+        await booking.save();
+      }
+    } catch (mailErr) {
+      console.error("Bus ticket email send failed:", mailErr);
     }
 
     return res.json({ ok: true, booking });

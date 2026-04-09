@@ -31,6 +31,8 @@ import BusApprovals from "./pages/bus/BusApprovals";
 import BusSchedulesPage from "./pages/bus/BusSchedulesPage";
 import BusBookingPage from "./pages/bus/BusBookingPage";
 import BusBookingDetailsPage from "./pages/bus/BusBookingDetailsPage";
+import BusCheckoutSuccess from "./pages/bus/BusCheckoutSuccess";
+import BusCheckoutCancel from "./pages/bus/BusCheckoutCancel";
 
 import CheckoutPage from "./pages/rides/CheckoutPage";
 import CheckoutSuccess from "./pages/rides/CheckoutSuccess";
@@ -70,8 +72,37 @@ export default function App() {
         <Route index element={<Landing />} />
         <Route path="/plan" element={<PlanTrip />} />
 
-        <Route path="/bus-booking" element={<BusBookingPage />} />
-        <Route path="/bus-booking/details" element={<BusBookingDetailsPage />} />
+        <Route 
+          path="/bus-booking" 
+          element={
+            <BusBookingPage />
+          } 
+        />
+        <Route 
+          path="/bus-booking/details" 
+          element={
+            <BusBookingDetailsPage />
+          } 
+        />
+        
+
+        <Route
+          path="/bus-booking/checkout/success"
+          element={
+            <Protected>
+              <BusCheckoutSuccess />
+            </Protected>
+          }
+        />
+
+        <Route
+          path="/bus-booking/checkout/cancel"
+          element={
+            <Protected>
+              <BusCheckoutCancel />
+            </Protected>
+          }
+        />
 
         <Route path="/trains" element={<Train />} />
         <Route path="/train-service" element={<TrainSearchPage />} />

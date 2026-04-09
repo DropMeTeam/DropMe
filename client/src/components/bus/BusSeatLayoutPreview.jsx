@@ -11,6 +11,7 @@ export default function BusSeatLayoutPreview({
   seatsTotal,
   selectedSeats = [],
   reservedSeats = [],
+  pendingSeats = [],
   onSeatToggle,
 }) {
   const layout = buildSeatLayout(busType, seatsTotal);
@@ -54,7 +55,11 @@ export default function BusSeatLayoutPreview({
             className="border-sky-400/30 bg-sky-500/20 text-sky-200"
           />
           <LegendBadge
-            label="Reserved"
+            label="Pending"
+            className="border-amber-400/30 bg-amber-500/20 text-amber-200"
+          />
+          <LegendBadge
+            label="Booked"
             className="border-red-400/30 bg-red-500/20 text-red-200"
           />
         </div>
@@ -83,6 +88,7 @@ export default function BusSeatLayoutPreview({
                   seats={row.seats}
                   selectedSeats={selectedSeats}
                   reservedSeats={reservedSeats}
+                  pendingSeats={pendingSeats}
                   onSeatToggle={onSeatToggle}
                 />
               );
@@ -95,6 +101,7 @@ export default function BusSeatLayoutPreview({
                   seats={row.seats}
                   selectedSeats={selectedSeats}
                   reservedSeats={reservedSeats}
+                  pendingSeats={pendingSeats}
                   onSeatToggle={onSeatToggle}
                 />
               );
@@ -109,6 +116,7 @@ export default function BusSeatLayoutPreview({
                   seats={row.left}
                   selectedSeats={selectedSeats}
                   reservedSeats={reservedSeats}
+                  pendingSeats={pendingSeats}
                   onSeatToggle={onSeatToggle}
                 />
 
@@ -120,6 +128,7 @@ export default function BusSeatLayoutPreview({
                   seats={row.right}
                   selectedSeats={selectedSeats}
                   reservedSeats={reservedSeats}
+                  pendingSeats={pendingSeats}
                   onSeatToggle={onSeatToggle}
                 />
               </div>
@@ -131,7 +140,64 @@ export default function BusSeatLayoutPreview({
   );
 }
 
-function SeatGroup({ seats, selectedSeats, reservedSeats, onSeatToggle }) {
+function getSeatStateClass(seatNo, selectedSeats, reservedSeats, pendingSeats) {
+  const isSelected = selectedSeats.includes(seatNo);
+  const isReserved = reservedSeats.includes(seatNo);
+  const isPending = pendingSeats.includes(seatNo);
+
+  if (isSelected) {
+    return "border-sky-400/30 bg-sky-500/20 text-sky-100";
+  }
+
+  if (isPending) {
+    return "cursor-not-allowed border-amber-400/30 bg-amber-500/20 text-amber-100";
+  }
+
+  if (isReserved) {
+    return "cursor-not-allowed border-red-400/30 bg-red-500/20 text-red-200";
+  }
+
+  return "border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08]";
+}
+
+function isSeatBlocked(seatNo, reservedSeats, pendingSeats) {
+  return reservedSeats.includes(seatNo) || pendingSeats.includes(seatNo);
+}
+
+function SeatButton({
+  seatNo,
+  selectedSeats,
+  reservedSeats,
+  pendingSeats,
+  onSeatToggle,
+}) {
+  const blocked = isSeatBlocked(seatNo, reservedSeats, pendingSeats);
+  const className = getSeatStateClass(
+    seatNo,
+    selectedSeats,
+    reservedSeats,
+    pendingSeats
+  );
+
+  return (
+    <button
+      type="button"
+      disabled={blocked || !onSeatToggle}
+      onClick={() => onSeatToggle?.(seatNo)}
+      className={`h-12 rounded-xl border text-sm font-semibold transition ${className}`}
+    >
+      {seatNo}
+    </button>
+  );
+}
+
+function SeatGroup({
+  seats,
+  selectedSeats,
+  reservedSeats,
+  pendingSeats,
+  onSeatToggle,
+}) {
   const columnCount = Math.max(seats.length, 1);
 
   return (
@@ -139,33 +205,27 @@ function SeatGroup({ seats, selectedSeats, reservedSeats, onSeatToggle }) {
       className="grid gap-2"
       style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
     >
-      {seats.map((seatNo) => {
-        const isSelected = selectedSeats.includes(seatNo);
-        const isReserved = reservedSeats.includes(seatNo);
-
-        const className = isReserved
-          ? "cursor-not-allowed border-red-400/30 bg-red-500/20 text-red-200"
-          : isSelected
-          ? "border-sky-400/30 bg-sky-500/20 text-sky-100"
-          : "border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08]";
-
-        return (
-          <button
-            key={seatNo}
-            type="button"
-            disabled={isReserved || !onSeatToggle}
-            onClick={() => onSeatToggle?.(seatNo)}
-            className={`h-12 rounded-xl border text-sm font-semibold transition ${className}`}
-          >
-            {seatNo}
-          </button>
-        );
-      })}
+      {seats.map((seatNo) => (
+        <SeatButton
+          key={seatNo}
+          seatNo={seatNo}
+          selectedSeats={selectedSeats}
+          reservedSeats={reservedSeats}
+          pendingSeats={pendingSeats}
+          onSeatToggle={onSeatToggle}
+        />
+      ))}
     </div>
   );
 }
 
-function EntranceSeatRow({ seats, selectedSeats, reservedSeats, onSeatToggle }) {
+function EntranceSeatRow({
+  seats,
+  selectedSeats,
+  reservedSeats,
+  pendingSeats,
+  onSeatToggle,
+}) {
   const seatColumns = Math.max(seats.length, 1);
 
   return (
@@ -182,61 +242,43 @@ function EntranceSeatRow({ seats, selectedSeats, reservedSeats, onSeatToggle }) 
         className="grid gap-2"
         style={{ gridTemplateColumns: `repeat(${seatColumns}, minmax(0, 1fr))` }}
       >
-        {seats.map((seatNo) => {
-          const isSelected = selectedSeats.includes(seatNo);
-          const isReserved = reservedSeats.includes(seatNo);
-
-          const className = isReserved
-            ? "cursor-not-allowed border-red-400/30 bg-red-500/20 text-red-200"
-            : isSelected
-            ? "border-sky-400/30 bg-sky-500/20 text-sky-100"
-            : "border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08]";
-
-          return (
-            <button
-              key={seatNo}
-              type="button"
-              disabled={isReserved || !onSeatToggle}
-              onClick={() => onSeatToggle?.(seatNo)}
-              className={`h-12 rounded-xl border text-sm font-semibold transition ${className}`}
-            >
-              {seatNo}
-            </button>
-          );
-        })}
+        {seats.map((seatNo) => (
+          <SeatButton
+            key={seatNo}
+            seatNo={seatNo}
+            selectedSeats={selectedSeats}
+            reservedSeats={reservedSeats}
+            pendingSeats={pendingSeats}
+            onSeatToggle={onSeatToggle}
+          />
+        ))}
       </div>
     </div>
   );
 }
 
-function RearSeatRow({ seats, selectedSeats, reservedSeats, onSeatToggle }) {
+function RearSeatRow({
+  seats,
+  selectedSeats,
+  reservedSeats,
+  pendingSeats,
+  onSeatToggle,
+}) {
   return (
     <div
       className="grid gap-2"
       style={{ gridTemplateColumns: `repeat(${seats.length}, minmax(0, 1fr))` }}
     >
-      {seats.map((seatNo) => {
-        const isSelected = selectedSeats.includes(seatNo);
-        const isReserved = reservedSeats.includes(seatNo);
-
-        const className = isReserved
-          ? "cursor-not-allowed border-red-400/30 bg-red-500/20 text-red-200"
-          : isSelected
-          ? "border-sky-400/30 bg-sky-500/20 text-sky-100"
-          : "border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08]";
-
-        return (
-          <button
-            key={seatNo}
-            type="button"
-            disabled={isReserved || !onSeatToggle}
-            onClick={() => onSeatToggle?.(seatNo)}
-            className={`h-12 rounded-xl border text-sm font-semibold transition ${className}`}
-          >
-            {seatNo}
-          </button>
-        );
-      })}
+      {seats.map((seatNo) => (
+        <SeatButton
+          key={seatNo}
+          seatNo={seatNo}
+          selectedSeats={selectedSeats}
+          reservedSeats={reservedSeats}
+          pendingSeats={pendingSeats}
+          onSeatToggle={onSeatToggle}
+        />
+      ))}
     </div>
   );
 }

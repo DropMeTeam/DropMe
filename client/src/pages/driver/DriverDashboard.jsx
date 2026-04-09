@@ -254,7 +254,7 @@ export default function DriverDashboard() {
         <div className="relative z-10 flex flex-wrap items-center justify-between gap-6">
           <div>
             <h1 className="text-4xl font-black tracking-tighter text-white lg:text-5xl">
-              Plan <span className="text-[#ff0000]">A Ride.</span>
+              Plan <span className="text-[#ff0000]">Your Ride.</span>
             </h1>
             <p className="mt-2 text-zinc-300 font-medium max-w-md">
               Ready to hit the road? Set your destination and pick up passengers along your route.
@@ -265,7 +265,7 @@ export default function DriverDashboard() {
             {isApproved ? (
               // Changed shadow and bg to red
               <Link to="/driver/offer" className="group flex items-center gap-2 rounded-2xl bg-[#ff0000] px-8 py-4 text-sm font-bold text-black transition-all hover:scale-105 active:scale-95 shadow-xl shadow-red-500/20">
-                <span>Offer A New Ride</span>
+                <span>Offer New Ride</span>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-1"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
               </Link>
             ) : (

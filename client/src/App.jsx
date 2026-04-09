@@ -42,6 +42,8 @@ import TrainScheduleDetailsPage from "./pages/train-passenger/TrainScheduleDetai
 import MyTrainBookingsPage from "./pages/train-passenger/MyTrainBookingsPage";
 import TrainCheckoutPage from "./pages/train-passenger/TrainCheckoutPage";
 
+import OnboardingPage from "./pages/OnboardingPage";
+
 function Protected({ children }) {
   const { user, loading } = useAuth();
 
@@ -253,6 +255,9 @@ export default function App() {
       <Route path="/register" element={<Register />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
+          
+      <Route path="/onboarding" element={<OnboardingPage />} />
+    
     </Routes>
   );
 }

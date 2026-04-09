@@ -1,3 +1,4 @@
+// driverApprovals.controller.js
 import { User } from "../models/User.js";
 import { DriverIdCounter } from "../models/DriverIdCounter.js";
 import { HttpError } from "../utils/httpError.js";
@@ -43,7 +44,15 @@ export async function approveDriver(req, res, next) {
     const user = await User.findById(id);
     if (!user) throw new HttpError(404, "Driver not found");
     if (user.role !== "driver") throw new HttpError(400, "Not a driver");
-    if (user.driverRegistration.status !== "pending") throw new HttpError(400, "Driver is not pending");
+
+    // safer null checks
+    if (!user.driverRegistration) {
+      throw new HttpError(400, "Driver registration not found");
+    }
+
+    if (user.driverRegistration.status !== "pending") {
+      throw new HttpError(400, "Driver is not pending");
+    }
 
     const driverId = await generateDriverId();
 
@@ -55,10 +64,22 @@ export async function approveDriver(req, res, next) {
 
     await user.save();
 
-    // email (if SMTP is configured)
-    await sendDriverApprovedEmail({ to: user.email, name: user.name, driverId });
+    // email should NOT break approval flow
+    try {
+      await sendDriverApprovedEmail({
+        to: user.email,
+        name: user.name,
+        driverId,
+      });
+    } catch (mailErr) {
+      console.error("sendDriverApprovedEmail failed:", mailErr);
+    }
 
-    res.json({ ok: true, driverId });
+    return res.json({
+      ok: true,
+      driverId,
+      message: "Driver approved successfully",
+    });
   } catch (e) {
     next(e);
   }
@@ -72,7 +93,14 @@ export async function rejectDriver(req, res, next) {
     const user = await User.findById(id);
     if (!user) throw new HttpError(404, "Driver not found");
     if (user.role !== "driver") throw new HttpError(400, "Not a driver");
-    if (user.driverRegistration.status !== "pending") throw new HttpError(400, "Driver is not pending");
+
+    if (!user.driverRegistration) {
+      throw new HttpError(400, "Driver registration not found");
+    }
+
+    if (user.driverRegistration.status !== "pending") {
+      throw new HttpError(400, "Driver is not pending");
+    }
 
     user.driverRegistration.status = "rejected";
     user.driverRegistration.reviewedAt = new Date();

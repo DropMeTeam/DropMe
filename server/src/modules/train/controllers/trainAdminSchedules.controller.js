@@ -28,11 +28,9 @@ function validateStops(stops) {
   if (stops.some((s) => !s.stationId)) {
     throw new HttpError(400, "Every stop must have stationId");
   }
-
   if (stops.some((s) => !s.departureTime)) {
     throw new HttpError(400, "Every stop must have departureTime");
   }
-
   if (stops.some((s) => !Number.isFinite(Number(s.order)))) {
     throw new HttpError(400, "Every stop must have a numeric order");
   }
@@ -60,14 +58,10 @@ function validateWeeklyTimetable(weeklyTimetable) {
     }
 
     for (const r of rows) {
-      if (!r.stationId) {
-        throw new HttpError(400, `weeklyTimetable.${d}: stationId required`);
-      }
-
+      if (!r.stationId) throw new HttpError(400, `weeklyTimetable.${d}: stationId required`);
       if (!Number.isFinite(Number(r.order))) {
         throw new HttpError(400, `weeklyTimetable.${d}: order must be numeric`);
       }
-
       if (!r.departureTime) {
         throw new HttpError(400, `weeklyTimetable.${d}: departureTime required`);
       }
@@ -93,10 +87,7 @@ async function computeSegments(stops) {
   for (let i = 0; i < ordered.length - 1; i++) {
     const a = stationById.get(String(ordered[i].stationId));
     const b = stationById.get(String(ordered[i + 1].stationId));
-
-    if (!a || !b) {
-      throw new HttpError(400, "One or more stations not found");
-    }
+    if (!a || !b) throw new HttpError(400, "One or more stations not found");
 
     const aLat = Number(a.location?.lat);
     const aLng = Number(a.location?.lng);
@@ -131,8 +122,6 @@ async function computeSegments(stops) {
 function applyTimetablePopulate(q) {
   return q
     .populate("stops.stationId", "name location")
-    .populate("segments.fromStationId", "name")
-    .populate("segments.toStationId", "name")
     .populate("weeklyTimetable.Mon.stationId", "name location")
     .populate("weeklyTimetable.Tue.stationId", "name location")
     .populate("weeklyTimetable.Wed.stationId", "name location")
@@ -156,11 +145,7 @@ export async function getSchedule(req, res, next) {
   try {
     const q = TrainSchedule.findById(req.params.id);
     const schedule = await applyTimetablePopulate(q).lean();
-
-    if (!schedule) {
-      throw new HttpError(404, "Schedule not found");
-    }
-
+    if (!schedule) throw new HttpError(404, "Schedule not found");
     res.json({ schedule });
   } catch (e) {
     next(e);
@@ -179,9 +164,7 @@ export async function createSchedule(req, res, next) {
       segmentFares,
     } = req.body;
 
-    if (!trainNo) {
-      throw new HttpError(400, "trainNo is required");
-    }
+    if (!trainNo) throw new HttpError(400, "trainNo is required");
 
     const cap = Number(seatCapacity);
     if (!Number.isFinite(cap) || cap < 1) {
@@ -228,10 +211,7 @@ export async function createSchedule(req, res, next) {
 export async function updateSchedule(req, res, next) {
   try {
     const doc = await TrainSchedule.findById(req.params.id);
-
-    if (!doc) {
-      throw new HttpError(404, "Schedule not found");
-    }
+    if (!doc) throw new HttpError(404, "Schedule not found");
 
     const {
       trainName,
@@ -254,13 +234,10 @@ export async function updateSchedule(req, res, next) {
       doc.seatCapacity = cap;
     }
 
-    if (active !== undefined) {
-      doc.active = !!active;
-    }
+    if (active !== undefined) doc.active = !!active;
 
     if (stops !== undefined) {
       validateStops(stops);
-
       const { segments, totalDistanceKm } = await computeSegments(stops);
 
       if (!Array.isArray(segmentFares) || segmentFares.length !== segments.length) {
@@ -322,11 +299,7 @@ export async function updateSchedule(req, res, next) {
 export async function deleteSchedule(req, res, next) {
   try {
     const out = await TrainSchedule.findByIdAndDelete(req.params.id);
-
-    if (!out) {
-      throw new HttpError(404, "Schedule not found");
-    }
-
+    if (!out) throw new HttpError(404, "Schedule not found");
     res.json({ ok: true });
   } catch (e) {
     next(e);

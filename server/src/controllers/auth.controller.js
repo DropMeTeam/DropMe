@@ -116,6 +116,7 @@ export async function register(req, res, next) {
         name: user.name,
         email: user.email,
         role: user.role,
+        contactNo: user.contactNo || "",
       },
       isAdmin,
     });
@@ -169,6 +170,7 @@ export async function login(req, res, next) {
         name: user.name,
         email: user.email,
         role: user.role,
+        contactNo: user.contactNo || "",
       },
     });
   } catch (err) {
@@ -199,6 +201,7 @@ export async function me(req, res, next) {
         email: dbUser.email,
         role: dbUser.role,
         avatarUrl: dbUser.avatarUrl || "",
+        contactNo: dbUser.contactNo || "",
         driverRegistration: dbUser.driverRegistration || null,
       },
     });

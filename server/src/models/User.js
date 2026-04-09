@@ -11,6 +11,7 @@ const VehicleSchema = new mongoose.Schema(
     color: { type: String, required: true, trim: true },
     seatsTotal: { type: Number, required: true, min: 1 },
     photoUrl: { type: String, default: "" },
+    
   },
   { _id: false }
 );
@@ -51,6 +52,8 @@ const UserSchema = new mongoose.Schema(
     },
 
     avatarUrl: { type: String, default: "" },
+
+    contactNo: { type: String, default: "" },
 
     // ✅ Driver registration + vehicle info (managed by admin approval)
     driverRegistration: { type: DriverRegistrationSchema, default: () => ({}) },

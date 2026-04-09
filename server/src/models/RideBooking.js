@@ -21,12 +21,25 @@ const RideBookingSchema = new mongoose.Schema(
       default: "unpaid",
       index: true,
     },
+
     amount: { type: Number, default: 0 },
     currency: { type: String, default: "lkr" },
     stripeSessionId: { type: String, default: "" },
     paidAt: { type: Date, default: null },
 
-    // ✅ snapshot for dashboard/receipt even if offer changes
+    // per-passenger completion tracking for driver dashboard
+    rideCompleted: { type: Boolean, default: false, index: true },
+    rideCompletedAt: { type: Date, default: null },
+    rideCompletedByDriverId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    // booking-specific search distance
+    routeDistanceKm: { type: Number, default: 0 },
+    routeDistanceText: { type: String, default: "" },
+
     offerSnapshot: {
       originAddress: { type: String, default: "" },
       destinationAddress: { type: String, default: "" },
@@ -37,6 +50,10 @@ const RideBookingSchema = new mongoose.Schema(
       vehicleType: { type: String, default: "" },
       vehicleNumber: { type: String, default: "" },
       vehicleColor: { type: String, default: "" },
+
+      // snapshot copy for receipt/dashboard safety
+      routeDistanceKm: { type: Number, default: 0 },
+      routeDistanceText: { type: String, default: "" },
     },
   },
   { timestamps: true }

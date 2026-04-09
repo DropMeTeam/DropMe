@@ -17,14 +17,12 @@ import { requireAuth, requireRole } from "../../middleware/auth.js";
 
 export const trainRouter = express.Router();
 
-// public train endpoints
 trainRouter.get("/stations", listActiveStations);
 trainRouter.get("/search", searchTrains);
 trainRouter.get("/nearest-stations", listNearestStations);
 trainRouter.get("/search-nearby", searchNearbyTrains);
 trainRouter.get("/schedules/:id", getPassengerTrainDetails);
 
-// protected rider booking endpoints
 trainRouter.post(
   "/bookings/checkout",
   requireAuth,

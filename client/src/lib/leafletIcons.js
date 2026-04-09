@@ -1,14 +1,33 @@
-import L from "leaflet";
-import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
-import iconUrl from "leaflet/dist/images/marker-icon.png";
-import shadowUrl from "leaflet/dist/images/marker-shadow.png";
+export function startLiveLocation({ onUpdate, onError, enableHighAccuracy = true }) {
+  if (!("geolocation" in navigator)) {
+    onError?.(new Error("Geolocation is not supported on this device/browser."));
+    return null;
+  }
 
-const DefaultIcon = L.icon({
-  iconRetinaUrl,
-  iconUrl,
-  shadowUrl,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
+  const watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      onUpdate?.({
+        lat: latitude,
+        lng: longitude,
+        accuracyMeters: accuracy,
+        timestamp: pos.timestamp,
+      });
+    },
+    (err) => {
+      onError?.(err);
+    },
+    {
+      enableHighAccuracy,
+      maximumAge: 2000,
+      timeout: 15000,
+    }
+  );
 
-L.Marker.prototype.options.icon = DefaultIcon;
+  return watchId;
+}
+
+export function stopLiveLocation(watchId) {
+  if (watchId == null) return;
+  navigator.geolocation.clearWatch(watchId);
+}

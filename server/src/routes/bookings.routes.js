@@ -6,12 +6,12 @@ import {
   offerBookings,
   updateBookingStatus,
   cancelBooking,
-  downloadReceipt, // ✅ only this
+  downloadReceipt,
+  markPassengerRideCompleted,
 } from "../controllers/booking.controller.js";
 
 export const bookingsRouter = Router();
 
-// ⚠️ OLD immediate-book endpoint (do NOT call from UI if you use Stripe checkout flow)
 bookingsRouter.post(
   "/offers/:id/book",
   requireAuth,
@@ -35,7 +35,14 @@ bookingsRouter.patch(
   updateBookingStatus
 );
 
-// cancel checkout (pending/unpaid)
+bookingsRouter.patch(
+  "/:bookingId/complete-ride",
+  requireAuth,
+  requireRole("driver", "admin"),
+  markPassengerRideCompleted
+);
+
+// cancel checkout
 bookingsRouter.post(
   "/:bookingId/cancel",
   requireAuth,
@@ -43,7 +50,7 @@ bookingsRouter.post(
   cancelBooking
 );
 
-// ✅ PDF receipt (ONLY ONE)
+// PDF receipt
 bookingsRouter.get(
   "/:bookingId/receipt",
   requireAuth,

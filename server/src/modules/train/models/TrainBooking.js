@@ -110,7 +110,6 @@ const trainBookingSchema = new mongoose.Schema(
       default: null,
     },
 
-    // Ticket usage for verification
     ticketUsageStatus: {
       type: String,
       enum: ["unused", "used"],

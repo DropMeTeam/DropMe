@@ -196,7 +196,9 @@ export default function TrainSchedulesPage() {
 
       const ordered = stopsOrdered;
       if (ordered.length < 2) throw new Error("At least 2 stops required");
-      if (ordered.some((stop) => !stop.stationId)) throw new Error("Select station for every stop");
+      if (ordered.some((stop) => !stop.stationId)) {
+        throw new Error("Select station for every stop");
+      }
 
       if (!generatedStopTimes || generatedStopTimes.length !== ordered.length) {
         throw new Error("Open Timetable tab and generate times before saving.");
@@ -219,13 +221,13 @@ export default function TrainSchedulesPage() {
         trainNo: trainNo.trim(),
         seatCapacity: Number(seatCapacity),
         active,
+        segmentFares: faresArr,
         stops: generatedStopTimes.map((stop, index) => ({
           stationId: stop.stationId,
           order: index + 1,
           arrivalTime: stop.arrivalTime || "",
           departureTime: stop.departureTime || "",
         })),
-        segmentFares: faresArr,
       };
 
       await api.post("/api/admin/train/schedules", payload);

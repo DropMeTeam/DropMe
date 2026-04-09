@@ -1,6 +1,7 @@
 import { HttpError } from "../../../utils/httpError.js";
 import { BusBooking } from "../models/BusBooking.js";
 import BusSchedule from "../models/BusSchedule.js";
+import { generateBusTicketPdfBuffer } from "../utils/busTicketPdf.js";
 
 const PAYMENT_HOLD_MINUTES = 10;
 
@@ -529,3 +530,41 @@ export async function cancelMyBusBooking(req, res, next) {
     next(err);
   }
 }
+
+export async function downloadMyBusTicketPdf(req, res, next) {
+    try {
+      const passengerId = getUserId(req);
+      if (!passengerId) {
+        throw new HttpError(401, "Unauthorized");
+      }
+  
+      const booking = await BusBooking.findById(req.params.id).lean();
+      if (!booking) {
+        throw new HttpError(404, "Bus booking not found");
+      }
+  
+      const isOwner = String(booking.passengerId) === passengerId;
+      const isAdmin = req.user?.role === "admin";
+  
+      if (!isOwner && !isAdmin) {
+        throw new HttpError(403, "Not allowed");
+      }
+  
+      if (booking.paymentStatus !== "paid" || booking.bookingStatus !== "booked") {
+        throw new HttpError(409, "Only paid and confirmed bus tickets can be downloaded");
+      }
+  
+      const pdfBuffer = await generateBusTicketPdfBuffer(booking);
+  
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="DropMe-Bus-Ticket-${booking._id}.pdf"`
+      );
+      res.setHeader("Cache-Control", "no-store");
+  
+      return res.send(pdfBuffer);
+    } catch (err) {
+      next(err);
+    }
+  }

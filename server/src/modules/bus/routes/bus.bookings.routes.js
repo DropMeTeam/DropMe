@@ -6,6 +6,7 @@ import {
   getMyBusBookings,
   getMyBusBookingById,
   cancelMyBusBooking,
+  downloadMyBusTicketPdf,
 } from "../controllers/busBooking.controller.js";
 
 const router = express.Router();
@@ -35,11 +36,20 @@ router.get(
   getMyBusBookingById
 );
 
+//PDF
+router.get(
+    "/bookings/:id/ticket-pdf",
+    requireAuth,
+    requireRole("rider", "admin"),
+    downloadMyBusTicketPdf
+  );
+
 router.patch(
   "/bookings/:id/cancel",
   requireAuth,
   requireRole("rider"),
   cancelMyBusBooking
 );
+
 
 export default router;

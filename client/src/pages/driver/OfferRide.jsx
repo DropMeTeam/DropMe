@@ -115,7 +115,7 @@ export default function OfferRide() {
               <Navigation className="w-3 h-3" /> Driver Console
             </div>
             <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-              Publish The <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-emerald-400">Ride</span>
+              Publish  <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-emerald-400">The Ride</span>
             </h1>
             <p className="text-slate-400 mt-3 text-lg max-w-2xl">
               Share your route, reduce your carbon footprint, and earn while you drive.

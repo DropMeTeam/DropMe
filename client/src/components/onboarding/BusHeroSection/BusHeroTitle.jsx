@@ -2,7 +2,6 @@ export default function BusHeroTitle({
   titleWhiteTop,
   titleBlueMiddle,
   titleBlueBottom,
-  titleWhiteBottom,
 }) {
   return (
     <h1 className="bus-hero__title">
@@ -13,7 +12,11 @@ export default function BusHeroTitle({
 
       <span className="bus-hero__titleLine">
         <span className="blue">{titleBlueBottom} </span>
-        <span className="white">{titleWhiteBottom}</span>
+        <span className="white">Starts</span>
+      </span>
+
+      <span className="bus-hero__titleLine">
+        <span className="white">Here</span>
       </span>
     </h1>
   );

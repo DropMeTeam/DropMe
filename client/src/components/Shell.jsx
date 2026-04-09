@@ -1,8 +1,8 @@
 import { Outlet, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../state/AuthContext";
+import logo from "../assets/dropme-logo.jpeg";
 import {
   Bus,
-  Car,
   LogOut,
   MapPinned,
   UserRound,
@@ -34,11 +34,20 @@ export default function Shell() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b border-zinc-800 bg-zinc-950/70 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-zinc-950 shadow-soft">
-              <Car className="h-5 w-5" />
+          <Link
+            to="/"
+            className="flex items-center gap-3 font-semibold tracking-tight text-white"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-white/10">
+  <img
+    src={logo}
+    alt="DropMe logo"
+    className="h-7 w-7 object-contain"
+  />
+</span>
+            <span className="text-[1.65rem] font-semibold leading-none text-white">
+              DropMe
             </span>
-            <span>DropMe</span>
           </Link>
 
           <nav className="flex items-center gap-2">
@@ -99,8 +108,8 @@ export default function Shell() {
       </header>
 
       <main className="mx-auto w-full max-w-[1800px] px-3 py-4 md:px-4 xl:px-5">
-  <Outlet />
-</main>
+        <Outlet />
+      </main>
 
       <footer className="mx-auto max-w-6xl px-4 pb-10 pt-10 text-xs text-zinc-400">
         <div className="border-t border-zinc-800 pt-6">

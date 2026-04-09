@@ -15,10 +15,6 @@ function routeByRole(role) {
 export default function Landing() {
   const { user, loading } = useAuth();
 
-  if (!loading && user) {
-    return <Navigate to={routeByRole(user.role)} replace />;
-  }
-
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="card p-7 lg:p-10">
@@ -37,12 +33,20 @@ export default function Landing() {
         </p>
 
         <div className="mt-6 flex flex-wrap gap-2">
-          <Link to="/plan" className="btn-primary btn">
-            Plan a trip <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-          <Link to="/register" className="btn-ghost btn">
-            Create account
-          </Link>
+          {user ? (
+            <Link to={routeByRole(user.role)} className="btn-primary btn">
+              Go to Dashboard <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          ) : (
+            <Link to="/login" className="btn-primary btn">
+              Get Started <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          )}
+          {!user && (
+            <Link to="/register" className="btn-ghost btn">
+              Create account
+            </Link>
+          )}
         </div>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-3">

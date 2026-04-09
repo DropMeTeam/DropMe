@@ -1,5 +1,4 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import Landing from "./pages/Landing";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import PlanTrip from "./pages/PlanTrip";
@@ -69,7 +68,7 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Shell />}>
-        <Route index element={<Landing />} />
+        <Route index element={<OnboardingPage />} />
         <Route path="/plan" element={<PlanTrip />} />
 
         <Route 
@@ -286,8 +285,6 @@ export default function App() {
       <Route path="/register" element={<Register />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
-          
-      <Route path="/onboarding" element={<OnboardingPage />} />
     
     </Routes>
   );

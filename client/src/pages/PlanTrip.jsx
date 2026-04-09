@@ -267,36 +267,24 @@ export default function PlanTrip() {
               {/* Subtle top glow line */}
               <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
 
-              {/* STYLISH HEADER SECTION */}
-              <div className="mb-10">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-[2px] w-6 bg-gradient-to-r from-[#1ABCFE] to-transparent rounded-full"></div>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#1ABCFE]/80">Travel Smart</span>
+              <div className="flex items-start justify-between gap-4 mb-8">
+                <div>
+                  <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 tracking-tight">
+                    Plan your Journey
+                  </h1>
+                  <p className="text-sm text-white/50 mt-1.5 font-medium">
+                    Set your route to find the perfect ride.
+                  </p>
                 </div>
-                
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h1 className="text-3xl font-extrabold tracking-tight text-white leading-tight">
-                      Plan your <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#1ABCFE] via-white to-white/70">Journey</span>
-                    </h1>
-                    <p className="text-xs text-white/40 mt-2 font-medium max-w-[240px] leading-relaxed">
-                      Set your route parameters to discover available professional rides nearby.
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center px-3 py-1.5 rounded-2xl bg-[#1ABCFE]/5 border border-[#1ABCFE]/20 text-[10px] font-bold text-[#1ABCFE] backdrop-blur-md shadow-[0_0_15px_rgba(26,188,254,0.1)]">
-                    {user ? (
-                      <span className="flex items-center gap-2">
-                        <span className="relative flex h-1.5 w-1.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1ABCFE] opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#1ABCFE]"></span>
-                        </span>
-                        {user.role.toUpperCase()}
-                      </span>
-                    ) : (
-                      "GUEST"
-                    )}
-                  </div>
+                <div className="flex items-center px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-medium text-white/60">
+                  {user ? (
+                    <span className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
+                      {user.role}
+                    </span>
+                  ) : (
+                    "Guest"
+                  )}
                 </div>
               </div>
 

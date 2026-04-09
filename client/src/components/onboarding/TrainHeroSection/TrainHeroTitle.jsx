@@ -2,7 +2,6 @@ export default function TrainHeroTitle({
   titleWhiteTop,
   titleBlueMiddle,
   titleBlueBottom,
-  titleWhiteBottom,
 }) {
   return (
     <h1 className="train-hero__title">
@@ -13,7 +12,11 @@ export default function TrainHeroTitle({
 
       <span className="train-hero__titleLine">
         <span className="blue">{titleBlueBottom} </span>
-        <span className="white">{titleWhiteBottom}</span>
+        <span className="white">Starts</span>
+      </span>
+
+      <span className="train-hero__titleLine">
+        <span className="white">Here</span>
       </span>
     </h1>
   );

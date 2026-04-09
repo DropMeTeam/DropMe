@@ -1,0 +1,237 @@
+.private-ride-hero {
+  position: relative;
+  width: 100%;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(60, 225, 255, 0.12), transparent 28%),
+    linear-gradient(180deg, #010407 0%, #02060a 100%);
+  overflow: hidden;
+}
+
+.private-ride-hero__container {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 84px 48px 92px;
+}
+
+.private-ride-hero__header {
+  max-width: 1040px;
+  margin: 0 auto 54px;
+  text-align: center;
+}
+
+.private-ride-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  padding: 0 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(93, 231, 255, 0.28);
+  background: rgba(7, 18, 29, 0.8);
+  color: #7bdfff;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow:
+    0 0 0 1px rgba(110, 236, 255, 0.05) inset,
+    0 0 18px rgba(48, 213, 255, 0.12);
+}
+
+.private-ride-hero__title {
+  margin: 22px 0 14px;
+  color: #f7fbff;
+  font-size: clamp(2.8rem, 4.8vw, 4.8rem);
+  line-height: 1.04;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-shadow:
+    0 4px 18px rgba(0, 0, 0, 0.45),
+    0 0 18px rgba(255, 255, 255, 0.04);
+}
+
+.private-ride-hero__description {
+  max-width: 980px;
+  margin: 0 auto;
+  color: rgba(223, 234, 244, 0.72);
+  font-size: 1.45rem;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+.private-ride-hero__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 30px;
+  align-items: stretch;
+}
+
+.private-ride-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  min-height: 560px;
+  padding: 26px 26px 24px;
+  border-radius: 34px;
+  border: 1px solid rgba(84, 230, 255, 0.22);
+  background:
+    radial-gradient(circle at 50% 12%, rgba(77, 235, 255, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(4, 17, 34, 0.96) 0%, rgba(2, 10, 24, 0.98) 100%);
+  box-shadow:
+    0 0 0 1px rgba(126, 238, 255, 0.03) inset,
+    0 24px 50px rgba(0, 0, 0, 0.3),
+    0 0 34px rgba(26, 210, 255, 0.08);
+  overflow: hidden;
+  transition:
+    transform 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.private-ride-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(101, 239, 255, 0.42);
+  box-shadow:
+    0 0 0 1px rgba(126, 238, 255, 0.04) inset,
+    0 24px 50px rgba(0, 0, 0, 0.32),
+    0 0 46px rgba(26, 210, 255, 0.15);
+}
+
+.private-ride-card__topGlow {
+  position: absolute;
+  top: -80px;
+  left: 50%;
+  width: 74%;
+  height: 220px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(104, 240, 255, 0.18) 0%, rgba(104, 240, 255, 0.06) 34%, transparent 72%);
+  pointer-events: none;
+  filter: blur(8px);
+}
+
+.private-ride-card__header {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.private-ride-card__eyebrow {
+  margin: 0 0 8px;
+  color: #7de9ff;
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.private-ride-card__title {
+  margin: 0;
+  color: #f3f8fc;
+  font-size: clamp(1.8rem, 2.4vw, 2.55rem);
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.private-ride-card__imageWrap {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(118, 234, 255, 0.18);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 0 0 1px rgba(0, 0, 0, 0.12);
+  background: rgba(7, 14, 24, 0.75);
+}
+
+.private-ride-card__image {
+  width: 100%;
+  height: 100%;
+  min-height: 390px;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+}
+
+.private-ride-card--left .private-ride-card__image {
+  object-position: center;
+}
+
+.private-ride-card--right .private-ride-card__image {
+  object-position: center;
+}
+
+@media (max-width: 1200px) {
+  .private-ride-hero__container {
+    padding: 72px 28px 80px;
+  }
+
+  .private-ride-card {
+    min-height: 500px;
+  }
+
+  .private-ride-card__image {
+    min-height: 340px;
+  }
+}
+
+@media (max-width: 900px) {
+  .private-ride-hero__grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .private-ride-hero__title {
+    font-size: clamp(2.3rem, 7vw, 3.8rem);
+  }
+
+  .private-ride-hero__description {
+    font-size: 1.1rem;
+  }
+
+  .private-ride-card {
+    min-height: 460px;
+  }
+
+  .private-ride-card__image {
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 640px) {
+  .private-ride-hero__container {
+    padding: 56px 18px 64px;
+  }
+
+  .private-ride-hero__badge {
+    font-size: 0.84rem;
+    min-height: 42px;
+    padding: 0 16px;
+  }
+
+  .private-ride-hero__title {
+    margin-top: 18px;
+    margin-bottom: 12px;
+  }
+
+  .private-ride-card {
+    min-height: 390px;
+    padding: 18px 18px 18px;
+    border-radius: 24px;
+  }
+
+  .private-ride-card__title {
+    font-size: 1.55rem;
+  }
+
+  .private-ride-card__imageWrap {
+    border-radius: 18px;
+  }
+
+  .private-ride-card__image {
+    min-height: 240px;
+  }
+}

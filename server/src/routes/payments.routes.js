@@ -5,11 +5,13 @@ import {
   verifyStripePayment,
   createTrainStripeSession,
   verifyTrainStripePayment,
+  createBusStripeSession,
+  verifyBusStripePayment,
 } from "../controllers/payments.controller.js";
 
 export const paymentsRouter = Router();
 
-// Existing private vehicle payment routes - keep exactly as they are
+// Existing private vehicle payment routes
 paymentsRouter.post(
   "/stripe/session",
   requireAuth,
@@ -24,7 +26,7 @@ paymentsRouter.get(
   verifyStripePayment
 );
 
-// New train payment routes
+// Train payment routes
 paymentsRouter.post(
   "/stripe/train/session",
   requireAuth,
@@ -37,4 +39,19 @@ paymentsRouter.get(
   requireAuth,
   requireRole("rider", "admin"),
   verifyTrainStripePayment
+);
+
+// Bus payment routes
+paymentsRouter.post(
+  "/stripe/bus/session",
+  requireAuth,
+  requireRole("rider", "admin"),
+  createBusStripeSession
+);
+
+paymentsRouter.get(
+  "/stripe/bus/verify",
+  requireAuth,
+  requireRole("rider", "admin"),
+  verifyBusStripePayment
 );

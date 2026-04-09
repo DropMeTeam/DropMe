@@ -8,7 +8,12 @@ import {
   generateTrainTicketPdfBuffer,
   getTrainTicketNumber,
 } from "../modules/train/utils/trainTicket.js";
-import { sendTrainTicketEmail } from "../utils/mailer.js";
+
+import { generateBusTicketPdfBuffer } from "../modules/bus/utils/busTicketPdf.js";
+import {
+  sendTrainTicketEmail,
+  sendBusTicketEmail,
+} from "../utils/mailer.js";
 import { BusBooking } from "../modules/bus/models/BusBooking.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -670,6 +675,26 @@ export async function verifyBusStripePayment(req, res, next) {
     booking.paidAt = booking.paidAt || new Date();
 
     await booking.save();
+
+    try {
+      const pdfBuffer = await generateBusTicketPdfBuffer(
+        booking.toObject ? booking.toObject() : booking
+      );
+
+      const emailed = await sendBusTicketEmail({
+        to: booking.passengerSnapshot?.email || "",
+        name: booking.passengerSnapshot?.name || "",
+        booking: booking.toObject ? booking.toObject() : booking,
+        pdfBuffer,
+      });
+
+      if (emailed) {
+        booking.ticketEmailSentAt = new Date();
+        await booking.save();
+      }
+    } catch (mailErr) {
+      console.error("Bus ticket email send failed:", mailErr);
+    }
 
     return res.json({ ok: true, booking });
   } catch (err) {

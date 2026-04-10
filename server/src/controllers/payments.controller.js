@@ -384,12 +384,12 @@ export async function createTrainStripeSession(req, res, next) {
           },
         ],
         success_url:
-          `${base}/train-service/bookings?payment=success` +
-          `&bookingId=${booking._id}` +
+          `${base}/buses/checkout/success` +
+          `?bookingId=${booking._id}` +
           `&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url:
-          `${base}/train-service/bookings?payment=cancelled` +
-          `&bookingId=${booking._id}`,
+          `${base}/buses/checkout/cancel` +
+          `?bookingId=${booking._id}`,
         metadata: {
           bookingId: String(booking._id),
           module: "train",

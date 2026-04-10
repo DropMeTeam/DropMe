@@ -33,6 +33,9 @@ import BusBookingPage from "./pages/bus/BusBookingPage";
 import BusBookingDetailsPage from "./pages/bus/BusBookingDetailsPage";
 import BusCheckoutSuccess from "./pages/bus/BusCheckoutSuccess";
 import BusCheckoutCancel from "./pages/bus/BusCheckoutCancel";
+import Bus from "./pages/bus/Bus";
+import BusTicketPage from "./pages/bus/BusTicketPage";
+import MyBusTicketsPage from "./pages/bus/MyBusTicketsPage";
 
 import CheckoutPage from "./pages/rides/CheckoutPage";
 import CheckoutSuccess from "./pages/rides/CheckoutSuccess";
@@ -72,20 +75,46 @@ export default function App() {
         <Route index element={<Landing />} />
         <Route path="/plan" element={<PlanTrip />} />
 
-        <Route 
-          path="/bus-booking" 
+        {/* Bus passenger flow */}
+        <Route path="/buses" element={<Bus />} />
+        <Route path="/buses/search" element={<BusBookingPage />} />
+        <Route path="/buses/search/details" element={<BusBookingDetailsPage />} />
+        <Route
+          path="/buses/checkout/success"
           element={
-            <BusBookingPage />
-          } 
+            <Protected>
+              <BusCheckoutSuccess />
+            </Protected>
+          }
         />
-        <Route 
-          path="/bus-booking/details" 
+        <Route
+          path="/buses/checkout/cancel"
           element={
-            <BusBookingDetailsPage />
-          } 
+            <Protected>
+              <BusCheckoutCancel />
+            </Protected>
+          }
         />
-        
+        <Route
+          path="/buses/tickets"
+          element={
+            <Protected>
+              <MyBusTicketsPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/buses/tickets/:bookingId"
+          element={
+            <Protected>
+              <BusTicketPage />
+            </Protected>
+          }
+        />
 
+        {/* Legacy bus routes kept for safe compatibility */}
+        <Route path="/bus-booking" element={<BusBookingPage />} />
+        <Route path="/bus-booking/details" element={<BusBookingDetailsPage />} />
         <Route
           path="/bus-booking/checkout/success"
           element={
@@ -94,7 +123,6 @@ export default function App() {
             </Protected>
           }
         />
-
         <Route
           path="/bus-booking/checkout/cancel"
           element={
@@ -104,6 +132,7 @@ export default function App() {
           }
         />
 
+        {/* Train passenger flow */}
         <Route path="/trains" element={<Train />} />
         <Route path="/train-service" element={<TrainSearchPage />} />
         <Route path="/train-service/:id" element={<TrainScheduleDetailsPage />} />
@@ -284,11 +313,8 @@ export default function App() {
 
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-
-      <Route path="*" element={<Navigate to="/" replace />} />
-          
       <Route path="/onboarding" element={<OnboardingPage />} />
-    
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

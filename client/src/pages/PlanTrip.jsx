@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../state/AuthContext";
 import PlaceInput from "../components/PlaceInput";
 import MapPicker from "../components/MapPicker";
-import TransportPlannerNav from "../components/TransportPlannerNav";
 import { getRoute } from "../lib/osrm";
 import { api } from "../lib/api";
 import { startLiveLocation, stopLiveLocation } from "../lib/geolocate";
@@ -258,19 +257,17 @@ export default function PlanTrip() {
   return (
     <div className="min-h-screen bg-[#060812] text-white">
       <div className="mx-auto max-w-6xl px-6 py-8">
-        <TransportPlannerNav />
-
         <div className="grid grid-cols-12 gap-6">
-          <div className="col-span-12 lg:col-span-4 space-y-4">
+          <div className="col-span-12 space-y-4 lg:col-span-4">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h1 className="text-xl font-semibold">Plan your DropMe Journey</h1>
-                  <p className="text-sm text-white/60 mt-1">
+                  <p className="mt-1 text-sm text-white/60">
                     Type or click on map to select points + live location.
                   </p>
                 </div>
-                <div className="text-xs text-white/50 mt-1">
+                <div className="mt-1 text-xs text-white/50">
                   {user ? `Signed in: ${user.role}` : "Not signed in"}
                 </div>
               </div>
@@ -303,7 +300,7 @@ export default function PlanTrip() {
                     <button
                       type="button"
                       onClick={startTracking}
-                      className="rounded-xl bg-white text-black px-4 py-3 text-sm font-semibold hover:opacity-90"
+                      className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black hover:opacity-90"
                     >
                       Start live
                     </button>
@@ -311,7 +308,7 @@ export default function PlanTrip() {
                     <button
                       type="button"
                       onClick={stopTracking}
-                      className="rounded-xl border border-red-400/30 bg-red-500/10 text-red-200 px-4 py-3 text-sm font-semibold hover:bg-red-500/15"
+                      className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 hover:bg-red-500/15"
                     >
                       Stop live
                     </button>
@@ -381,36 +378,36 @@ export default function PlanTrip() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm text-white/70 mb-2">Pick-up time</label>
+                    <label className="mb-2 block text-sm text-white/70">Pick-up time</label>
                     <input
                       type="datetime-local"
                       value={pickupTime}
                       min={minPickupTime}
                       onChange={(e) => setPickupTime(e.target.value)}
-                      className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/30"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-white/30"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm text-white/70 mb-2">Seats</label>
+                    <label className="mb-2 block text-sm text-white/70">Seats</label>
                     <input
                       type="number"
                       min="1"
                       max="6"
                       value={seats}
                       onChange={(e) => setSeats(Number(e.target.value))}
-                      className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/30"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-white/30"
                     />
                   </div>
                 </div>
 
                 {meta && (
-                  <div className="rounded-xl bg-black/30 border border-white/10 p-4 text-sm">
+                  <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm">
                     <div className="flex justify-between">
                       <span className="text-white/60">Distance</span>
                       <span>{distanceKm.toFixed(1)} km</span>
                     </div>
-                    <div className="flex justify-between mt-2">
+                    <div className="mt-2 flex justify-between">
                       <span className="text-white/60">ETA</span>
                       <span>{Math.round(meta.durationSeconds / 60)} min</span>
                     </div>
@@ -420,7 +417,7 @@ export default function PlanTrip() {
                 <button
                   onClick={findMatches}
                   disabled={loading}
-                  className="w-full rounded-xl bg-white text-black font-semibold py-3 hover:opacity-90 disabled:opacity-60"
+                  className="w-full rounded-xl bg-white py-3 font-semibold text-black hover:opacity-90 disabled:opacity-60"
                 >
                   {loading ? "Searching..." : "Find pool matches"}
                 </button>
@@ -475,7 +472,7 @@ export default function PlanTrip() {
                     return (
                       <div
                         key={o._id}
-                        className="rounded-xl border border-white/10 bg-black/20 p-4 hover:bg-black/25 transition"
+                        className="rounded-xl border border-white/10 bg-black/20 p-4 transition hover:bg-black/25"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -483,11 +480,11 @@ export default function PlanTrip() {
                             <div className="text-xs text-white/60">
                               {o?.origin?.address || "Origin"} → {o?.destination?.address || "Destination"}
                             </div>
-                            <div className="text-xs text-white/60 mt-1">
+                            <div className="mt-1 text-xs text-white/60">
                               Pickup: {o?.pickupTime ? new Date(o.pickupTime).toLocaleString() : "—"}
                             </div>
                             {ll ? (
-                              <div className="text-[11px] text-white/50 mt-1">
+                              <div className="mt-1 text-[11px] text-white/50">
                                 Offer pin: {ll.lat.toFixed(5)}, {ll.lng.toFixed(5)}
                               </div>
                             ) : null}
@@ -510,7 +507,7 @@ export default function PlanTrip() {
                                 "mt-3 rounded-xl px-3 py-2 text-sm font-semibold transition " +
                                 (canBook
                                   ? "bg-white text-black hover:opacity-90"
-                                  : "bg-white/10 text-white/40 cursor-not-allowed")
+                                  : "cursor-not-allowed bg-white/10 text-white/40")
                               }
                             >
                               Proceed

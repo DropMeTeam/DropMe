@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Bus } from "lucide-react";
-import TransportPlannerNav from "../../components/TransportPlannerNav";
 import BusPassengerSearch from "../../components/bus/BusPassengerSearch";
 import BusRoutePreviewMap from "../../components/bus/BusRoutePreviewMap";
 import BusRouteCards from "../../components/bus/BusRouteCards";
@@ -120,8 +119,6 @@ export default function BusBookingPage() {
   return (
     <div className="min-h-screen bg-[#060812] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <TransportPlannerNav />
-
         <div className="mb-8 flex items-center gap-4">
           <div className="rounded-2xl border border-white/10 bg-white/10 p-3">
             <Bus className="h-6 w-6 text-white" />

@@ -50,6 +50,10 @@ export default function Shell() {
               <TrainFront className="h-4 w-4" /> Train
             </Link>
 
+            <Link to="/buses" className="pill">
+              <Bus className="h-4 w-4" /> Bus
+            </Link>
+
             {user ? (
               <>
                 {showAdmin ? (
@@ -99,8 +103,8 @@ export default function Shell() {
       </header>
 
       <main className="mx-auto w-full max-w-[1800px] px-3 py-4 md:px-4 xl:px-5">
-  <Outlet />
-</main>
+        <Outlet />
+      </main>
 
       <footer className="mx-auto max-w-6xl px-4 pb-10 pt-10 text-xs text-zinc-400">
         <div className="border-t border-zinc-800 pt-6">

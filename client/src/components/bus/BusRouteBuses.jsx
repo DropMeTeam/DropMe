@@ -97,38 +97,29 @@ export default function BusRouteBuses({
                 Number(bus.seatsTotal || 0)
               );
 
+              const goToDetails = () =>
+                navigate("/buses/search/details", {
+                  state: {
+                    bus,
+                    schedule: item.schedule,
+                    route,
+                    searchData,
+                    ticketPriceLkr: fare.fareLkr,
+                    passengerDistanceKm: fare.distanceKm,
+                    seatLayoutType,
+                  },
+                });
+
               return (
                 <article
                   key={bus._id || bus.id || bus.plateNumber}
                   role="button"
                   tabIndex={0}
-                  onClick={() =>
-                    navigate("/bus-booking/details", {
-                      state: {
-                        bus,
-                        schedule: item.schedule,
-                        route,
-                        searchData,
-                        ticketPriceLkr: fare.fareLkr,
-                        passengerDistanceKm: fare.distanceKm,
-                        seatLayoutType,
-                      },
-                    })
-                  }
+                  onClick={goToDetails}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      navigate("/bus-booking/details", {
-                        state: {
-                          bus,
-                          schedule: item.schedule,
-                          route,
-                          searchData,
-                          ticketPriceLkr: fare.fareLkr,
-                          passengerDistanceKm: fare.distanceKm,
-                          seatLayoutType,
-                        },
-                      });
+                      goToDetails();
                     }
                   }}
                   className="cursor-pointer overflow-hidden rounded-[22px] border border-white/10 bg-[linear-gradient(180deg,#07101f_0%,#040813_100%)] shadow-[0_14px_30px_rgba(0,0,0,0.3)] transition hover:-translate-y-0.5 hover:border-white/20 hover:shadow-[0_18px_40px_rgba(0,0,0,0.4)]"

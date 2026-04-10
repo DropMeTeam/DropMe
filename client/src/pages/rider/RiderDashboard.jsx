@@ -2,9 +2,21 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import { Link, useNavigate } from "react-router-dom";
+import { 
+  User, 
+  Calendar, 
+  Star, 
+  Trophy, 
+  LogOut, 
+  ChevronRight,
+  MapPin,
+  TrendingUp,
+  Settings,
+  ShieldCheck,
+  CreditCard
+} from "lucide-react";
 
-// IMPORT YOUR LOCAL IMAGE HERE
-import heroBg from "../../assets/book.png"; 
+import heroBg from "../../assets/travel.png";
 
 export default function RiderDashboard() {
   const queryClient = useQueryClient();
@@ -18,15 +30,11 @@ export default function RiderDashboard() {
   const [deleting, setDeleting] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [activeTab, setActiveTab] = useState("profile");
 
   const { data: meData } = useQuery({
     queryKey: ["me"],
     queryFn: async () => (await api.get("/api/users/me")).data,
-  });
-
-  const { data } = useQuery({
-    queryKey: ["my-requests"],
-    queryFn: async () => (await api.get("/api/requests/my")).data,
   });
 
   const { data: bData } = useQuery({
@@ -35,42 +43,26 @@ export default function RiderDashboard() {
   });
 
   const me = meData?.user || {};
-  const requests = data?.requests || [];
   const bookings = bData?.bookings || [];
 
   const apiOrigin = useMemo(() => {
     const base = api?.defaults?.baseURL;
-    if (typeof base === "string" && base.startsWith("http")) {
-      return base.replace(/\/$/, "");
-    }
+    if (typeof base === "string" && base.startsWith("http")) return base.replace(/\/$/, "");
     return import.meta.env.VITE_API_ORIGIN || "http://localhost:5000";
   }, []);
 
   const initials = useMemo(() => {
     const raw = String(me?.name || "Rider").trim();
-    if (!raw) return "R";
-    return raw
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((p) => p[0]?.toUpperCase() || "")
-      .join("");
+    return raw.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() || "").join("");
   }, [me?.name]);
 
   function bookingRoute(b) {
     const offer = b.offerId;
     if (offer?.origin?.address || offer?.destination?.address) {
-      return `${offer.origin?.address || "Origin"} → ${offer.destination?.address || "Destination"}`;
+      return { from: offer.origin?.address || "Origin", to: offer.destination?.address || "Destination" };
     }
     const s = b.offerSnapshot || {};
-    return `${s.originAddress || "Origin"} → ${s.destinationAddress || "Destination"}`;
-  }
-
-  function bookingPickup(b) {
-    const offer = b.offerId;
-    if (offer?.pickupTime) return new Date(offer.pickupTime).toLocaleString();
-    const s = b.offerSnapshot || {};
-    if (s.pickupTime) return new Date(s.pickupTime).toLocaleString();
-    return "—";
+    return { from: s.originAddress || "Origin", to: s.destinationAddress || "Destination" };
   }
 
   async function handleUpdateProfile() {
@@ -80,224 +72,251 @@ export default function RiderDashboard() {
       fd.append("name", name || me?.name || "");
       fd.append("contactNo", contactNo || me?.contactNo || "");
       if (avatar) fd.append("avatar", avatar);
-      await api.patch("/api/users/me", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await api.patch("/api/users/me", fd, { headers: { "Content-Type": "multipart/form-data" } });
       await queryClient.invalidateQueries({ queryKey: ["me"] });
       setEditing(false); setAvatar(null);
       setMsg("Profile updated successfully.");
     } catch (e) {
-      setErr(e?.response?.data?.message || e?.response?.data?.error || "Profile update failed");
-    } finally {
-      setSaving(false);
-    }
+      setErr(e?.response?.data?.message || "Update failed");
+    } finally { setSaving(false); }
   }
 
   async function handleDeleteAccount() {
-    const ok = window.confirm("Are you sure you want to delete your rider account?");
-    if (!ok) return;
+    if (!window.confirm("Are you sure?")) return;
     try {
-      setErr(""); setMsg(""); setDeleting(true);
+      setDeleting(true);
       await api.delete("/api/users/me");
       await api.post("/api/auth/logout").catch(() => {});
       queryClient.clear();
       nav("/register", { replace: true });
-    } catch (e) {
-      setErr(e?.response?.data?.message || e?.response?.data?.error || "Delete account failed");
-    } finally {
-      setDeleting(false);
-    }
+    } catch (e) { setErr("Delete failed"); } finally { setDeleting(false); }
   }
 
+  {/* --- UPDATED SIDEBAR NAV ITEM --- */}
+  const NavItem = ({ id, icon: Icon, label }) => (
+    <button
+      onClick={() => setActiveTab(id)}
+      className={`group flex w-full items-center gap-4 px-6 py-4 transition-all duration-500 relative ${
+        activeTab === id 
+        ? "text-white" 
+        : "text-zinc-500 hover:text-[#B8860B]/80"
+      }`}
+    >
+      {activeTab === id && (
+        <div className="absolute inset-y-2 left-2 right-2 bg-gradient-to-r from-[#B8860B]/20 to-transparent rounded-xl border-l-2 border-[#B8860B]" />
+      )}
+      <Icon size={18} className={`${activeTab === id ? "text-[#B8860B]" : "group-hover:scale-110 transition-transform duration-300"}`} />
+      <span className="text-xs font-bold tracking-[0.15em] uppercase">{label}</span>
+    </button>
+  );
+
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 pb-20">
+    <div className="flex min-h-screen bg-[#050506] text-zinc-100 font-sans selection:bg-[#B8860B]/30">
       
-      {/* 1. STYLISH VIOLET HERO SECTION */}
-      <div className="relative mx-auto max-w-7xl px-4 pt-6">
-        <div className="group relative h-80 w-full overflow-hidden rounded-[2.5rem] border border-zinc-800 shadow-[0_20px_50px_rgba(124,58,237,0.15)] md:h-[400px]">
-          
-          {/* Background Image - High Brightness (0.85 opacity) */}
+      {/* --- SIDEBAR --- */}
+      <aside className="fixed top-12 left-0 h-full w-64 border-r border-zinc-800/50 bg-[#09090b]/80 backdrop-blur-xl hidden md:flex flex-col z-30">
+        <div className="p-8" />
+        <nav className="flex-1 px-3 space-y-1">
+          <NavItem id="profile" icon={User} label="Overview" />
+          <NavItem id="bookings" icon={Calendar} label="Bookings" />
+          <NavItem id="reviews" icon={Star} label="Ratings" />
+          <NavItem id="leaderboard" icon={Trophy} label="Leaderboard" />
+          <NavItem id="logOut" icon={LogOut} label="Log Out" />
+        </nav>
+        <div className="p-6 border-t border-zinc-800/50">
+          <button onClick={handleDeleteAccount} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-[10px] font-black text-zinc-500 hover:text-[#B8860B] hover:bg-[#B8860B]/5 transition-all tracking-widest uppercase">
+            <LogOut size={14} />
+            Terminate
+          </button>
+        </div>
+      </aside>
+
+      {/* --- MAIN CONTENT --- */}
+      <main className="flex-1 md:ml-64 p-6 lg:p-0 space-y-10">
+        
+        {/* --- HERO BANNER --- */}
+        <div className="relative group w-full max-w-[1400px] h-[400px] rounded-[3rem] overflow-hidden border border-white/5 shadow-2xl">
           <div 
-            className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 group-hover:scale-105 opacity-85"
+            className="absolute inset-0 bg-cover bg-center transition-transform duration-[2s] group-hover:scale-105"
             style={{ backgroundImage: `url(${heroBg})` }}
           />
-          
-          {/* Violet Gradient Overlays */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-violet-950/20 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-transparent to-transparent opacity-50" />
-
-          {/* Hero Content */}
-          <div className="absolute inset-0 flex flex-col justify-center px-8 md:px-20">
-            <div className="max-w-xl">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-violet-400 border border-white/10 mb-6">
-                Premium Travel Experience
-              </div>
-              
-              <h1 className="text-5xl font-black tracking-tight text-white md:text-7xl leading-[1.1] drop-shadow-2xl">
-                Find <br /> 
-                <span className="bg-gradient-to-r from-violet-500 to-fuchsia-400 bg-clip-text text-transparent">
-                  Your Ride.
-                </span>
+          <div className="relative h-full flex flex-col justify-center p-12 md:p-20 bg-black/10">
+            <div className="space-y-1">
+              <h1 className="text-5xl font-black tracking-tighter text-[#E5E7EB] drop-shadow-lg">
+                Start Your Journey
               </h1>
-              
-              <p className="mt-6 text-sm leading-relaxed text-zinc-100 md:text-lg font-medium drop-shadow-lg">
-                Choose your exact locations and enjoy a smooth, reliable journey tailored to you from the very beginning.
-              </p>
-
-              <div className="mt-8 flex flex-wrap gap-4">
-                <Link 
-                  to="/plan" 
-                  className="group/btn relative inline-flex items-center gap-3 overflow-hidden rounded-full bg-violet-600 px-10 py-4 font-black text-white transition-all hover:bg-violet-700 hover:shadow-[0_0_30px_rgba(124,58,237,0.4)] active:scale-95"
-                >
-                  <span>Plan a new trip</span>
-                  <span className="transition-transform group-hover/btn:translate-x-1 text-xl">→</span>
-                </Link>
-              </div>
+              <h1 className="text-5xl font-black tracking-tighter text-[#B8860B] drop-shadow-lg">
+                With DropMe!
+              </h1>
             </div>
+            <p className="mt-4 text-zinc-200 text-lg font-medium italic opacity-90 max-w-md">
+              Experience the elegance of modern travel with DropMe, where every ride is crafted for comfort, class, and convenience
+            </p>
           </div>
         </div>
-      </div>
 
-      <div className="mx-auto mt-10 grid max-w-7xl gap-8 px-4 lg:grid-cols-12">
-        {/* 2. PROFILE SIDEBAR */}
-        <aside className="lg:col-span-4">
-          <div className="sticky top-6 flex flex-col items-center rounded-[2.5rem] border border-zinc-800 bg-[#121214] p-8 text-center shadow-2xl">
-            <div className="relative mb-4">
-              {me?.avatarUrl ? (
-                <img
-                  src={me.avatarUrl}
-                  alt={me.name}
-                  className="h-32 w-32 rounded-3xl border-4 border-zinc-800 object-cover shadow-2xl"
-                />
-              ) : (
-                <div className="flex h-32 w-32 items-center justify-center rounded-3xl border-4 border-zinc-800 bg-zinc-900 text-3xl font-bold text-zinc-500">
-                  {initials}
-                </div>
-              )}
+        {/* --- CONTENT AREA --- */}
+        <div className="max-w-[1400px]">
+          {activeTab === 'profile' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
               
-            </div>
-
-            <h2 className="mt-4 text-2xl font-medium text-white tracking-tight">{me?.name || "Passenger"}</h2>
-            <p className="text-sm text-zinc-500 font-medium">{me?.email || "—"}</p>
-            <p className="mt-2 text-xs text-zinc-400 font-semibold tracking-wide">📞 {me?.contactNo || "No contact info"}</p>
-
-            <div className="mt-8 flex w-full flex-col gap-3">
-              <button
-                onClick={() => {
-                  setEditing((v) => !v);
-                  setName(me?.name || "");
-                  setContactNo(me?.contactNo || "");
-                  setAvatar(null);
-                  setErr(""); setMsg("");
-                }}
-                className="w-full rounded-2xl bg-zinc-800/40 py-3.5 text-sm font-bold text-white transition-all hover:bg-green-800 border border-white/5 active:scale-95"
-              >
-                {editing ? "Cancel Update" : "Update Profile"}
-              </button>
-              <button
-                onClick={handleDeleteAccount}
-                disabled={deleting}
-                className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:text-red-400 transition-colors"
-              >
-                {deleting ? "Deleting..." : "Delete Account"}
-              </button>
-            </div>
-
-            {editing && (
-              <div className="mt-6 w-full space-y-4 border-t border-zinc-800 pt-6 animate-in fade-in slide-in-from-top-4 duration-300">
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase px-1">Full Name</label>
-                  <input
-                    type="text" value={name} onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm outline-none focus:border-violet-600 transition-colors"
-                  />
+              <div className="lg:col-span-4 space-y-6">
+                <div className="p-8 rounded-[2rem] bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-md flex flex-col items-center text-center">
+                  <div className="relative group cursor-pointer mb-6">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-[#B8860B] to-[#D4AF37] rounded-[2.2rem] blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+                    {me?.avatarUrl ? (
+                      <img src={me.avatarUrl} className="relative h-28 w-28 rounded-[2rem] object-cover border-2 border-zinc-800" alt="Profile" />
+                    ) : (
+                      <div className="relative h-28 w-28 rounded-[2rem] bg-zinc-800 flex items-center justify-center text-3xl font-black text-[#B8860B] border border-zinc-700">{initials}</div>
+                    )}
+                  </div>
+                  <h2 className="text-2xl font-bold tracking-tight">{me?.name}</h2>
+                  <p className="text-zinc-500 text-sm mb-8 font-medium">{me?.email}</p>
+                  
+                  <button 
+                    onClick={() => { setEditing(!editing); setErr(""); setMsg(""); }}
+                    className="w-full py-4 rounded-xl bg-[#B8860B]/10 text-[#B8860B] border border-[#B8860B]/20 hover:bg-[#B8860B] hover:text-black transition-all font-black text-[10px] tracking-[0.2em] uppercase flex items-center justify-center gap-2"
+                  >
+                    <Settings size={14} />
+                    {editing ? "Exit Settings" : "Account Settings"}
+                  </button>
                 </div>
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase px-1">Contact Number</label>
-                  <input
-                    type="text" value={contactNo} onChange={(e) => setContactNo(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm outline-none focus:border-violet-600 transition-colors"
-                  />
-                </div>
-                <div className="space-y-1.5 text-left">
-                   <label className="text-[10px] font-bold text-zinc-500 uppercase px-1">Avatar Image</label>
-                   <input
-                    type="file" accept="image/*" onChange={(e) => setAvatar(e.target.files?.[0] || null)}
-                    className="w-full text-[10px] text-zinc-500 file:mr-4 file:rounded-lg file:border-0 file:bg-zinc-800 file:px-3 file:py-2 file:text-white file:font-bold"
-                  />
-                </div>
-                <button
-                  onClick={handleUpdateProfile} disabled={saving}
-                  className="w-full rounded-xl bg-violet-600 py-3.5 text-sm font-black text-white transition-all hover:bg-violet-700 shadow-lg shadow-violet-900/20"
-                >
-                  {saving ? "Saving Changes..." : "Save Changes"}
-                </button>
-              </div>
-            )}
-            {msg && <p className="mt-4 text-xs text-emerald-400 font-bold bg-emerald-500/5 py-2 px-4 rounded-lg border border-emerald-500/10">{msg}</p>}
-            {err && <p className="mt-4 text-xs text-red-400 font-bold bg-red-500/5 py-2 px-4 rounded-lg border border-red-500/10">{err}</p>}
-          </div>
-        </aside>
 
-        {/* 3. MAIN DASHBOARD CONTENT */}
-        <main className="lg:col-span-8 space-y-8">
-          
-          <section className="rounded-[2.5rem] border border-zinc-800 bg-[#121214] p-8 shadow-2xl">
-            <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-2xl font-black text-indigo-400 tracking-tight">Ride Management</h3>
-                <p className="text-sm text-white-500 font-medium">Overview of your upcoming and past bookings</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-6 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 hover:border-violet-500/50 transition-colors group">
+                    <div className="h-10 w-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-500 mb-4 group-hover:scale-110 transition-transform">
+                      <TrendingUp size={20} />
+                    </div>
+                    <p className="text-2xl font-black">Level 12</p>
+                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Progress</p>
+                  </div>
+                  <div className="p-6 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 hover:border-[#B8860B]/50 transition-colors group">
+                    <div className="h-10 w-10 rounded-xl bg-[#B8860B]/10 flex items-center justify-center text-[#B8860B] mb-4 group-hover:scale-110 transition-transform">
+                      <ShieldCheck size={20} />
+                    </div>
+                    <p className="text-2xl font-black">Secure</p>
+                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Account</p>
+                  </div>
+                </div>
               </div>
-              <div className="flex gap-1 rounded-2xl bg-zinc-900/50 p-1.5 border border-white/5">
-                <label className="rounded-xl bg-red-400 px-5 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-xl">Your Bookings</label>
-                
-              </div>
-            </div>
 
-            <div className="space-y-5">
-              {bookings.length > 0 ? bookings.map((b) => {
-                const route = bookingRoute(b);
-                const pickup = bookingPickup(b);
-                const canReceipt = b.status === "confirmed" || b.paymentStatus === "paid";
-                return (
-                  <div key={b._id} className="group relative rounded-3xl border border-zinc-800 bg-zinc-900/40 p-6 transition-all hover:border-zinc-600 hover:bg-zinc-900/60 shadow-lg">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                      <div className="flex-1">
-                        <div className="text-xl font-bold text-white group-hover:text-violet-400 transition-colors leading-tight">{route}</div>
-                        <div className="mt-4 flex flex-wrap gap-6 text-[11px] font-bold text-zinc-400">
-                          <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-950/50 border border-white/5">
-                            <span className="text-violet-500 text-sm">📅</span> {pickup}
-                          </span>
-                          <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-950/50 border border-white/5">
-                            <span className="text-violet-500 text-sm">💺</span> {b.seatsBooked} Seats
-                          </span>
-                          <span className={`rounded-full px-4 py-1 text-[10px] font-black uppercase tracking-widest border ${b.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
-                            {b.status}
-                          </span>
+              <div className="lg:col-span-8">
+                {editing ? (
+                  <div className="p-10 rounded-[2.5rem] bg-zinc-900/40 border border-[#B8860B]/20 backdrop-blur-md shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-5">
+                      <Settings size={120} className="text-[#B8860B]" />
+                    </div>
+                    <h3 className="text-xl font-black mb-8 uppercase tracking-widest text-white">Security & Identity</h3>
+                    <div className="space-y-8 relative z-10">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">Display Name</label>
+                          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={me?.name} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-5 py-4 focus:border-[#B8860B] focus:ring-1 focus:ring-[#B8860B] outline-none font-bold transition-all text-white" />
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">Primary Contact</label>
+                          <input value={contactNo} onChange={(e) => setContactNo(e.target.value)} placeholder={me?.contactNo || "Not set"} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-5 py-4 focus:border-[#B8860B] focus:ring-1 focus:ring-[#B8860B] outline-none font-bold transition-all text-white" />
                         </div>
                       </div>
+                      <div className="pt-4">
+                        <button onClick={handleUpdateProfile} disabled={saving} className="w-full bg-gradient-to-r from-[#B8860B] to-[#D4AF37] hover:from-[#D4AF37] hover:to-[#B8860B] py-5 rounded-xl font-black text-black text-xs transition-all uppercase tracking-[0.2em] shadow-lg shadow-[#B8860B]/20 disabled:opacity-50">
+                          {saving ? "Processing..." : "Commit Changes"}
+                        </button>
+                      </div>
+                      {msg && <p className="text-emerald-400 text-[10px] text-center font-black uppercase tracking-widest bg-emerald-500/5 py-4 rounded-xl border border-emerald-500/10">{msg}</p>}
+                      {err && <p className="text-red-400 text-[10px] text-center font-black uppercase tracking-widest bg-red-500/5 py-4 rounded-xl border border-red-500/10">{err}</p>}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-full min-h-[400px] rounded-[2.5rem] border border-dashed border-zinc-800 flex flex-col items-center justify-center p-12 text-center bg-zinc-900/20 group hover:border-[#B8860B]/30 transition-colors">
+                    <div className="h-20 w-20 rounded-3xl bg-zinc-900 flex items-center justify-center mb-6 border border-zinc-800 group-hover:rotate-12 group-hover:border-[#B8860B]/50 transition-all duration-500">
+                      <CreditCard size={32} className="text-[#B8860B]" />
+                    </div>
+                    <h4 className="text-lg font-bold mb-2 text-[#E5E7EB]">Account Activity</h4>
+                    <p className="text-zinc-500 font-medium max-w-xs leading-relaxed">
+                      Your recent activity and billing history will appear here. Select a tab to dive deeper.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'bookings' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-4xl font-black tracking-tighter uppercase italic text-[#E5E7EB]">Your Itineraries</h3>
+                  <p className="text-zinc-500 text-sm font-medium mt-1">Manage your active and past reservations</p>
+                </div>
+                <Link to="/plan" className="px-8 py-4 bg-[#B8860B] text-black rounded-xl text-[10px] font-black hover:bg-white transition-all shadow-xl uppercase tracking-widest">
+                  Schedule Trip
+                </Link>
+              </div>
+
+              <div className="grid gap-6">
+                {bookings.length > 0 ? bookings.map((b) => {
+                  const route = bookingRoute(b);
+                  const canReceipt = b.status === "confirmed" || b.paymentStatus === "paid";
+                  return (
+                    <div key={b._id} className="group relative flex flex-col md:flex-row md:items-center justify-between p-8 bg-zinc-900/40 border border-zinc-800/50 rounded-[2rem] hover:border-[#B8860B]/50 transition-all hover:bg-zinc-900/60 shadow-xl">
+                      <div className="flex items-center gap-8 mb-6 md:mb-0">
+                        <div className="h-16 w-16 rounded-2xl bg-black border border-zinc-800 flex items-center justify-center text-[#B8860B] group-hover:scale-110 group-hover:bg-[#B8860B] group-hover:text-black transition-all duration-500">
+                          <MapPin size={24} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-3 font-black text-xl tracking-tight">
+                            <span className="text-zinc-100">{route.from}</span>
+                            <ChevronRight size={18} className="text-[#B8860B]" />
+                            <span className="text-zinc-100">{route.to}</span>
+                          </div>
+                          <div className="flex items-center gap-4 mt-3">
+                            <div className="flex items-center gap-1.5 px-3 py-1 bg-zinc-800 rounded-lg">
+                              <User size={12} className="text-zinc-500" />
+                              <span className="text-[10px] font-black text-zinc-300 uppercase">{b.seatsBooked} Pax</span>
+                            </div>
+                            <span className={`px-4 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
+                              b.status === 'confirmed' 
+                              ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/20' 
+                              : 'bg-orange-500/5 text-orange-500 border-orange-500/20'
+                            }`}>
+                              {b.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* --- UPDATED GET RECEIPT BUTTON (GOLD THEMED) --- */}
                       <a
                         href={`${apiOrigin}/api/bookings/${b._id}/receipt`}
                         target="_blank" rel="noreferrer"
-                        className={`flex items-center justify-center rounded-2xl border border-zinc-700 bg-violet-600 px-8 py-3.5 text-[11px] font-black uppercase tracking-widest transition-all hover:bg-white hover:text-black active:scale-95 shadow-lg ${!canReceipt && "pointer-events-none opacity-20"}`}
+                        className={`px-10 py-4 rounded-xl font-black text-[10px] tracking-[0.2em] border border-[#B8860B]/20 bg-[#B8860B]/5 text-[#B8860B] hover:bg-[#B8860B] hover:text-black hover:border-[#B8860B] transition-all uppercase text-center shadow-lg shadow-black/40 ${!canReceipt && "opacity-20 pointer-events-none"}`}
                       >
-                        E-TICKET
+                        Get Receipt
                       </a>
                     </div>
+                  );
+                }) : (
+                  <div className="py-32 text-center border border-dashed border-zinc-800 rounded-[3rem] bg-zinc-900/20">
+                    <p className="text-zinc-600 font-black uppercase tracking-[0.4em] text-xs">Zero movement detected</p>
                   </div>
-                );
-              }) : (
-                <div className="py-20 text-center rounded-[2rem] border border-dashed border-zinc-800 bg-zinc-900/10">
-                  <div className="text-4xl mb-4 opacity-20">🚗</div>
-                  <p className="text-sm text-zinc-500 font-bold uppercase tracking-widest">No active bookings found</p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </section>
-
+          )}
           
-        </main>
-      </div>
+          {(activeTab === 'reviews' || activeTab === 'leaderboard') && (
+            <div className="flex flex-col items-center justify-center py-40 animate-pulse">
+              <div className="relative mb-6">
+                <div className="absolute inset-0 bg-[#B8860B] blur-3xl opacity-20"></div>
+                <Trophy size={80} className="relative text-[#B8860B]/40" />
+              </div>
+              <h2 className="text-2xl font-black text-zinc-400 uppercase tracking-[0.5em]">Classified</h2>
+              <p className="text-zinc-600 text-xs mt-4 font-bold tracking-widest uppercase italic text-[#B8860B]">This sector is currently under construction</p>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

@@ -14,6 +14,14 @@ const StopSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const RailPointSchema = new mongoose.Schema(
+  {
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true },
+  },
+  { _id: false }
+);
+
 const SegmentSchema = new mongoose.Schema(
   {
     fromStationId: {
@@ -37,6 +45,12 @@ const SegmentSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: 0,
+    },
+
+    // NEW: exact railway geometry for this segment
+    railPath: {
+      type: [RailPointSchema],
+      default: [],
     },
   },
   { _id: false }

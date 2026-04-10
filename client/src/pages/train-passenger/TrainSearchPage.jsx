@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 
 import api from "../../lib/api";
 import { getRoute } from "../../lib/osrm";
+import { getLatLng } from "../train/lib/geo";
 
 import TrainSearchSidebar from "./components/TrainSearchSidebar";
 import SearchMapPanel from "./components/SearchMapPanel";
@@ -20,14 +21,37 @@ function normalizeLocation(location) {
   }
 
   if (
+    typeof location?.lat === "string" &&
+    typeof location?.lng === "string"
+  ) {
+    const lat = Number(location.lat);
+    const lng = Number(location.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng };
+    }
+  }
+
+  if (Array.isArray(location) && location.length >= 2) {
+    const lat = Number(location[0]);
+    const lng = Number(location[1]);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng };
+    }
+  }
+
+  if (
     Array.isArray(location?.coordinates) &&
     location.coordinates.length >= 2
   ) {
-    return {
-      lng: Number(location.coordinates[0]),
-      lat: Number(location.coordinates[1]),
-    };
+    const lng = Number(location.coordinates[0]);
+    const lat = Number(location.coordinates[1]);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng };
+    }
   }
+
+  const shared = getLatLng(location);
+  if (shared) return shared;
 
   return null;
 }
@@ -43,25 +67,39 @@ function hhmmToMinutes(value) {
 
 function samePoint(a, b) {
   if (!a || !b) return false;
-  return a.lat === b.lat && a.lng === b.lng;
+  return Number(a.lat) === Number(b.lat) && Number(a.lng) === Number(b.lng);
 }
 
-function buildTrainPathPoints(train) {
-  const raw = Array.isArray(train?.stopsBetween)
-    ? train.stopsBetween
-        .map((item) => normalizeLocation(item?.station?.location))
-        .filter(Boolean)
-    : [];
+function dedupePoints(points = []) {
+  const out = [];
 
-  const deduped = [];
-  for (const point of raw) {
-    const prev = deduped[deduped.length - 1];
+  for (const item of points) {
+    const point = normalizeLocation(item);
+    if (!point) continue;
+
+    const prev = out[out.length - 1];
     if (!samePoint(prev, point)) {
-      deduped.push(point);
+      out.push(point);
     }
   }
 
-  return deduped;
+  return out;
+}
+
+function buildTrainPathPoints(train) {
+  const railPath = Array.isArray(train?.railPathPoints)
+    ? dedupePoints(train.railPathPoints)
+    : [];
+
+  if (railPath.length > 1) {
+    return railPath;
+  }
+
+  const rawStops = Array.isArray(train?.stopsBetween)
+    ? train.stopsBetween.map((item) => item?.station?.location)
+    : [];
+
+  return dedupePoints(rawStops);
 }
 
 export default function TrainSearchPage() {

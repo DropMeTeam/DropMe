@@ -1,6 +1,7 @@
 import { TrainSchedule } from "../models/TrainSchedule.js";
 import { Station } from "../models/Station.js";
 import { calculateJourneyFare } from "../utils/trainFare.js";
+import { HttpError } from "../../../utils/httpError.js";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -162,6 +163,65 @@ function buildJourneyDuration(fromRow, toRow) {
   return null;
 }
 
+function sameLatLng(a, b) {
+  if (!a || !b) return false;
+  return Number(a.lat) === Number(b.lat) && Number(a.lng) === Number(b.lng);
+}
+
+function buildJourneyRailPath(schedule, rows, fromIndex, toIndex) {
+  if (!Array.isArray(schedule?.segments) || schedule.segments.length === 0) {
+    return [];
+  }
+
+  const points = [];
+
+  for (let i = fromIndex; i < toIndex; i++) {
+    const fromRow = rows[i];
+    const toRow = rows[i + 1];
+
+    const fromId = String(fromRow?.stationId?._id || fromRow?.stationId || "");
+    const toId = String(toRow?.stationId?._id || toRow?.stationId || "");
+
+    const seg = schedule.segments.find(
+      (item) =>
+        String(item?.fromStationId?._id || item?.fromStationId || "") ===
+          fromId &&
+        String(item?.toStationId?._id || item?.toStationId || "") === toId
+    );
+
+    const segPath = Array.isArray(seg?.railPath) ? seg.railPath : [];
+
+    if (segPath.length > 0) {
+      for (const point of segPath) {
+        const normalized = {
+          lat: Number(point.lat),
+          lng: Number(point.lng),
+        };
+
+        const prev = points[points.length - 1];
+        if (!sameLatLng(prev, normalized)) {
+          points.push(normalized);
+        }
+      }
+    } else {
+      const fromPoint = getLatLngFromStation(fromRow?.stationId);
+      const toPoint = getLatLngFromStation(toRow?.stationId);
+
+      if (fromPoint) {
+        const prev = points[points.length - 1];
+        if (!sameLatLng(prev, fromPoint)) points.push(fromPoint);
+      }
+
+      if (toPoint) {
+        const prev = points[points.length - 1];
+        if (!sameLatLng(prev, toPoint)) points.push(toPoint);
+      }
+    }
+  }
+
+  return points;
+}
+
 /**
  * Existing passenger search by explicit station names
  * GET /api/train/search?from=Colombo Fort&to=Kandy&day=Mon
@@ -203,8 +263,7 @@ export async function searchTrains(req, res, next) {
 
       const durationMinutes = buildJourneyDuration(fromRow, toRow);
 
-      // Calculate journey fare
-      const { farePerSeatLkr, segmentCount } = calculateJourneyFare(
+      const { farePerSeatLkr } = calculateJourneyFare(
         schedule,
         fromRow.stationId?._id || fromRow.stationId,
         toRow.stationId?._id || toRow.stationId,
@@ -220,7 +279,7 @@ export async function searchTrains(req, res, next) {
         active: !!schedule.active,
         searchDay: day || null,
         farePerSeatLkr,
-        fareBreakdownTotalLkr: farePerSeatLkr, // Same for single seat
+        fareBreakdownTotalLkr: farePerSeatLkr,
         from: {
           station: {
             _id: fromRow.stationId?._id,
@@ -239,6 +298,7 @@ export async function searchTrains(req, res, next) {
         },
         durationMinutes,
         durationLabel: formatDuration(durationMinutes),
+        railPathPoints: buildJourneyRailPath(schedule, rows, fromIndex, toIndex),
         stopsBetween: rows.slice(fromIndex, toIndex + 1).map(mapStop),
       });
     }
@@ -469,8 +529,6 @@ export async function searchNearbyTrains(req, res, next) {
 
         const destinationRow = rows[destinationIndex];
 
-        // Find the nearest station to the user that this train actually serves
-        // before the destination.
         let chosenCandidate = null;
         let chosenBoardingIndex = -1;
 
@@ -494,7 +552,6 @@ export async function searchNearbyTrains(req, res, next) {
           destinationRow
         );
 
-        // Calculate journey fare
         let farePerSeatLkr = 0;
         try {
           const res = calculateJourneyFare(
@@ -539,6 +596,13 @@ export async function searchNearbyTrains(req, res, next) {
           durationMinutes,
           durationLabel: formatDuration(durationMinutes),
 
+          railPathPoints: buildJourneyRailPath(
+            schedule,
+            rows,
+            chosenBoardingIndex,
+            destinationIndex
+          ),
+
           stopsBetween: rows
             .slice(chosenBoardingIndex, destinationIndex + 1)
             .map(mapStop),
@@ -572,10 +636,12 @@ export async function searchNearbyTrains(req, res, next) {
         candidateLimit,
         maxDistanceKm: Number.isFinite(maxDistanceKm) ? maxDistanceKm : null,
       },
-      nearbyStations: fromStationId ? [] : searchBoardingStations.map((s) => ({
-        ...s,
-        distanceKm: Number(s.distanceKm.toFixed(2)),
-      })),
+      nearbyStations: fromStationId
+        ? []
+        : searchBoardingStations.map((s) => ({
+            ...s,
+            distanceKm: Number(s.distanceKm.toFixed(2)),
+          })),
       count: trains.length,
       trains,
     });

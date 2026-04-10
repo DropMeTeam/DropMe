@@ -8,6 +8,19 @@ const defaultValues = {
   date: "",
 };
 
+function formatDateOnly(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date, days) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
 export default function BusPassengerSearch({
   onSearch,
   loading = false,
@@ -22,7 +35,15 @@ export default function BusPassengerSearch({
   const [toText, setToText] = useState(initialValues?.to?.label || "");
 
   const minDate = useMemo(() => {
-    return new Date().toISOString().split("T")[0];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return formatDateOnly(today);
+  }, []);
+
+  const maxDate = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return formatDateOnly(addDays(today, 7));
   }, []);
 
   useEffect(() => {
@@ -52,11 +73,33 @@ export default function BusPassengerSearch({
     setToText(fromText);
   }
 
+  function handleDateChange(event) {
+    const value = event.target.value;
+
+    if (!value) {
+      updateField("date", "");
+      return;
+    }
+
+    if (value < minDate || value > maxDate) {
+      alert("Passenger can select only today up to 1 week from today.");
+      updateField("date", "");
+      return;
+    }
+
+    updateField("date", value);
+  }
+
   function handleSubmit(event) {
     event.preventDefault();
 
     if (!form.from || !form.to || !form.date) {
       alert("Please select From, To, and Date.");
+      return;
+    }
+
+    if (form.date < minDate || form.date > maxDate) {
+      alert("Passenger can select only today up to 1 week from today.");
       return;
     }
 
@@ -67,6 +110,26 @@ export default function BusPassengerSearch({
     });
   }
 
+  function blockManualDateTyping(event) {
+    const allowedKeys = [
+      "Tab",
+      "Shift",
+      "Control",
+      "Alt",
+      "Meta",
+      "ArrowLeft",
+      "ArrowRight",
+      "ArrowUp",
+      "ArrowDown",
+      "Escape",
+      "Enter",
+    ];
+
+    if (allowedKeys.includes(event.key)) return;
+
+    event.preventDefault();
+  }
+
   return (
     <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-sm">
       <div className="mb-6">
@@ -75,6 +138,9 @@ export default function BusPassengerSearch({
         </h2>
         <p className="mt-1 text-sm text-white/60">
           Select departure, destination, and travel date to preview the route.
+        </p>
+        <p className="mt-2 text-xs text-cyan-200/80">
+          Allowed travel dates: today up to 7 days only.
         </p>
       </div>
 
@@ -123,16 +189,25 @@ export default function BusPassengerSearch({
           <label className="mb-2 block text-sm font-medium text-white/70">
             Travel date
           </label>
+
           <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 transition focus-within:border-white/30">
             <CalendarDays className="h-5 w-5 text-white/50" />
+
             <input
               type="date"
               min={minDate}
+              max={maxDate}
               value={form.date}
-              onChange={(event) => updateField("date", event.target.value)}
+              onChange={handleDateChange}
+              onKeyDown={blockManualDateTyping}
+              onPaste={(e) => e.preventDefault()}
               className="w-full bg-transparent text-white outline-none"
             />
           </div>
+
+          <p className="mt-2 text-xs text-white/45">
+            You can choose from {minDate} to {maxDate}.
+          </p>
         </div>
 
         <button

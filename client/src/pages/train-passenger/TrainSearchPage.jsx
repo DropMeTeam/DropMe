@@ -112,8 +112,9 @@ export default function TrainSearchPage() {
   const [destinationStationId, setDestinationStationId] = useState(
     searchParams.get("toStationId") || ""
   );
-  const [day, setDay] = useState(searchParams.get("day") || "");
-
+  const [travelDate, setTravelDate] = useState(
+    searchParams.get("travelDate") || ""
+  );
   const [currentLocation, setCurrentLocation] = useState(null);
   const [nearestStations, setNearestStations] = useState([]);
 
@@ -183,11 +184,12 @@ export default function TrainSearchPage() {
   }, [stations, destinationStationId]);
 
   const canSearch = useMemo(() => {
-    if (fromStationId && destinationStationId) return true;
-    return Boolean(
-      currentLocation?.lat && currentLocation?.lng && destinationStationId
-    );
-  }, [currentLocation, fromStationId, destinationStationId]);
+    const hasRoute =
+      (fromStationId && destinationStationId) ||
+      (currentLocation?.lat && currentLocation?.lng && destinationStationId);
+
+    return Boolean(hasRoute && travelDate);
+  }, [currentLocation, fromStationId, destinationStationId, travelDate]);
 
   async function syncSelectedTrainVisuals(
     train,
@@ -318,13 +320,13 @@ export default function TrainSearchPage() {
     const params = new URLSearchParams();
     if (fromStationId) params.set("fromStationId", fromStationId);
     if (destinationStationId) params.set("toStationId", destinationStationId);
-    if (day) params.set("day", day);
+    if (travelDate) params.set("travelDate", travelDate);
     setSearchParams(params);
 
     try {
       const searchParamsObj = {
         toStationId: destinationStationId,
-        ...(day ? { day } : {}),
+        travelDate,
         candidateLimit: 15,
       };
 
@@ -410,25 +412,27 @@ export default function TrainSearchPage() {
   }, [selectedTrain]);
 
   const scheduleHref = useMemo(() => {
-    if (!selectedTrain?._id) return "#";
-    return `/train-service/${selectedTrain._id}${day ? `?day=${day}` : ""}`;
-  }, [selectedTrain, day]);
+  if (!selectedTrain?._id) return "#";
+  return `/train-service/${selectedTrain._id}${
+    travelDate ? `?travelDate=${travelDate}` : ""
+  }`;
+}, [selectedTrain, travelDate]);
 
-  const bookingHref = useMemo(() => {
-    if (!selectedTrain?._id) return "#";
+const bookingHref = useMemo(() => {
+  if (!selectedTrain?._id) return "#";
 
-    const params = new URLSearchParams({
-      ...(day ? { day } : {}),
-      ...(selectedTrain?.boardingStation?._id
-        ? { fromStationId: selectedTrain.boardingStation._id }
-        : {}),
-      ...(selectedTrain?.destinationStation?._id
-        ? { toStationId: selectedTrain.destinationStation._id }
-        : {}),
-    });
+  const params = new URLSearchParams({
+    ...(travelDate ? { travelDate } : {}),
+    ...(selectedTrain?.boardingStation?._id
+      ? { fromStationId: selectedTrain.boardingStation._id }
+      : {}),
+    ...(selectedTrain?.destinationStation?._id
+      ? { toStationId: selectedTrain.destinationStation._id }
+      : {}),
+  });
 
-    return `/train-service/${selectedTrain._id}/book?${params.toString()}`;
-  }, [selectedTrain, day]);
+  return `/train-service/${selectedTrain._id}/book?${params.toString()}`;
+}, [selectedTrain, travelDate]);
 
   return (
     <div className="relative left-1/2 right-1/2 w-screen -translate-x-1/2 bg-[#030814]">
@@ -443,8 +447,8 @@ export default function TrainSearchPage() {
           onFromChange={setFromStationId}
           destinationStationId={destinationStationId}
           onDestinationChange={setDestinationStationId}
-          day={day}
-          onDayChange={setDay}
+          travelDate={travelDate}
+          onTravelDateChange={setTravelDate}
           onSearch={handleSearch}
           canSearch={canSearch}
           searching={searching}

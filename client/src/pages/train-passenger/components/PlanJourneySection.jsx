@@ -6,8 +6,6 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 function getStationNameById(stations, id) {
   if (!id) return "";
   const match = stations.find((station) => station._id === id);
@@ -36,6 +34,14 @@ function rankStations(stations, query) {
   contains.sort((a, b) => a.name.localeCompare(b.name));
 
   return [...startsWith, ...contains];
+}
+
+function formatDayLabelFromDate(value) {
+  if (!value) return "";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+  const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return labels[date.getDay()];
 }
 
 function SearchableStationField({
@@ -167,12 +173,14 @@ export default function PlanJourneySection({
   onFromChange,
   destinationStationId,
   onDestinationChange,
-  day,
-  onDayChange,
+  travelDate,
+  onTravelDateChange,
   onSearch,
   canSearch,
   searching,
 }) {
+  const derivedDay = formatDayLabelFromDate(travelDate);
+
   return (
     <section className="rounded-[24px] border border-white/10 bg-black/20 p-4">
       <div className="mb-4 border-b border-white/10 pb-3 text-xl font-semibold text-white">
@@ -201,26 +209,26 @@ export default function PlanJourneySection({
 
         <div>
           <label className="mb-2 block text-xs font-medium text-zinc-400">
-            Travel Day
+            Travel Date
           </label>
 
           <div className="relative">
             <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
 
-            <select
-              value={day}
-              onChange={(e) => onDayChange(e.target.value)}
-              className="h-12 w-full appearance-none rounded-2xl border border-cyan-400/15 bg-slate-950/70 py-3 pl-10 pr-10 text-sm text-white outline-none transition focus:border-cyan-400/45"
-            >
-              <option value="">Any / base schedule</option>
-              {DAYS.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
+            <input
+              type="date"
+              value={travelDate}
+              onChange={(e) => onTravelDateChange(e.target.value)}
+              min={new Date().toISOString().split("T")[0]}
+              className="h-12 w-full rounded-2xl border border-cyan-400/15 bg-slate-950/70 py-3 pl-10 pr-4 text-sm text-white outline-none transition focus:border-cyan-400/45"
+            />
           </div>
+
+          {derivedDay ? (
+            <p className="mt-2 text-[11px] text-cyan-300/80">
+              Selected running day: {derivedDay}
+            </p>
+          ) : null}
         </div>
 
         <button

@@ -20,6 +20,12 @@ function formatTime12(time, fallback = "--") {
 }
 
 export default function TrainResultCard({ train, active, onSelect }) {
+  const totalCapacity = Number(train?.seatCapacity ?? 0);
+  const availableSeats =
+    train?.availableSeats == null ? null : Number(train.availableSeats);
+
+  const isFull = Boolean(train?.isFullyBooked || availableSeats === 0);
+
   return (
     <article
       onClick={onSelect}
@@ -27,7 +33,7 @@ export default function TrainResultCard({ train, active, onSelect }) {
         active
           ? "border-cyan-400/55 bg-cyan-400/10 shadow-[0_0_30px_rgba(34,211,238,0.16)]"
           : "border-white/10 bg-white/[0.02] hover:border-cyan-400/30 hover:bg-cyan-400/[0.04]"
-      }`}
+      } ${isFull ? "opacity-95" : ""}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-3">
@@ -44,16 +50,36 @@ export default function TrainResultCard({ train, active, onSelect }) {
               <h3 className="text-xl font-semibold text-white">
                 {safeLabel(train.trainName, "Unnamed service")}
               </h3>
+
               <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-xs font-medium text-cyan-300">
                 {safeLabel(train.trainNo)}
               </span>
+
+              {isFull ? (
+                <span className="rounded-full border border-red-400/25 bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-300">
+                  FULL
+                </span>
+              ) : (
+                <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-300">
+                  AVAILABLE
+                </span>
+              )}
             </div>
 
             <div className="mt-2 flex flex-wrap gap-4 text-sm text-zinc-400">
-              <span className="inline-flex items-center gap-1.5">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 ${
+                  isFull
+                    ? "bg-red-500/10 text-red-300"
+                    : "bg-cyan-500/10 text-cyan-200"
+                }`}
+              >
                 <Armchair className="h-4 w-4" />
-                Seat capacity: {train?.seatCapacity ?? "--"}
+                {availableSeats == null
+                  ? `Seat capacity: ${train?.seatCapacity ?? "--"}`
+                  : `Available seats: ${availableSeats} / ${totalCapacity}`}
               </span>
+
               <span className="inline-flex items-center gap-1.5">
                 <Clock3 className="h-4 w-4" />
                 {safeLabel(train.durationLabel)}
@@ -78,7 +104,8 @@ export default function TrainResultCard({ train, active, onSelect }) {
         </button>
       </div>
 
-<div className="mt-5 grid gap-3 md:grid-cols-[1fr_auto_1fr_auto] md:items-center">        <div>
+      <div className="mt-5 grid gap-3 md:grid-cols-[1fr_auto_1fr_auto] md:items-center">
+        <div>
           <div className="text-xs uppercase tracking-[0.12em] text-zinc-500">
             Boarding stop
           </div>
@@ -89,7 +116,6 @@ export default function TrainResultCard({ train, active, onSelect }) {
           <div className="mt-1 text-sm text-zinc-400">
             Departure: {formatTime12(train?.boardingStation?.departureTime)}
           </div>
-          
         </div>
 
         <div className="text-center text-sm text-zinc-500">→</div>
@@ -121,8 +147,12 @@ export default function TrainResultCard({ train, active, onSelect }) {
           <div className="text-xs uppercase tracking-[0.12em] text-zinc-500">
             Status
           </div>
-          <div className="mt-1 text-sm font-medium text-cyan-300">
-            Ready to book
+          <div
+            className={`mt-1 text-sm font-medium ${
+              isFull ? "text-red-300" : "text-cyan-300"
+            }`}
+          >
+            {isFull ? "Fully booked" : "Ready to book"}
           </div>
         </div>
       </div>

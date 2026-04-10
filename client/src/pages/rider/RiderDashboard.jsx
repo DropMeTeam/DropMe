@@ -14,7 +14,8 @@ import {
   Settings,
   ShieldCheck,
   CreditCard,
-  Contact
+  Contact,
+  Delete
 } from "lucide-react";
 
 // MAIN Background
@@ -135,16 +136,19 @@ export default function RiderDashboard() {
           <NavItem id="reviews" icon={Star} label="Ratings" />
           <NavItem id="leaderboard" icon={Trophy} label="Leaderboard" />
           <div onClick={handleLogOut} className="cursor-pointer">
-  <NavItem id="logOut" icon={LogOut} label="Log Out" />
+           <NavItem id="logOut" icon={LogOut} label="Log Out" />
+          </div>
+         
+
+<div className="p-6 border-t border-zinc-800/50">
+          <button onClick={handleDeleteAccount} className="flex items-center gap-3 w-full px-0 py-3 rounded-xl text-[10px] font-black text-zinc-500 hover:text-[#FF0000] hover:bg-[#FF0000]/5 transition-all tracking-widest uppercase">
+            <Delete size={25} />
+            Remove Account
+          </button>
 </div>
         </nav>
-        <div className="p-6 border-t border-zinc-800/50">
-          <button onClick={handleDeleteAccount} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-[10px] font-black text-zinc-500 hover:text-[#B8860B] hover:bg-[#B8860B]/5 transition-all tracking-widest uppercase">
-            <LogOut size={14} />
-            Terminate
-          </button>
-        </div>
-      </aside>
+</aside>         
+      
 
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 md:ml-64 p-6 lg:p-0 space-y-10">

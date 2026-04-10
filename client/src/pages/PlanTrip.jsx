@@ -277,7 +277,7 @@ export default function PlanTrip() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h1 className="text-3xl font-extrabold tracking-tight text-white leading-tight">
-                      Plan your <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#1ABCFE] via-white to-white/70">Journey</span>
+                      Plan Your <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#1ABCFE] via-white to-white/70">Journey</span>
                     </h1>
                     <p className="text-xs text-white/40 mt-2 font-medium max-w-[240px] leading-relaxed">
                       Set your route parameters to discover available professional rides nearby.
@@ -326,7 +326,7 @@ export default function PlanTrip() {
                       {gpsLoading ? (
                         <span className="animate-pulse">Locating...</span>
                       ) : (
-                        "Use Current Loc"
+                        "My Location"
                       )}
                     </button>
 

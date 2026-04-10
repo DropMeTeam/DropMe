@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../state/AuthContext";
 import {
   BusFront,
   Users,
@@ -34,6 +35,7 @@ export default function BusRouteBuses({
   searchData,
 }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const routeTitle = useMemo(() => {
     if (!route) return "";
@@ -97,7 +99,13 @@ export default function BusRouteBuses({
                 Number(bus.seatsTotal || 0)
               );
 
-              const goToDetails = () =>
+              const goToDetails = () => {
+                if (!user || user.role !== "rider") {
+                  alert("Please log in as a passenger to continue bus booking.");
+                  navigate("/login");
+                  return;
+                }
+              
                 navigate("/buses/search/details", {
                   state: {
                     bus,
@@ -109,6 +117,7 @@ export default function BusRouteBuses({
                     seatLayoutType,
                   },
                 });
+              };
 
               return (
                 <article

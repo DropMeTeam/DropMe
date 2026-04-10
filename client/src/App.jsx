@@ -113,22 +113,50 @@ export default function App() {
         />
 
         {/* Legacy bus routes kept for safe compatibility */}
-        <Route path="/bus-booking" element={<BusBookingPage />} />
-        <Route path="/bus-booking/details" element={<BusBookingDetailsPage />} />
-        <Route
-          path="/bus-booking/checkout/success"
+        <Route 
+          path="/bus-booking" 
           element={
-            <Protected>
-              <BusCheckoutSuccess />
-            </Protected>
+            <BusBookingPage />
+          } 
+        />
+        <Route
+          path="/buses/search/details"
+          element={
+            <RequireRole allow={["rider"]}>
+              <BusBookingDetailsPage />
+            </RequireRole>
           }
         />
         <Route
-          path="/bus-booking/checkout/cancel"
+          path="/buses/checkout/success"
           element={
-            <Protected>
+            <RequireRole allow={["rider"]}>
+              <BusCheckoutSuccess />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/buses/checkout/cancel"
+          element={
+            <RequireRole allow={["rider"]}>
               <BusCheckoutCancel />
-            </Protected>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/buses/tickets"
+          element={
+            <RequireRole allow={["rider"]}>
+              <MyBusTicketsPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/buses/tickets/:bookingId"
+          element={
+            <RequireRole allow={["rider"]}>
+              <BusTicketPage />
+            </RequireRole>
           }
         />
 

@@ -3,9 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useAuth } from "../../state/AuthContext";
 
-// update these paths to your real image locations
 import authSideImage from "../../assets/auth/auth-side.jpg";
-import dropMeLogo from "../../assets/auth/dropme-logo.jpeg";
 
 function routeByRole(role) {
   if (role === "ADMIN_TRAIN") return "/train";
@@ -42,17 +40,17 @@ export default function Login() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0b1020]">
-      {/* blur background */}
+    <div className="relative min-h-[calc(100vh-110px)] overflow-hidden">
+      {/* black blur background */}
       <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.20),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(168,85,247,0.16),_transparent_28%),linear-gradient(135deg,_#071226_0%,_#0a1120_45%,_#111827_100%)]" />
-        <div className="absolute -left-24 top-12 h-72 w-72 rounded-full bg-blue-500/20 blur-3xl" />
-        <div className="absolute bottom-10 right-10 h-80 w-80 rounded-full bg-fuchsia-500/20 blur-3xl" />
-        <div className="absolute inset-0 backdrop-blur-[18px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.10),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.12),_transparent_30%),linear-gradient(135deg,_#000000_0%,_#020617_50%,_#000000_100%)]" />
+        <div className="absolute left-0 top-0 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-blue-600/10 blur-3xl" />
+        <div className="absolute inset-0 backdrop-blur-[16px]" />
       </div>
 
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-8">
-        <div className="grid w-full max-w-4xl overflow-hidden rounded-[12px] border border-white/10 bg-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl md:grid-cols-2">
+      <div className="relative z-10 flex min-h-[calc(100vh-110px)] items-center justify-center px-4 py-8">
+        <div className="grid w-full max-w-4xl overflow-hidden rounded-[12px] border border-white/10 bg-black/30 shadow-[0_30px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl md:grid-cols-2">
           {/* left image */}
           <div className="relative hidden min-h-[560px] md:block">
             <img
@@ -60,30 +58,19 @@ export default function Login() {
               alt="Travel"
               className="h-full w-full object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-black/10" />
-
-            <div className="absolute bottom-8 left-8 max-w-[260px] text-white">
-             
-            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/15 to-black/10" />
           </div>
 
           {/* right panel */}
-          <div className="relative flex min-h-[560px] items-center justify-center bg-white px-8 py-10 md:px-12">
-            {/* logo top-left */}
-            <div className="absolute left-8 top-8">
-  <img
-    src={dropMeLogo}
-    alt="DropMe"
-    className="h-20 w-auto object-contain"
-  />
-</div>
+          <div className="relative flex min-h-[560px] items-center justify-center bg-[#05070b] px-8 py-10 md:px-12">
+           
 
             <div className="w-full max-w-sm pt-8">
               <div className="text-center">
-                <h1 className="text-4xl font-semibold tracking-tight text-slate-900">
+                <h1 className="text-4xl font-semibold tracking-tight text-white">
                   Log In
                 </h1>
-                <p className="mt-3 text-sm text-slate-500">
+                <p className="mt-3 text-sm text-slate-400">
                   Welcome back. Sign in to continue your journey.
                 </p>
               </div>
@@ -108,7 +95,7 @@ export default function Login() {
                   </span>
 
                   <input
-                    className="h-14 w-full rounded-full border border-slate-300 bg-[#d7deea] pl-14 pr-5 text-slate-800 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
+                    className="h-14 w-full rounded-full border border-cyan-400/20 bg-[#111827] pl-14 pr-5 text-white outline-none transition placeholder:text-slate-400 focus:border-cyan-400/60 focus:ring-4 focus:ring-cyan-500/10"
                     placeholder="Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -134,7 +121,7 @@ export default function Login() {
                   </span>
 
                   <input
-                    className="h-14 w-full rounded-full border border-slate-300 bg-[#d7deea] pl-14 pr-5 text-slate-800 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-200"
+                    className="h-14 w-full rounded-full border border-cyan-400/20 bg-[#111827] pl-14 pr-5 text-white outline-none transition placeholder:text-slate-400 focus:border-cyan-400/60 focus:ring-4 focus:ring-cyan-500/10"
                     placeholder="Password"
                     type="password"
                     value={password}
@@ -143,23 +130,24 @@ export default function Login() {
                 </div>
 
                 {err ? (
-                  <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                     {err}
                   </div>
                 ) : null}
 
                 <button
-className="h-14 w-full rounded-full bg-black text-base font-semibold text-white transition hover:bg-slate-900"                  type="submit"
+                  className="h-14 w-full rounded-full bg-cyan-400 text-base font-semibold text-slate-950 transition hover:bg-cyan-300"
+                  type="submit"
                 >
                   Continue
                 </button>
               </form>
 
-              <div className="mt-8 text-center text-sm text-slate-500">
+              <div className="mt-8 text-center text-sm text-slate-400">
                 No account?{" "}
                 <Link
                   to="/register"
-                  className="font-semibold text-blue-600 transition hover:text-blue-700"
+                  className="font-semibold text-cyan-400 transition hover:text-cyan-300"
                 >
                   Create one
                 </Link>

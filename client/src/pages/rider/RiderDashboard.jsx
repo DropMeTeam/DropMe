@@ -261,59 +261,94 @@ export default function RiderDashboard() {
                       Pick Your <span className="text-[#B8860B]">Ride!</span>
                     </h3>
                     <p className="text-white text-sm font-medium mt-2 max-w-xs leading-relaxed">
-                      Manage your active and past reservations or start a new adventure.
+                      Search from your location, view rides on the map, and choose the journey that fits you best with DropMe.
                     </p>
                   </div>
-                  <Link to="/plan" className="px-10 py-5 bg-[#B8860B] text-black rounded-2xl text-[11px] font-black hover:bg-white hover:scale-105 transition-all shadow-2xl shadow-black uppercase tracking-[0.2em]">
-                    Book Ride
+                  <Link to="/plan" className="px-10 py-5 bg-[#B8860B] text-black rounded-2xl text-[11px] font-black hover:bg-[#FF0000] hover:scale-105 transition-all shadow-2xl shadow-black uppercase tracking-[0.2em]">
+                    Get Ride
                   </Link>
                 </div>
               </div>
 
               <div className="grid gap-6">
-                {bookings.length > 0 ? bookings.map((b) => {
-                  const route = bookingRoute(b);
-                  const canReceipt = b.status === "confirmed" || b.paymentStatus === "paid";
-                  return (
-                    <div key={b._id} className="group relative flex flex-col md:flex-row md:items-center justify-between p-8 bg-zinc-900/40 border border-zinc-800/50 rounded-[2rem] hover:border-[#B8860B]/50 transition-all hover:bg-zinc-900/60 shadow-xl">
-                      <div className="flex items-center gap-8 mb-6 md:mb-0">
-                        <div className="h-16 w-16 rounded-2xl bg-black border border-zinc-800 flex items-center justify-center text-[#B8860B] group-hover:scale-110 group-hover:bg-[#B8860B] group-hover:text-black transition-all duration-500">
-                          <MapPin size={24} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-3 font-black text-xl tracking-tight">
-                            <span className="text-zinc-100">{route.from}</span>
-                            <ChevronRight size={18} className="text-[#B8860B]" />
-                            <span className="text-zinc-100">{route.to}</span>
-                          </div>
-                          <div className="flex items-center gap-4 mt-3">
-                            <div className="flex items-center gap-1.5 px-3 py-1 bg-zinc-800 rounded-lg">
-                              <User size={12} className="text-zinc-500" />
-                              <span className="text-[10px] font-black text-zinc-300 uppercase">{b.seatsBooked} Pax</span>
-                            </div>
-                            <span className={`px-4 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
-                              b.status === 'confirmed' ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/20' : 'bg-orange-500/5 text-orange-500 border-orange-500/20'
-                            }`}>
-                              {b.status}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <a
-                        href={`${apiOrigin}/api/bookings/${b._id}/receipt`}
-                        target="_blank" rel="noreferrer"
-                        className={`px-10 py-4 rounded-xl font-black text-[10px] tracking-[0.2em] border border-[#B8860B]/20 bg-[#B8860B]/5 text-[#B8860B] hover:bg-[#B8860B] hover:text-black hover:border-[#B8860B] transition-all uppercase text-center shadow-lg shadow-black/40 ${!canReceipt && "opacity-20 pointer-events-none"}`}
-                      >
-                        Get Receipt
-                      </a>
-                    </div>
-                  );
-                }) : (
-                  <div className="py-32 text-center border border-dashed border-zinc-800 rounded-[3rem] bg-zinc-900/20">
-                    <p className="text-zinc-600 font-black uppercase tracking-[0.4em] text-xs">Zero movement detected</p>
-                  </div>
-                )}
+  {bookings.length > 0 ? bookings.map((b) => {
+    const route = bookingRoute(b);
+    const canReceipt = b.status === "confirmed" || b.paymentStatus === "paid";
+    return (
+      <div 
+        key={b._id} 
+        className="group relative flex flex-col md:flex-row md:items-center justify-between p-1 bg-gradient-to-br from-zinc-800/50 to-transparent rounded-[2.5rem] transition-all duration-500 hover:shadow-2xl hover:shadow-[#B8860B]/10 hover:-translate-y-1"
+      >
+        <div className="flex flex-col md:flex-row md:items-center gap-8 p-7 w-full bg-[#09090b]/90 rounded-[2.4rem] backdrop-blur-xl border border-white/5 group-hover:border-[#B8860B]/30 transition-colors">
+          
+          {/* Visual Route Indicator */}
+          <div className="flex items-center gap-6">
+            <div className="relative">
+              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-zinc-900 to-black border border-zinc-800 flex items-center justify-center text-[#B8860B] shadow-inner group-hover:scale-110 group-hover:shadow-[#B8860B]/20 transition-all duration-500">
+                <MapPin size={22} className="group-hover:animate-bounce" />
               </div>
+              {/* Decorative line connecting to status badge */}
+              <div className="absolute -bottom-4 left-1/2 w-px h-4 bg-gradient-to-b from-[#B8860B]/50 to-transparent hidden md:block" />
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-black uppercase tracking-widest text-zinc-500">Route Details</span>
+                <div className="h-[1px] w-8 bg-[#B8860B]/30" />
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-2xl font-light text-white tracking-tight">{route.from}</span>
+                <div className="flex items-center">
+                  <div className="w-2 h-2 rounded-full bg-[#B8860B] animate-pulse" />
+                  <div className="w-12 h-[2px] bg-gradient-to-r from-[#B8860B] to-transparent opacity-30" />
+                  <ChevronRight size={20} className="text-[#B8860B] -ml-2" />
+                </div>
+                <span className="text-2xl font-light text-zinc-400 tracking-tight font-sans">{route.to}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Divider for mobile */}
+          <div className="h-px w-full bg-zinc-800/50 md:hidden" />
+
+          {/* Metadata & Actions */}
+          <div className="flex flex-1 flex-row md:flex-row items-center justify-between md:justify-end gap-6 lg:gap-12">
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col items-end">
+                <div className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900/80 rounded-full border border-zinc-800 shadow-sm">
+                  <User size={12} className="text-[#B8860B]" />
+                  <span className="text-[8px] font-black text-zinc-200 uppercase tracking-tighter">{b.seatsBooked} Seats</span>
+                </div>
+                
+              </div>
+            </div>
+
+            <a
+              href={`${apiOrigin}/api/bookings/${b._id}/receipt`}
+              target="_blank" rel="noreferrer"
+              className={`relative overflow-hidden group/btn px-10 py-4 rounded-2xl font-black text-[10px] tracking-[0.2em] border border-[#B8860B]/40 bg-[#B8860B]/5 text-[#B8860B] hover:text-black transition-all duration-300 uppercase shadow-lg shadow-black/40 ${!canReceipt ? "opacity-20 cursor-not-allowed" : "hover:bg-[#B8860B] active:scale-95"}`}
+            >
+              <span className="relative z-10 flex items-center gap-2">
+                <CreditCard size={14} />
+                Ticket
+              </span>
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }) : (
+    <div className="py-40 text-center border-2 border-dashed border-zinc-900 rounded-[3rem] bg-zinc-900/10 flex flex-col items-center justify-center gap-4">
+      <div className="p-4 rounded-full bg-zinc-900 border border-zinc-800">
+        <Calendar size={32} className="text-zinc-700" />
+      </div>
+      <div>
+        <p className="text-zinc-500 font-black uppercase tracking-[0.3em] text-[10px]">No active reservations</p>
+        <p className="text-zinc-700 text-xs mt-1">Your travel history is currently empty</p>
+      </div>
+    </div>
+  )}
+</div>
             </div>
           )}
           

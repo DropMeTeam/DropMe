@@ -13,7 +13,8 @@ import {
   TrendingUp,
   Settings,
   ShieldCheck,
-  CreditCard
+  CreditCard,
+  Contact
 } from "lucide-react";
 
 // MAIN Background
@@ -184,22 +185,7 @@ export default function RiderDashboard() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-6 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 hover:border-violet-500/50 transition-colors group">
-                    <div className="h-10 w-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-500 mb-4 group-hover:scale-110 transition-transform">
-                      <TrendingUp size={20} />
-                    </div>
-                    <p className="text-2xl font-black">Level 12</p>
-                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Progress</p>
-                  </div>
-                  <div className="p-6 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 hover:border-[#B8860B]/50 transition-colors group">
-                    <div className="h-10 w-10 rounded-xl bg-[#B8860B]/10 flex items-center justify-center text-[#B8860B] mb-4 group-hover:scale-110 transition-transform">
-                      <ShieldCheck size={20} />
-                    </div>
-                    <p className="text-2xl font-black">Secure</p>
-                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Account</p>
-                  </div>
-                </div>
+                
               </div>
 
               <div className="lg:col-span-8">
@@ -212,17 +198,17 @@ export default function RiderDashboard() {
                     <div className="space-y-8 relative z-10">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-3">
-                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">Display Name</label>
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1"> Name</label>
                           <input value={name} onChange={(e) => setName(e.target.value)} placeholder={me?.name} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-5 py-4 focus:border-[#B8860B] focus:ring-1 focus:ring-[#B8860B] outline-none font-bold transition-all text-white" />
                         </div>
                         <div className="space-y-3">
-                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">Primary Contact</label>
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1"> Contact Number</label>
                           <input value={contactNo} onChange={(e) => setContactNo(e.target.value)} placeholder={me?.contactNo || "Not set"} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-5 py-4 focus:border-[#B8860B] focus:ring-1 focus:ring-[#B8860B] outline-none font-bold transition-all text-white" />
                         </div>
                       </div>
                       <div className="pt-4">
                         <button onClick={handleUpdateProfile} disabled={saving} className="w-full bg-gradient-to-r from-[#B8860B] to-[#D4AF37] hover:from-[#D4AF37] hover:to-[#B8860B] py-5 rounded-xl font-black text-black text-xs transition-all uppercase tracking-[0.2em] shadow-lg shadow-[#B8860B]/20 disabled:opacity-50">
-                          {saving ? "Processing..." : "Commit Changes"}
+                          {saving ? "Processing..." : "Save Changes"}
                         </button>
                       </div>
                       {msg && <p className="text-emerald-400 text-[10px] text-center font-black uppercase tracking-widest bg-emerald-500/5 py-4 rounded-xl border border-emerald-500/10">{msg}</p>}
@@ -230,14 +216,12 @@ export default function RiderDashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="h-full min-h-[400px] rounded-[2.5rem] border border-dashed border-zinc-800 flex flex-col items-center justify-center p-12 text-center bg-zinc-900/20 group hover:border-[#B8860B]/30 transition-colors">
+                  <div className="h-full min-h-[300px] rounded-[2.5rem] border border-dashed border-zinc-800 flex flex-col items-center justify-center p-12 text-center bg-zinc-900/20 group hover:border-[#B8860B]/30 transition-colors">
                     <div className="h-20 w-20 rounded-3xl bg-zinc-900 flex items-center justify-center mb-6 border border-zinc-800 group-hover:rotate-12 group-hover:border-[#B8860B]/50 transition-all duration-500">
-                      <CreditCard size={32} className="text-[#B8860B]" />
+                      <Contact size={32} className="text-[#B8860B]" />
                     </div>
                     <h4 className="text-lg font-bold mb-2 text-[#E5E7EB]">Account Activity</h4>
-                    <p className="text-zinc-500 font-medium max-w-xs leading-relaxed">
-                      Your recent activity and billing history will appear here. Select a tab to dive deeper.
-                    </p>
+                    
                   </div>
                 )}
               </div>

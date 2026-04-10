@@ -16,7 +16,10 @@ import {
   CreditCard
 } from "lucide-react";
 
-import heroBg from "../../assets/travel.png";
+// MAIN Background
+import heroBg from "../../assets/travel.png"; 
+// BOOKINGS Background
+import bookingsBg from "../../assets/book.png"; 
 
 export default function RiderDashboard() {
   const queryClient = useQueryClient();
@@ -92,7 +95,6 @@ export default function RiderDashboard() {
     } catch (e) { setErr("Delete failed"); } finally { setDeleting(false); }
   }
 
-  {/* --- UPDATED SIDEBAR NAV ITEM --- */}
   const NavItem = ({ id, icon: Icon, label }) => (
     <button
       onClick={() => setActiveTab(id)}
@@ -134,32 +136,32 @@ export default function RiderDashboard() {
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 md:ml-64 p-6 lg:p-0 space-y-10">
         
-        {/* --- HERO BANNER --- */}
-        <div className="relative group w-full max-w-[1400px] h-[400px] rounded-[3rem] overflow-hidden border border-white/5 shadow-2xl">
-          <div 
-            className="absolute inset-0 bg-cover bg-center transition-transform duration-[2s] group-hover:scale-105"
-            style={{ backgroundImage: `url(${heroBg})` }}
-          />
-          <div className="relative h-full flex flex-col justify-center p-12 md:p-20 bg-black/10">
-            <div className="space-y-1">
-              <h1 className="text-5xl font-black tracking-tighter text-[#E5E7EB] drop-shadow-lg">
-                Start Your Journey
-              </h1>
-              <h1 className="text-5xl font-black tracking-tighter text-[#B8860B] drop-shadow-lg">
-                With DropMe!
-              </h1>
+        {/* --- MAIN HERO (PROFILE ONLY) --- */}
+        {activeTab === 'profile' && (
+          <div className="relative group w-full max-w-[1400px] h-[400px] rounded-[3rem] overflow-hidden border border-white/5 shadow-2xl">
+            <div 
+              className="absolute inset-0 bg-cover bg-center transition-transform duration-[2s] group-hover:scale-105"
+              style={{ backgroundImage: `url(${heroBg})` }}
+            />
+            <div className="relative h-full flex flex-col justify-center p-12 md:p-20 bg-black/10">
+              <div className="space-y-1">
+                <h1 className="text-5xl font-black tracking-tighter text-[#E5E7EB] drop-shadow-lg">
+                  Start Your Journey
+                </h1>
+                <h1 className="text-5xl font-black tracking-tighter text-[#B8860B] drop-shadow-lg">
+                  With DropMe!
+                </h1>
+              </div>
+              <p className="mt-4 text-zinc-200 text-lg font-medium italic opacity-90 max-w-md">
+                Experience the elegance of modern travel with DropMe, where every ride is crafted for comfort, class, and convenience
+              </p>
             </div>
-            <p className="mt-4 text-zinc-200 text-lg font-medium italic opacity-90 max-w-md">
-              Experience the elegance of modern travel with DropMe, where every ride is crafted for comfort, class, and convenience
-            </p>
           </div>
-        </div>
+        )}
 
-        {/* --- CONTENT AREA --- */}
         <div className="max-w-[1400px]">
           {activeTab === 'profile' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
-              
               <div className="lg:col-span-4 space-y-6">
                 <div className="p-8 rounded-[2rem] bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-md flex flex-col items-center text-center">
                   <div className="relative group cursor-pointer mb-6">
@@ -244,14 +246,28 @@ export default function RiderDashboard() {
 
           {activeTab === 'bookings' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-4xl font-black tracking-tighter uppercase italic text-[#E5E7EB]">Your Itineraries</h3>
-                  <p className="text-zinc-500 text-sm font-medium mt-1">Manage your active and past reservations</p>
+              
+              {/* --- BOOKINGS HERO (WITHOUT DARK OVERLAY) --- */}
+              <div className="relative group w-full h-[400px] rounded-[2.5rem] overflow-hidden border border-white/5 shadow-xl flex items-center">
+                <div 
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-[2s] group-hover:scale-105"
+                  style={{ backgroundImage: `url(${bookingsBg})` }}
+                />
+                
+                {/* Content layer with drop shadow for text readability without darkening the whole image */}
+                <div className="relative z-10 px-12 flex w-full items-center justify-between">
+                  <div className="drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
+                    <h3 className="text-4xl font-black tracking-tighter uppercase italic text-black">
+                      Pick Your <span className="text-[#B8860B]">Ride!</span>
+                    </h3>
+                    <p className="text-white text-sm font-medium mt-2 max-w-xs leading-relaxed">
+                      Manage your active and past reservations or start a new adventure.
+                    </p>
+                  </div>
+                  <Link to="/plan" className="px-10 py-5 bg-[#B8860B] text-black rounded-2xl text-[11px] font-black hover:bg-white hover:scale-105 transition-all shadow-2xl shadow-black uppercase tracking-[0.2em]">
+                    Book Ride
+                  </Link>
                 </div>
-                <Link to="/plan" className="px-8 py-4 bg-[#B8860B] text-black rounded-xl text-[10px] font-black hover:bg-white transition-all shadow-xl uppercase tracking-widest">
-                  Schedule Trip
-                </Link>
               </div>
 
               <div className="grid gap-6">
@@ -276,17 +292,13 @@ export default function RiderDashboard() {
                               <span className="text-[10px] font-black text-zinc-300 uppercase">{b.seatsBooked} Pax</span>
                             </div>
                             <span className={`px-4 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
-                              b.status === 'confirmed' 
-                              ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/20' 
-                              : 'bg-orange-500/5 text-orange-500 border-orange-500/20'
+                              b.status === 'confirmed' ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/20' : 'bg-orange-500/5 text-orange-500 border-orange-500/20'
                             }`}>
                               {b.status}
                             </span>
                           </div>
                         </div>
                       </div>
-                      
-                      {/* --- UPDATED GET RECEIPT BUTTON (GOLD THEMED) --- */}
                       <a
                         href={`${apiOrigin}/api/bookings/${b._id}/receipt`}
                         target="_blank" rel="noreferrer"

@@ -113,6 +113,16 @@ export default function RiderDashboard() {
     </button>
   );
 
+  async function handleLogOut() {
+    try {
+      await api.post("/api/auth/logout").catch(() => {});
+      queryClient.clear(); // Clears all user data from cache
+      nav("/login", { replace: true }); // Redirects to login
+    } catch (e) {
+      console.error("Logout failed", e);
+    }
+  }
+
   return (
     <div className="flex min-h-screen bg-[#050506] text-zinc-100 font-sans selection:bg-[#B8860B]/30">
       
@@ -124,7 +134,9 @@ export default function RiderDashboard() {
           <NavItem id="bookings" icon={Calendar} label="Bookings" />
           <NavItem id="reviews" icon={Star} label="Ratings" />
           <NavItem id="leaderboard" icon={Trophy} label="Leaderboard" />
-          <NavItem id="logOut" icon={LogOut} label="Log Out" />
+          <div onClick={handleLogOut} className="cursor-pointer">
+  <NavItem id="logOut" icon={LogOut} label="Log Out" />
+</div>
         </nav>
         <div className="p-6 border-t border-zinc-800/50">
           <button onClick={handleDeleteAccount} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-[10px] font-black text-zinc-500 hover:text-[#B8860B] hover:bg-[#B8860B]/5 transition-all tracking-widest uppercase">

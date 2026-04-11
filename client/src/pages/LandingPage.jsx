@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   MapPin, Calendar, Users, Car, Map, 
   LayoutDashboard, Star, ShieldCheck, 
@@ -25,6 +26,8 @@ import SuvImg from "../assets/suv.jpeg";
 import LuxuryImg from "../assets/lux.jpeg";
 
 const LandingPage = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-[#020617] text-white font-sans selection:bg-blue-500/30 pb-20">
       
@@ -57,7 +60,9 @@ const LandingPage = () => {
                   <MapPin className="absolute left-4 top-3.5 text-zinc-500" size={18}/>
                   <input type="text" placeholder="Drop-off Location" className="w-full bg-zinc-950/50 border border-zinc-800 rounded-xl py-3 pl-12 text-sm focus:outline-none" />
                 </div>
-                <button className="w-full mt-4 bg-blue-300 hover:bg-blue-600 text-black font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl">
+                <button
+                  onClick={() => navigate('/login')}
+                  className="w-full mt-4 bg-blue-300 hover:bg-blue-600 text-black font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl">
                   <Search size={18}  /> Search Carpools Now
                   <ArrowRightIcon/>
                 </button>
@@ -180,7 +185,9 @@ const LandingPage = () => {
   ))}
 </div>
 
-        <button className="w-full bg-blue-400 hover:bg-blue-500 text-white font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-900/20 uppercase text-xs tracking-widest mt-4">
+        <button
+          onClick={() => navigate('/login')}
+          className="w-full bg-blue-400 hover:bg-blue-500 text-white font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-900/20 uppercase text-xs tracking-widest mt-4">
           <Car size={16} /> Request Private Ride →
         </button>
       </div>
@@ -198,7 +205,8 @@ const LandingPage = () => {
             <h2 className="text-4xl md:text-5xl font-black mt-4 leading-tight">Become a Partner.</h2>
             <h2 className="text-4xl md:text-5xl font-black mt-4 leading-tight text-blue-300">Drive.Connect.Earn.</h2>
             <p className="text-zinc-400 mt-6 mb-8 text-lg leading-relaxed">Share your route or offer a private car. Turn empty seats into significant income.</p>
-            <button className="bg-white text-black font-black px-10 py-4 rounded-2xl w-fit hover:bg-blue-300 transition-all flex items-center gap-3 uppercase text-xs tracking-widest">
+            <button onClick={() => navigate('/login')}
+                    className="bg-white text-black font-black px-10 py-4 rounded-2xl w-fit hover:bg-blue-300 transition-all flex items-center gap-3 uppercase text-xs tracking-widest">
               <Users size={18} /> Register Now
             </button>
           </div>
@@ -222,7 +230,9 @@ const LandingPage = () => {
     {/* Right Side: Feature Grid with Button at Bottom */}
     {/* Right Side: Feature Grid with Button at Bottom */}
 <div className="absolute bottom-20 right-10 z-20">
-  <button className="flex items-center justify-center gap-3 bg-blue-800 hover:bg-blue-300 hover:text-black border border-white/10 px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all group w-fit">
+  <button
+    onClick={() => navigate('/login')}
+    className="flex items-center justify-center gap-3 bg-blue-800 hover:bg-blue-300 hover:text-black border border-white/10 px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all group w-fit">
     <LayoutDashboard size={18} className="group-hover:rotate-12 transition-transform" />
     View Your Dashboard →
   </button>

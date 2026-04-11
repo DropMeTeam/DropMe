@@ -41,7 +41,7 @@ const LandingPage = () => {
           <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-transparent p-8 md:p-12 flex flex-col md:flex-row justify-between items-center gap-10">
             <div className="max-w-xl">
               <span className="text-blue-300 text-xs font-bold uppercase tracking-[0.2em]">Discover Carpools</span>
-              <h1 className="text-5xl md:text-6xl font-bold mt-4 leading-tight">Travel Together.<br/><span className="text-blue-300">Save Big.</span></h1>
+              <h1 className="text-5xl md:text-6xl font-bold mt-4 leading-tight">Travel Together.<br/><span className="text-blue-300">Save More.</span></h1>
               <p className="text-white mt-6 text-lg leading-relaxed max-w-md">Connect with verified drivers. Your journey, shared and sustained across Sri Lanka.</p>
             </div>
 

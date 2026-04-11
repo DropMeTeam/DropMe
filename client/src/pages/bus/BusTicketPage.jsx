@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   CheckCircle2,
   BusFront,
@@ -44,13 +44,11 @@ function getTravelDayText(dateString) {
   return date.toLocaleDateString(undefined, { weekday: "long" });
 }
 
-export default function BusCheckoutSuccess() {
-  const [sp] = useSearchParams();
-  const bookingId = sp.get("bookingId");
-  const sessionId = sp.get("session_id");
+export default function BusTicketPage() {
+  const { bookingId } = useParams();
 
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState("Verifying payment...");
+  const [msg, setMsg] = useState("Loading ticket...");
   const [booking, setBooking] = useState(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
@@ -59,17 +57,31 @@ export default function BusCheckoutSuccess() {
 
     (async () => {
       try {
-        const { data } = await api.get("/api/payments/stripe/bus/verify", {
-          params: { bookingId, session_id: sessionId },
-        });
+        const { data } = await api.get("/api/bus/bookings/mine");
+
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.bookings)
+          ? data.bookings
+          : Array.isArray(data?.items)
+          ? data.items
+          : [];
+
+        const found = list.find((item) => String(item?._id) === String(bookingId));
 
         if (ignore) return;
 
-        setBooking(data?.booking || null);
-        setMsg("Payment successful. Bus ticket confirmed.");
+        if (!found) {
+          setMsg("Ticket not found.");
+          setBooking(null);
+          return;
+        }
+
+        setBooking(found);
+        setMsg("Confirmed bus ticket.");
       } catch (e) {
         if (ignore) return;
-        setMsg(e?.response?.data?.message || "Verification failed");
+        setMsg(e?.response?.data?.message || "Failed to load ticket");
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -78,15 +90,15 @@ export default function BusCheckoutSuccess() {
     return () => {
       ignore = true;
     };
-  }, [bookingId, sessionId]);
+  }, [bookingId]);
 
   const apiOrigin = useMemo(() => getApiOrigin(), []);
   const logoUrl = `${apiOrigin}/uploads/dropme-logo.jpeg`;
 
   const seatText =
     Array.isArray(booking?.seatNumbers) && booking.seatNumbers.length > 0
-      ? booking.seatNumbers.join(" & ")
-      : "-";
+      ? booking.seatNumbers.join(" , ")
+      : "—";
 
   const seatCount = Array.isArray(booking?.seatNumbers)
     ? booking.seatNumbers.length
@@ -119,11 +131,21 @@ export default function BusCheckoutSuccess() {
   const passengerEmail = booking?.passengerSnapshot?.email || "-";
 
   const travelDay = getTravelDayText(booking?.travelDate);
-  const totalAmount = formatLkr(booking?.totalAmountLkr);
-  const farePerSeat = formatLkr(booking?.farePerSeatLkr);
+  const totalAmount = formatLkr(
+    booking?.totalAmountLkr || booking?.totalAmount || booking?.amount || 0
+  );
+  const farePerSeat = formatLkr(
+    booking?.farePerSeatLkr || booking?.ticketPriceLkr || booking?.pricePerSeat || 0
+  );
   const distanceText = `${Number(
     booking?.journeySnapshot?.passengerDistanceKm || 0
   ).toFixed(1)} km`;
+
+  const busNo =
+    booking?.journeySnapshot?.busNumber ||
+    booking?.busSnapshot?.plateNumber ||
+    booking?.busId?.plateNumber ||
+    "-";
 
   const qrPayload = useMemo(() => {
     if (!booking) return "DropMe Bus Ticket";
@@ -134,7 +156,7 @@ export default function BusCheckoutSuccess() {
       `Passenger: ${passengerName}`,
       `Passenger Email: ${passengerEmail}`,
       `Travel Date: ${booking?.travelDate || "-"}`,
-      `Bus No: ${booking?.journeySnapshot?.busNumber || "-"}`,
+      `Bus No: ${busNo}`,
       `Route No: ${booking?.journeySnapshot?.routeNumber || "-"}`,
       `Bus Route: ${busRouteText}`,
       `Pickup: ${pickupName} ${pickupTime}`,
@@ -148,6 +170,7 @@ export default function BusCheckoutSuccess() {
     booking,
     passengerName,
     passengerEmail,
+    busNo,
     busRouteText,
     pickupName,
     pickupTime,
@@ -205,7 +228,7 @@ export default function BusCheckoutSuccess() {
             <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,#0e121c_0%,#080b12_100%)] p-6 shadow-[0_30px_50px_rgba(0,0,0,0.55)]">
               <div className="flex items-center gap-3 text-white/70">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Verifying payment...</span>
+                <span>Loading ticket...</span>
               </div>
 
               <div className="mt-6 grid gap-4">
@@ -256,9 +279,9 @@ export default function BusCheckoutSuccess() {
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#4cd964]" />
                     <div>
-                      <div className="font-semibold">Payment successful</div>
+                      <div className="font-semibold">Ticket confirmed</div>
                       <div className="mt-1 text-sm text-[#d7ffe4cc]">
-                        {msg} ({totalAmount} paid)
+                        {msg} ({totalAmount})
                       </div>
                     </div>
                   </div>
@@ -279,7 +302,7 @@ export default function BusCheckoutSuccess() {
                   <InfoItem
                     icon={<BusFront className="h-4 w-4" />}
                     label="Bus No"
-                    value={booking?.journeySnapshot?.busNumber || "-"}
+                    value={busNo}
                   />
                   <InfoItem
                     icon={<RouteIcon className="h-4 w-4" />}
@@ -418,22 +441,22 @@ export default function BusCheckoutSuccess() {
             </div>
           ) : (
             <div className="rounded-[28px] border border-red-400/20 bg-red-500/10 p-6 text-red-100 shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
-              <h1 className="text-2xl font-semibold">Ticket verification failed</h1>
+              <h1 className="text-2xl font-semibold">Ticket not available</h1>
               <p className="mt-2 text-sm leading-6 text-red-100/80">{msg}</p>
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                 <Link
-                  to="/buses/search"
+                  to="/buses/tickets"
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black"
                 >
-                  Back to Search Buses
+                  Back to My Bus Tickets
                 </Link>
 
                 <Link
-                  to="/rider"
+                  to="/buses/search"
                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white"
                 >
-                  Go to Rider Dashboard
+                  Search Buses
                 </Link>
               </div>
             </div>
@@ -471,18 +494,18 @@ function ActionButtons({ topAlign = "right", onDownload, downloadingPdf = false 
       </button>
 
       <Link
-        to="/buses/search"
+        to="/buses/tickets"
         className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/10"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Search Buses
+        Back to My Bus Tickets
       </Link>
 
       <Link
-        to="/rider"
+        to="/buses/search"
         className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/10"
       >
-        Go to Rider Dashboard
+        Search Buses
       </Link>
     </div>
   );

@@ -34,3 +34,20 @@ export async function getReviewById(reviewId) {
   const { data } = await api.get(`/api/reviews/${reviewId}`);
   return data;
 }
+
+export async function getDriverPublicProfile(driverId) {
+  const { data } = await api.get(`/api/reviews/drivers/${driverId}/public-profile`);
+  return data;
+}
+
+export async function getDriverPublicReviews(driverId, params = {}) {
+  const { data } = await api.get(`/api/reviews/drivers/${driverId}/public-reviews`, {
+    params,
+  });
+  return data;
+}
+
+export async function deleteRideReview(reviewId) {
+  const { data } = await api.delete(`/api/reviews/${reviewId}`);
+  return data;
+}

@@ -162,9 +162,22 @@ export async function getMyPendingReviews(req, res, next) {
       .lean();
 
     const reviewedSet = new Set(reviews.map((r) => String(r.bookingId)));
+    const now = Date.now();
 
     const pending = bookings
+      // not already reviewed
       .filter((b) => !reviewedSet.has(String(b._id)))
+      // only still inside the 24-hour review window
+      .filter((b) => {
+        const rideCompletedAt = b.rideCompletedAt ? new Date(b.rideCompletedAt) : null;
+        if (!rideCompletedAt) return false;
+
+        const reviewDeadlineAt = new Date(
+          rideCompletedAt.getTime() + 24 * 60 * 60 * 1000
+        );
+
+        return reviewDeadlineAt.getTime() > now;
+      })
       .map((b) => {
         const snapshot = b.offerSnapshot || {};
 
@@ -177,10 +190,12 @@ export async function getMyPendingReviews(req, res, next) {
           bookingId: String(b._id),
           bookingShortId: String(b._id).slice(-6),
 
-          // for your table
           date: snapshot.pickupTime || b.createdAt || null,
           from: snapshot.originAddress || "-",
           to: snapshot.destinationAddress || "-",
+
+          driverId: b.driverId ? String(b.driverId) : "",
+          revieweeRole: "driver",
           driverName: snapshot.driverName || "-",
 
           rideCompletedAt,
@@ -231,6 +246,79 @@ export async function getDriverReviews(req, res, next) {
   }
 }
 
+//export async function getMyGivenReviews(req, res, next) {
+//  try {
+//    const currentUserId = getUserId(req);
+//
+//    const reviews = await Review.find({ reviewerId: currentUserId })
+//      .sort({ createdAt: -1 })
+//      .lean();
+//
+//    const bookingIds = reviews.map((r) => r.bookingId).filter(Boolean);
+//    const revieweeIds = reviews.map((r) => r.revieweeId).filter(Boolean);
+//
+//    const [bookings, reviewees] = await Promise.all([
+//      RideBooking.find({ _id: { $in: bookingIds } })
+//        .select("offerSnapshot rideCompletedAt createdAt")
+//        .lean(),
+//
+//      User.find({ _id: { $in: revieweeIds } })
+//        .select("name role avatarUrl")
+//        .lean(),
+//    ]);
+//
+//    const bookingMap = new Map(bookings.map((b) => [String(b._id), b]));
+//    const revieweeMap = new Map(reviewees.map((u) => [String(u._id), u]));
+//
+//    const shaped = reviews.map((review) => {
+//      const booking = bookingMap.get(String(review.bookingId));
+//      const snapshot = booking?.offerSnapshot || {};
+//      const reviewee = revieweeMap.get(String(review.revieweeId));
+//
+//      const fullComment = review.sanitizedText || review.originalText || "";
+//
+//      return {
+//        _id: String(review._id),
+//        bookingId: String(review.bookingId),
+//        bookingShortId: String(review.bookingId).slice(-6),
+//
+//        date: booking?.rideCompletedAt || booking?.createdAt || review.createdAt,
+//        from: snapshot.originAddress || "-",
+//        to: snapshot.destinationAddress || "-",
+//
+//        // modal wiring
+//        driverId: review.revieweeId ? String(review.revieweeId) : "",
+//        revieweeRole: reviewee?.role || "",
+//        driverName: reviewee?.name || snapshot.driverName || "-",
+//        driverAvatarUrl: reviewee?.avatarUrl || "",
+//
+//        overallRating: review.overallRating || 0,
+//        cleanlinessRating: review.cleanlinessRating || 0,
+//        punctualityRating: review.punctualityRating || 0,
+//        behaviorRating: review.behaviorRating || 0,
+//
+//        commentPreview: fullComment
+//          ? fullComment.length > 40
+//            ? `${fullComment.slice(0, 40)}...`
+//            : fullComment
+//          : "No comment",
+//
+//        commentFull: fullComment || "No comment",
+//        moderationStatus: review.moderationStatus || "pending",
+//        isVisible: Boolean(review.isVisible),
+//        createdAt: review.createdAt,
+//      };
+//    });
+//
+//    res.json({
+//      ok: true,
+//      reviews: shaped,
+//    });
+//  } catch (err) {
+//    next(err);
+//  }
+//}
+
 export async function getMyGivenReviews(req, res, next) {
   try {
     const currentUserId = getUserId(req);
@@ -240,44 +328,72 @@ export async function getMyGivenReviews(req, res, next) {
       .lean();
 
     const bookingIds = reviews.map((r) => r.bookingId).filter(Boolean);
+    const revieweeIds = reviews.map((r) => r.revieweeId).filter(Boolean);
 
-    const bookings = await RideBooking.find({ _id: { $in: bookingIds } })
-      .select("offerSnapshot rideCompletedAt createdAt")
-      .lean();
+    const [bookings, reviewees] = await Promise.all([
+      RideBooking.find({ _id: { $in: bookingIds } })
+        .select("offerSnapshot rideCompletedAt createdAt")
+        .lean(),
 
-    const bookingMap = new Map(
-      bookings.map((b) => [String(b._id), b])
-    );
+      User.find({ _id: { $in: revieweeIds } })
+        .select("name role avatarUrl")
+        .lean(),
+    ]);
+
+    const bookingMap = new Map(bookings.map((b) => [String(b._id), b]));
+    const revieweeMap = new Map(reviewees.map((u) => [String(u._id), u]));
 
     const shaped = reviews.map((review) => {
       const booking = bookingMap.get(String(review.bookingId));
       const snapshot = booking?.offerSnapshot || {};
+      const reviewee = revieweeMap.get(String(review.revieweeId));
 
-      const fullComment =
-        review.sanitizedText ||
-        review.originalText ||
-        "";
+      const fullComment = review.sanitizedText || review.originalText || "";
+
+      const rideCompletedAt = booking?.rideCompletedAt
+        ? new Date(booking.rideCompletedAt)
+        : null;
+
+      const reviewDeadlineAt = rideCompletedAt
+        ? new Date(rideCompletedAt.getTime() + 24 * 60 * 60 * 1000)
+        : null;
+
+      const isEditable =
+        reviewDeadlineAt ? Date.now() <= reviewDeadlineAt.getTime() : false;
 
       return {
         _id: String(review._id),
         bookingId: String(review.bookingId),
         bookingShortId: String(review.bookingId).slice(-6),
+
         date: booking?.rideCompletedAt || booking?.createdAt || review.createdAt,
         from: snapshot.originAddress || "-",
         to: snapshot.destinationAddress || "-",
-        driverName: snapshot.driverName || "-",
+
+        driverId: review.revieweeId ? String(review.revieweeId) : "",
+        revieweeRole: reviewee?.role || "",
+        driverName: reviewee?.name || snapshot.driverName || "-",
+        driverAvatarUrl: reviewee?.avatarUrl || "",
+
         overallRating: review.overallRating || 0,
         cleanlinessRating: review.cleanlinessRating || 0,
         punctualityRating: review.punctualityRating || 0,
         behaviorRating: review.behaviorRating || 0,
+
         commentPreview: fullComment
           ? fullComment.length > 40
             ? `${fullComment.slice(0, 40)}...`
             : fullComment
           : "No comment",
+
         commentFull: fullComment || "No comment",
         moderationStatus: review.moderationStatus || "pending",
         isVisible: Boolean(review.isVisible),
+
+        rideCompletedAt,
+        reviewDeadlineAt,
+        isEditable,
+
         createdAt: review.createdAt,
       };
     });
@@ -418,6 +534,234 @@ export async function updateReview(req, res, next) {
         ? "Review updated successfully"
         : "Review updated and sent for moderation",
       review,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+
+// Small helper to keep average values clean like 4.8 instead of 4.833333333
+function roundToOne(num = 0) {
+  return Math.round(num * 10) / 10;
+}
+
+// Small helper to shape review data for frontend cleanly
+function mapReview(review) {
+  return {
+    _id: review._id,
+    overallRating: review.overallRating,
+    cleanlinessRating: review.cleanlinessRating,
+    punctualityRating: review.punctualityRating,
+    behaviorRating: review.behaviorRating,
+    comment: review.sanitizedText || review.originalText || "",
+    createdAt: review.createdAt,
+    reviewer: {
+      _id: review.reviewerId?._id || null,
+      name: review.reviewerId?.name || "Passenger",
+      avatarUrl: review.reviewerId?.avatarUrl || "",
+    },
+  };
+}
+
+// GET /api/reviews/drivers/:driverId/public-profile
+export async function getDriverPublicProfile(req, res, next) {
+  try {
+    const { driverId } = req.params;
+
+    // Validate Mongo id early to avoid useless DB work
+    if (!mongoose.Types.ObjectId.isValid(driverId)) {
+      return res.status(400).json({ message: "Invalid driver id" });
+    }
+
+    // Find only approved drivers
+    const driver = await User.findOne({
+      _id: driverId,
+      role: "driver",
+      adminStatus: "approved",
+    })
+      .select("name email avatarUrl contactNo driverRegistration")
+      .lean();
+
+    if (!driver) {
+      return res.status(404).json({ message: "Driver not found" });
+    }
+
+    // Build one reusable review filter
+    const reviewFilter = {
+      revieweeId: new mongoose.Types.ObjectId(driverId),
+      isVisible: true,
+      moderationStatus: "approved",
+    };
+
+    // Aggregate averages + total count
+    const statsRows = await Review.aggregate([
+      { $match: reviewFilter },
+      {
+        $group: {
+          _id: "$revieweeId",
+          totalReviews: { $sum: 1 },
+          overallAvg: { $avg: "$overallRating" },
+          cleanlinessAvg: { $avg: "$cleanlinessRating" },
+          punctualityAvg: { $avg: "$punctualityRating" },
+          behaviorAvg: { $avg: "$behaviorRating" },
+        },
+      },
+    ]);
+
+    const stats = statsRows[0] || {
+      totalReviews: 0,
+      overallAvg: 0,
+      cleanlinessAvg: 0,
+      punctualityAvg: 0,
+      behaviorAvg: 0,
+    };
+
+    // Latest 3 reviews first
+    const latestReviews = await Review.find(reviewFilter)
+      .sort({ createdAt: -1 }) // latest first
+      .limit(3)
+      .select(
+        "overallRating cleanlinessRating punctualityRating behaviorRating sanitizedText originalText createdAt reviewerId"
+      )
+      .populate("reviewerId", "name avatarUrl")
+      .lean();
+
+    return res.json({
+      driver: {
+        _id: driver._id,
+        name: driver.name,
+        email: driver.email,
+        avatarUrl: driver.avatarUrl || "",
+        contactNo: driver.contactNo || "",
+        verified: driver.driverRegistration?.status === "approved",
+        driverId: driver.driverRegistration?.driverId || "",
+        age: driver.driverRegistration?.age || null,
+        address: driver.driverRegistration?.address || "",
+        licenseNo: driver.driverRegistration?.licenseNo || "",
+      },
+
+      vehicle: {
+        type: driver.driverRegistration?.vehicle?.type || "",
+        number: driver.driverRegistration?.vehicle?.number || "",
+        color: driver.driverRegistration?.vehicle?.color || "",
+        seatsTotal: driver.driverRegistration?.vehicle?.seatsTotal || 0,
+        photoUrl: driver.driverRegistration?.vehicle?.photoUrl || "",
+      },
+
+      stats: {
+        totalReviews: stats.totalReviews,
+        overallAvg: roundToOne(stats.overallAvg || 0),
+        cleanlinessAvg: roundToOne(stats.cleanlinessAvg || 0),
+        punctualityAvg: roundToOne(stats.punctualityAvg || 0),
+        behaviorAvg: roundToOne(stats.behaviorAvg || 0),
+      },
+
+      latestReviews: latestReviews.map(mapReview),
+
+      // Frontend uses this to decide whether to show "See more"
+      hasMore: (stats.totalReviews || 0) > latestReviews.length,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/reviews/drivers/:driverId/public-reviews?offset=3&limit=6
+export async function getDriverPublicReviews(req, res, next) {
+  try {
+    const { driverId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(driverId)) {
+      return res.status(400).json({ message: "Invalid driver id" });
+    }
+
+    // Make sure this id belongs to a driver
+    const driverExists = await User.exists({
+      _id: driverId,
+      role: "driver",
+      adminStatus: "approved",
+    });
+
+    if (!driverExists) {
+      return res.status(404).json({ message: "Driver not found" });
+    }
+
+    // Offset-based pagination works perfectly for "load more"
+    const offset = Math.max(0, Number(req.query.offset) || 0);
+    const limit = Math.min(12, Math.max(1, Number(req.query.limit) || 6));
+
+    const reviewFilter = {
+      revieweeId: new mongoose.Types.ObjectId(driverId),
+      isVisible: true,
+      moderationStatus: "approved",
+    };
+
+    const [reviews, totalReviews] = await Promise.all([
+      Review.find(reviewFilter)
+        .sort({ createdAt: -1 }) // latest first
+        .skip(offset)
+        .limit(limit)
+        .select(
+          "overallRating cleanlinessRating punctualityRating behaviorRating sanitizedText originalText createdAt reviewerId"
+        )
+        .populate("reviewerId", "name avatarUrl")
+        .lean(),
+
+      Review.countDocuments(reviewFilter),
+    ]);
+
+    const nextOffset = offset + reviews.length;
+
+    return res.json({
+      reviews: reviews.map(mapReview),
+      offset,
+      nextOffset,
+      totalReviews,
+      hasMore: nextOffset < totalReviews,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteReview(req, res, next) {
+  try {
+    const reviewId = String(req.params.reviewId || "").trim();
+
+    if (!reviewId || !mongoose.Types.ObjectId.isValid(reviewId)) {
+      throw new HttpError(400, "Valid reviewId is required");
+    }
+
+    const review = await Review.findById(reviewId);
+    if (!review) {
+      throw new HttpError(404, "Review not found");
+    }
+
+    const currentUserId = getUserId(req);
+    if (String(review.reviewerId) !== currentUserId) {
+      throw new HttpError(403, "You are not allowed to delete this review");
+    }
+
+    const booking = await RideBooking.findById(review.bookingId);
+    if (!booking) {
+      throw new HttpError(404, "Related booking not found");
+    }
+
+    const rideCompletedAt = booking.rideCompletedAt ? new Date(booking.rideCompletedAt) : null;
+    const reviewDeadlineAt = rideCompletedAt
+      ? new Date(rideCompletedAt.getTime() + 24 * 60 * 60 * 1000)
+      : null;
+
+    if (!reviewDeadlineAt || Date.now() > reviewDeadlineAt.getTime()) {
+      throw new HttpError(409, "Review can only be deleted within 24 hours of ride completion");
+    }
+
+    await Review.findByIdAndDelete(reviewId);
+
+    res.json({
+      ok: true,
+      message: "Review deleted successfully",
     });
   } catch (err) {
     next(err);

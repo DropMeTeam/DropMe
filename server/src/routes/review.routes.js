@@ -7,6 +7,9 @@ import {
   getMyGivenReviews,
   getReviewById,
   updateReview,
+  getDriverPublicProfile,
+  getDriverPublicReviews,
+  deleteReview
 } from "../controllers/review.controller.js";
 import { requireAuth } from "../middleware/auth.js";
 
@@ -22,6 +25,10 @@ router.get("/driver/:driverId", getDriverReviews);
 
 router.get("/:reviewId", getReviewById);
 router.patch("/:reviewId", updateReview);
+router.delete("/:reviewId", deleteReview);
+
+router.get("/drivers/:driverId/public-profile", getDriverPublicProfile);
+router.get("/drivers/:driverId/public-reviews", getDriverPublicReviews);
 
 router.post("/", createReview);
 

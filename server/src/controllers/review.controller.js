@@ -3,18 +3,53 @@ import { Review } from "../models/Review.js";
 import { RideBooking } from "../models/RideBooking.js";
 import { User } from "../models/User.js";
 import { HttpError } from "../utils/httpError.js";
-import { analyzeReviewText } from "../services/geminiModeration.service.js";
 
+/**
+ * Get current logged-in user id from JWT payload
+ */
 function getUserId(req) {
   return String(req.user?.sub || "");
 }
 
+/**
+ * Validate rating fields
+ */
 function normalizeRating(value, fieldName) {
   const num = Number(value);
+
   if (!Number.isFinite(num) || num < 1 || num > 5) {
     throw new HttpError(400, `${fieldName} must be between 1 and 5`);
   }
+
   return num;
+}
+
+/**
+ * Very small local fallback moderation.
+ *
+ * Why this exists:
+ * - You said you do NOT have geminiModeration.service.js
+ * - Your review flow was crashing because controller expected external moderation
+ * - This local function keeps the same response shape so the rest of your code works
+ *
+ * Current strategy:
+ * - trims the text
+ * - keeps it approved by default
+ * - does not block review creation
+ * - does not apply strikes
+ */
+async function analyzeReviewText(reviewText = "") {
+  const cleanText = String(reviewText || "").trim();
+
+  return {
+    sanitizedText: cleanText,
+    suggestedStatus: "approved", // keep review visible by default
+    profanityLevel: "none",
+    flagged: false,
+    confidence: 1,
+    reason: "Local moderation fallback used",
+    strikeRecommended: false,
+  };
 }
 
 export async function createReview(req, res, next) {
@@ -31,23 +66,28 @@ export async function createReview(req, res, next) {
     const punctualityRating = normalizeRating(req.body?.punctualityRating, "punctualityRating");
     const behaviorRating = normalizeRating(req.body?.behaviorRating, "behaviorRating");
 
+    // find booking first
     const booking = await RideBooking.findById(bookingId);
     if (!booking) throw new HttpError(404, "Booking not found");
 
     const currentUserId = getUserId(req);
 
+    // only the rider who made the booking can review it
     if (String(booking.riderId) !== currentUserId) {
       throw new HttpError(403, "Only the passenger of this booking can submit a review");
     }
 
+    // business rule: review only after ride completion
     if (!booking.rideCompleted) {
       throw new HttpError(409, "Review allowed only after ride completion");
     }
 
+    // business rule: only paid rides can be reviewed
     if (booking.paymentStatus !== "paid") {
       throw new HttpError(409, "Only paid rides can be reviewed");
     }
 
+    // prevent duplicate review for same booking by same rider
     const existing = await Review.findOne({
       bookingId: booking._id,
       reviewerId: booking.riderId,
@@ -57,6 +97,7 @@ export async function createReview(req, res, next) {
       throw new HttpError(409, "You already reviewed this booking");
     }
 
+    // check whether this user is temporarily restricted from reviewing
     const user = await User.findById(booking.riderId).select("moderation");
     const restrictionUntil = user?.moderation?.reviewRestrictionUntil;
 
@@ -64,6 +105,7 @@ export async function createReview(req, res, next) {
       throw new HttpError(403, "Your review access is temporarily restricted");
     }
 
+    // local safe moderation - no external dependency, no crash
     const moderation = await analyzeReviewText(reviewText);
 
     const review = await Review.create({
@@ -89,6 +131,11 @@ export async function createReview(req, res, next) {
       geminiReason: moderation.reason,
     });
 
+    /**
+     * Keep your strike logic structure intact.
+     * With local fallback this will never trigger,
+     * but leaving it here preserves your future extensibility.
+     */
     if (
       moderation.strikeRecommended &&
       moderation.confidence >= 0.85 &&
@@ -133,7 +180,11 @@ export async function getBookingReview(req, res, next) {
     }
 
     const review = await Review.findOne({ bookingId }).lean();
-    res.json({ ok: true, review });
+
+    res.json({
+      ok: true,
+      review,
+    });
   } catch (err) {
     next(err);
   }
@@ -165,9 +216,7 @@ export async function getMyPendingReviews(req, res, next) {
     const now = Date.now();
 
     const pending = bookings
-      // not already reviewed
       .filter((b) => !reviewedSet.has(String(b._id)))
-      // only still inside the 24-hour review window
       .filter((b) => {
         const rideCompletedAt = b.rideCompletedAt ? new Date(b.rideCompletedAt) : null;
         if (!rideCompletedAt) return false;
@@ -226,6 +275,7 @@ export async function getDriverReviews(req, res, next) {
       .lean();
 
     const total = reviews.length;
+
     const averageOverall =
       total > 0
         ? Number(
@@ -245,79 +295,6 @@ export async function getDriverReviews(req, res, next) {
     next(err);
   }
 }
-
-//export async function getMyGivenReviews(req, res, next) {
-//  try {
-//    const currentUserId = getUserId(req);
-//
-//    const reviews = await Review.find({ reviewerId: currentUserId })
-//      .sort({ createdAt: -1 })
-//      .lean();
-//
-//    const bookingIds = reviews.map((r) => r.bookingId).filter(Boolean);
-//    const revieweeIds = reviews.map((r) => r.revieweeId).filter(Boolean);
-//
-//    const [bookings, reviewees] = await Promise.all([
-//      RideBooking.find({ _id: { $in: bookingIds } })
-//        .select("offerSnapshot rideCompletedAt createdAt")
-//        .lean(),
-//
-//      User.find({ _id: { $in: revieweeIds } })
-//        .select("name role avatarUrl")
-//        .lean(),
-//    ]);
-//
-//    const bookingMap = new Map(bookings.map((b) => [String(b._id), b]));
-//    const revieweeMap = new Map(reviewees.map((u) => [String(u._id), u]));
-//
-//    const shaped = reviews.map((review) => {
-//      const booking = bookingMap.get(String(review.bookingId));
-//      const snapshot = booking?.offerSnapshot || {};
-//      const reviewee = revieweeMap.get(String(review.revieweeId));
-//
-//      const fullComment = review.sanitizedText || review.originalText || "";
-//
-//      return {
-//        _id: String(review._id),
-//        bookingId: String(review.bookingId),
-//        bookingShortId: String(review.bookingId).slice(-6),
-//
-//        date: booking?.rideCompletedAt || booking?.createdAt || review.createdAt,
-//        from: snapshot.originAddress || "-",
-//        to: snapshot.destinationAddress || "-",
-//
-//        // modal wiring
-//        driverId: review.revieweeId ? String(review.revieweeId) : "",
-//        revieweeRole: reviewee?.role || "",
-//        driverName: reviewee?.name || snapshot.driverName || "-",
-//        driverAvatarUrl: reviewee?.avatarUrl || "",
-//
-//        overallRating: review.overallRating || 0,
-//        cleanlinessRating: review.cleanlinessRating || 0,
-//        punctualityRating: review.punctualityRating || 0,
-//        behaviorRating: review.behaviorRating || 0,
-//
-//        commentPreview: fullComment
-//          ? fullComment.length > 40
-//            ? `${fullComment.slice(0, 40)}...`
-//            : fullComment
-//          : "No comment",
-//
-//        commentFull: fullComment || "No comment",
-//        moderationStatus: review.moderationStatus || "pending",
-//        isVisible: Boolean(review.isVisible),
-//        createdAt: review.createdAt,
-//      };
-//    });
-//
-//    res.json({
-//      ok: true,
-//      reviews: shaped,
-//    });
-//  } catch (err) {
-//    next(err);
-//  }
-//}
 
 export async function getMyGivenReviews(req, res, next) {
   try {
@@ -416,6 +393,7 @@ export async function getReviewById(req, res, next) {
     }
 
     const review = await Review.findById(reviewId).lean();
+
     if (!review) {
       throw new HttpError(404, "Review not found");
     }
@@ -508,6 +486,7 @@ export async function updateReview(req, res, next) {
       throw new HttpError(409, "Review can only be updated within 24 hours of ride completion");
     }
 
+    // local safe moderation - no external dependency, no crash
     const moderation = await analyzeReviewText(reviewText);
 
     review.overallRating = overallRating;
@@ -540,13 +519,16 @@ export async function updateReview(req, res, next) {
   }
 }
 
-
-// Small helper to keep average values clean like 4.8 instead of 4.833333333
+/**
+ * Helper for driver public profile averages
+ */
 function roundToOne(num = 0) {
   return Math.round(num * 10) / 10;
 }
 
-// Small helper to shape review data for frontend cleanly
+/**
+ * Helper to shape review payload cleanly for frontend
+ */
 function mapReview(review) {
   return {
     _id: review._id,
@@ -569,12 +551,10 @@ export async function getDriverPublicProfile(req, res, next) {
   try {
     const { driverId } = req.params;
 
-    // Validate Mongo id early to avoid useless DB work
     if (!mongoose.Types.ObjectId.isValid(driverId)) {
       return res.status(400).json({ message: "Invalid driver id" });
     }
 
-    // Find only approved drivers
     const driver = await User.findOne({
       _id: driverId,
       role: "driver",
@@ -587,14 +567,12 @@ export async function getDriverPublicProfile(req, res, next) {
       return res.status(404).json({ message: "Driver not found" });
     }
 
-    // Build one reusable review filter
     const reviewFilter = {
       revieweeId: new mongoose.Types.ObjectId(driverId),
       isVisible: true,
       moderationStatus: "approved",
     };
 
-    // Aggregate averages + total count
     const statsRows = await Review.aggregate([
       { $match: reviewFilter },
       {
@@ -617,9 +595,8 @@ export async function getDriverPublicProfile(req, res, next) {
       behaviorAvg: 0,
     };
 
-    // Latest 3 reviews first
     const latestReviews = await Review.find(reviewFilter)
-      .sort({ createdAt: -1 }) // latest first
+      .sort({ createdAt: -1 })
       .limit(3)
       .select(
         "overallRating cleanlinessRating punctualityRating behaviorRating sanitizedText originalText createdAt reviewerId"
@@ -658,8 +635,6 @@ export async function getDriverPublicProfile(req, res, next) {
       },
 
       latestReviews: latestReviews.map(mapReview),
-
-      // Frontend uses this to decide whether to show "See more"
       hasMore: (stats.totalReviews || 0) > latestReviews.length,
     });
   } catch (err) {
@@ -676,7 +651,6 @@ export async function getDriverPublicReviews(req, res, next) {
       return res.status(400).json({ message: "Invalid driver id" });
     }
 
-    // Make sure this id belongs to a driver
     const driverExists = await User.exists({
       _id: driverId,
       role: "driver",
@@ -687,7 +661,6 @@ export async function getDriverPublicReviews(req, res, next) {
       return res.status(404).json({ message: "Driver not found" });
     }
 
-    // Offset-based pagination works perfectly for "load more"
     const offset = Math.max(0, Number(req.query.offset) || 0);
     const limit = Math.min(12, Math.max(1, Number(req.query.limit) || 6));
 
@@ -699,7 +672,7 @@ export async function getDriverPublicReviews(req, res, next) {
 
     const [reviews, totalReviews] = await Promise.all([
       Review.find(reviewFilter)
-        .sort({ createdAt: -1 }) // latest first
+        .sort({ createdAt: -1 })
         .skip(offset)
         .limit(limit)
         .select(
@@ -739,6 +712,7 @@ export async function deleteReview(req, res, next) {
     }
 
     const currentUserId = getUserId(req);
+
     if (String(review.reviewerId) !== currentUserId) {
       throw new HttpError(403, "You are not allowed to delete this review");
     }

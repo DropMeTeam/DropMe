@@ -1,5 +1,6 @@
 import { TrainSchedule } from "../models/TrainSchedule.js";
 import { TrainBooking } from "../models/TrainBooking.js";
+import { TrainInventory } from "../models/TrainInventory.js";
 import { HttpError } from "../../../utils/httpError.js";
 import { calculateJourneyFare } from "../utils/trainFare.js";
 import {
@@ -27,6 +28,46 @@ function getTravelDay(travelDate) {
 function toSafeNonNegativeNumber(value, fallback = 0) {
   const num = Number(value);
   return Number.isFinite(num) && num >= 0 ? num : fallback;
+}
+
+/**
+ * Ensure inventory row exists for one train schedule on one travel date.
+ * We lazily create it from the schedule seat capacity.
+ */
+async function ensureTrainInventory(scheduleId, travelDate, schedule = null) {
+  let inventory = await TrainInventory.findOne({ scheduleId, travelDate });
+
+  if (inventory) return inventory;
+
+  const scheduleDoc =
+    schedule || (await TrainSchedule.findById(scheduleId).lean());
+
+  if (!scheduleDoc) {
+    throw new HttpError(404, "Train schedule not found");
+  }
+
+  const capacity = Number(scheduleDoc.seatCapacity || 0);
+  if (!Number.isFinite(capacity) || capacity < 1) {
+    throw new HttpError(400, "Invalid train seat capacity");
+  }
+
+  try {
+    inventory = await TrainInventory.create({
+      scheduleId,
+      travelDate,
+      capacity,
+      bookedSeats: 0,
+    });
+    return inventory;
+  } catch (err) {
+    // If two requests try to create the same inventory row at the same time,
+    // unique index will protect us. Then we re-read the row.
+    if (err?.code === 11000) {
+      const existing = await TrainInventory.findOne({ scheduleId, travelDate });
+      if (existing) return existing;
+    }
+    throw err;
+  }
 }
 
 export async function createTrainBookingCheckout(req, res, next) {
@@ -63,6 +104,22 @@ export async function createTrainBookingCheckout(req, res, next) {
     const schedule = await TrainSchedule.findById(scheduleId).lean();
     if (!schedule) {
       throw new HttpError(404, "Train schedule not found");
+    }
+
+    if (!schedule.active) {
+      throw new HttpError(409, "This train schedule is not active");
+    }
+
+    // Quick availability check before creating a payment-pending booking.
+    // Final protection will still happen again during payment verification.
+    const inventory = await ensureTrainInventory(scheduleId, travelDate, schedule);
+    const remainingSeats = Number(inventory.capacity || 0) - Number(inventory.bookedSeats || 0);
+
+    if (remainingSeats < seatCount) {
+      throw new HttpError(
+        409,
+        `Only ${Math.max(remainingSeats, 0)} seat(s) available for this train on ${travelDate}`
+      );
     }
 
     const travelDay = getTravelDay(travelDate);
@@ -124,6 +181,7 @@ export async function createTrainBookingCheckout(req, res, next) {
     return res.status(201).json({
       ok: true,
       message: "Train booking created. Proceed to payment.",
+      remainingSeatsBeforePayment: remainingSeats,
       booking,
     });
   } catch (err) {
@@ -240,6 +298,9 @@ export async function cancelMyTrainBooking(req, res, next) {
       throw new HttpError(403, "Not allowed");
     }
 
+    // Current business rule in your project:
+    // unpaid bookings can be cancelled here,
+    // paid bookings cannot be cancelled from this endpoint.
     if (booking.paymentStatus === "paid") {
       throw new HttpError(409, "Paid bookings cannot be cancelled from this endpoint");
     }

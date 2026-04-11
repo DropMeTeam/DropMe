@@ -1,6 +1,9 @@
 import { TrainSchedule } from "../models/TrainSchedule.js";
 import { Station } from "../models/Station.js";
 import { calculateJourneyFare } from "../utils/trainFare.js";
+import { HttpError } from "../../../utils/httpError.js";
+import { TrainInventory } from "../models/TrainInventory.js";
+
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -21,6 +24,54 @@ function applyPassengerPopulate(query) {
     .populate("weeklyTimetable.Sat.stationId", "name location isActive active")
     .populate("weeklyTimetable.Sun.stationId", "name location isActive active");
 }
+
+
+function getDayFromTravelDate(travelDate) {
+  if (!travelDate) return "";
+
+  const date = new Date(`${travelDate}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    throw new HttpError(400, "Invalid travelDate. Use YYYY-MM-DD");
+  }
+
+  const map = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return map[date.getDay()];
+}
+
+async function ensureTrainInventory(scheduleId, travelDate, schedule = null) {
+  let inventory = await TrainInventory.findOne({ scheduleId, travelDate });
+
+  if (inventory) return inventory;
+
+  const scheduleDoc = schedule || (await TrainSchedule.findById(scheduleId).lean());
+
+  if (!scheduleDoc) {
+    throw new HttpError(404, "Train schedule not found");
+  }
+
+  const capacity = Number(scheduleDoc.seatCapacity || 0);
+
+  if (!Number.isFinite(capacity) || capacity < 1) {
+    throw new HttpError(400, "Invalid train seat capacity");
+  }
+
+  try {
+    inventory = await TrainInventory.create({
+      scheduleId,
+      travelDate,
+      capacity,
+      bookedSeats: 0,
+    });
+    return inventory;
+  } catch (err) {
+    if (err?.code === 11000) {
+      const existing = await TrainInventory.findOne({ scheduleId, travelDate });
+      if (existing) return existing;
+    }
+    throw err;
+  }
+}
+
 
 /**
  * Accept both possible location shapes:
@@ -162,6 +213,65 @@ function buildJourneyDuration(fromRow, toRow) {
   return null;
 }
 
+function sameLatLng(a, b) {
+  if (!a || !b) return false;
+  return Number(a.lat) === Number(b.lat) && Number(a.lng) === Number(b.lng);
+}
+
+function buildJourneyRailPath(schedule, rows, fromIndex, toIndex) {
+  if (!Array.isArray(schedule?.segments) || schedule.segments.length === 0) {
+    return [];
+  }
+
+  const points = [];
+
+  for (let i = fromIndex; i < toIndex; i++) {
+    const fromRow = rows[i];
+    const toRow = rows[i + 1];
+
+    const fromId = String(fromRow?.stationId?._id || fromRow?.stationId || "");
+    const toId = String(toRow?.stationId?._id || toRow?.stationId || "");
+
+    const seg = schedule.segments.find(
+      (item) =>
+        String(item?.fromStationId?._id || item?.fromStationId || "") ===
+          fromId &&
+        String(item?.toStationId?._id || item?.toStationId || "") === toId
+    );
+
+    const segPath = Array.isArray(seg?.railPath) ? seg.railPath : [];
+
+    if (segPath.length > 0) {
+      for (const point of segPath) {
+        const normalized = {
+          lat: Number(point.lat),
+          lng: Number(point.lng),
+        };
+
+        const prev = points[points.length - 1];
+        if (!sameLatLng(prev, normalized)) {
+          points.push(normalized);
+        }
+      }
+    } else {
+      const fromPoint = getLatLngFromStation(fromRow?.stationId);
+      const toPoint = getLatLngFromStation(toRow?.stationId);
+
+      if (fromPoint) {
+        const prev = points[points.length - 1];
+        if (!sameLatLng(prev, fromPoint)) points.push(fromPoint);
+      }
+
+      if (toPoint) {
+        const prev = points[points.length - 1];
+        if (!sameLatLng(prev, toPoint)) points.push(toPoint);
+      }
+    }
+  }
+
+  return points;
+}
+
 /**
  * Existing passenger search by explicit station names
  * GET /api/train/search?from=Colombo Fort&to=Kandy&day=Mon
@@ -203,8 +313,7 @@ export async function searchTrains(req, res, next) {
 
       const durationMinutes = buildJourneyDuration(fromRow, toRow);
 
-      // Calculate journey fare
-      const { farePerSeatLkr, segmentCount } = calculateJourneyFare(
+      const { farePerSeatLkr } = calculateJourneyFare(
         schedule,
         fromRow.stationId?._id || fromRow.stationId,
         toRow.stationId?._id || toRow.stationId,
@@ -220,7 +329,7 @@ export async function searchTrains(req, res, next) {
         active: !!schedule.active,
         searchDay: day || null,
         farePerSeatLkr,
-        fareBreakdownTotalLkr: farePerSeatLkr, // Same for single seat
+        fareBreakdownTotalLkr: farePerSeatLkr,
         from: {
           station: {
             _id: fromRow.stationId?._id,
@@ -239,6 +348,7 @@ export async function searchTrains(req, res, next) {
         },
         durationMinutes,
         durationLabel: formatDuration(durationMinutes),
+        railPathPoints: buildJourneyRailPath(schedule, rows, fromIndex, toIndex),
         stopsBetween: rows.slice(fromIndex, toIndex + 1).map(mapStop),
       });
     }
@@ -368,7 +478,13 @@ export async function searchNearbyTrains(req, res, next) {
   try {
     const lat = Number(req.query.lat);
     const lng = Number(req.query.lng);
-    const { to, toStationId, fromStationId, day } = req.query;
+    const {
+      to,
+      toStationId,
+      fromStationId,
+      day: rawDay,
+      travelDate,
+    } = req.query;
 
     const candidateLimit = Math.max(1, Number(req.query.candidateLimit || 15));
     const maxDistanceKm = req.query.maxDistanceKm
@@ -376,14 +492,15 @@ export async function searchNearbyTrains(req, res, next) {
       : null;
 
     if (!fromStationId && (!Number.isFinite(lat) || !Number.isFinite(lng))) {
-      return res
-        .status(400)
-        .json({ message: "lat/lng or fromStationId is required" });
+      return res.status(400).json({ message: "lat/lng or fromStationId is required" });
     }
 
     if (!to && !toStationId) {
       return res.status(400).json({ message: "to or toStationId is required" });
     }
+
+    // travelDate is preferred; day remains fallback for old flows
+    const day = travelDate ? getDayFromTravelDate(travelDate) : rawDay || "";
 
     if (day && !DAYS.includes(day)) {
       return res
@@ -469,8 +586,6 @@ export async function searchNearbyTrains(req, res, next) {
 
         const destinationRow = rows[destinationIndex];
 
-        // Find the nearest station to the user that this train actually serves
-        // before the destination.
         let chosenCandidate = null;
         let chosenBoardingIndex = -1;
 
@@ -489,12 +604,8 @@ export async function searchNearbyTrains(req, res, next) {
         if (!chosenCandidate || chosenBoardingIndex === -1) continue;
 
         const boardingRow = rows[chosenBoardingIndex];
-        const durationMinutes = buildJourneyDuration(
-          boardingRow,
-          destinationRow
-        );
+        const durationMinutes = buildJourneyDuration(boardingRow, destinationRow);
 
-        // Calculate journey fare
         let farePerSeatLkr = 0;
         try {
           const res = calculateJourneyFare(
@@ -508,14 +619,32 @@ export async function searchNearbyTrains(req, res, next) {
           console.error("Fare calculation error:", fareError);
         }
 
+        const totalCapacity = Number(schedule.seatCapacity || 0);
+
+        let bookedSeats = 0;
+        let availableSeats = totalCapacity;
+        let availabilityStatus = "unknown";
+
+        if (travelDate) {
+          const inventory = await ensureTrainInventory(schedule._id, travelDate, schedule);
+          bookedSeats = Number(inventory?.bookedSeats || 0);
+          availableSeats = Math.max(0, Number(inventory?.capacity || totalCapacity) - bookedSeats);
+          availabilityStatus = availableSeats > 0 ? "available" : "full";
+        }
+
         trains.push({
           _id: schedule._id,
           trainNo: schedule.trainNo,
           trainName: schedule.trainName || "",
-          seatCapacity: schedule.seatCapacity,
+          seatCapacity: totalCapacity,
+          bookedSeats,
+          availableSeats,
+          availabilityStatus,
+          isFullyBooked: travelDate ? availableSeats <= 0 : false,
           totalDistanceKm: schedule.totalDistanceKm || 0,
           active: !!schedule.active,
           searchDay: day || null,
+          travelDate: travelDate || null,
           farePerSeatLkr,
           fareBreakdownTotalLkr: farePerSeatLkr,
 
@@ -539,6 +668,13 @@ export async function searchNearbyTrains(req, res, next) {
           durationMinutes,
           durationLabel: formatDuration(durationMinutes),
 
+          railPathPoints: buildJourneyRailPath(
+            schedule,
+            rows,
+            chosenBoardingIndex,
+            destinationIndex
+          ),
+
           stopsBetween: rows
             .slice(chosenBoardingIndex, destinationIndex + 1)
             .map(mapStop),
@@ -548,7 +684,12 @@ export async function searchNearbyTrains(req, res, next) {
       }
     }
 
+    // Better sort: available trains first, full trains last, then nearest/earliest
     trains.sort((a, b) => {
+      if ((a.isFullyBooked ? 1 : 0) !== (b.isFullyBooked ? 1 : 0)) {
+        return (a.isFullyBooked ? 1 : 0) - (b.isFullyBooked ? 1 : 0);
+      }
+
       if (a.boardingStation.distanceKm !== b.boardingStation.distanceKm) {
         return a.boardingStation.distanceKm - b.boardingStation.distanceKm;
       }
@@ -569,13 +710,16 @@ export async function searchNearbyTrains(req, res, next) {
         to: to || null,
         toStationId: toStationId || null,
         day: day || null,
+        travelDate: travelDate || null,
         candidateLimit,
         maxDistanceKm: Number.isFinite(maxDistanceKm) ? maxDistanceKm : null,
       },
-      nearbyStations: fromStationId ? [] : searchBoardingStations.map((s) => ({
-        ...s,
-        distanceKm: Number(s.distanceKm.toFixed(2)),
-      })),
+      nearbyStations: fromStationId
+        ? []
+        : searchBoardingStations.map((s) => ({
+            ...s,
+            distanceKm: Number(s.distanceKm.toFixed(2)),
+          })),
       count: trains.length,
       trains,
     });

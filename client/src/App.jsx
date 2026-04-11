@@ -69,21 +69,13 @@ export default function App() {
     <Routes>
       <Route element={<Shell />}>
         <Route index element={<OnboardingPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
         <Route path="/plan" element={<PlanTrip />} />
 
-        <Route 
-          path="/bus-booking" 
-          element={
-            <BusBookingPage />
-          } 
-        />
-        <Route 
-          path="/bus-booking/details" 
-          element={
-            <BusBookingDetailsPage />
-          } 
-        />
-        
+        <Route path="/bus-booking" element={<BusBookingPage />} />
+        <Route path="/bus-booking/details" element={<BusBookingDetailsPage />} />
 
         <Route
           path="/bus-booking/checkout/success"
@@ -106,6 +98,7 @@ export default function App() {
         <Route path="/trains" element={<Train />} />
         <Route path="/train-service" element={<TrainSearchPage />} />
         <Route path="/train-service/:id" element={<TrainScheduleDetailsPage />} />
+
         <Route
           path="/train-service/:id/book"
           element={
@@ -114,6 +107,7 @@ export default function App() {
             </Protected>
           }
         />
+
         <Route
           path="/train-service/bookings"
           element={
@@ -140,6 +134,7 @@ export default function App() {
             </Protected>
           }
         />
+
         <Route
           path="/checkout/success"
           element={
@@ -148,6 +143,7 @@ export default function App() {
             </Protected>
           }
         />
+
         <Route
           path="/checkout/cancel"
           element={
@@ -165,6 +161,7 @@ export default function App() {
             </Protected>
           }
         />
+
         <Route
           path="/driver/register"
           element={
@@ -173,6 +170,7 @@ export default function App() {
             </Protected>
           }
         />
+
         <Route
           path="/driver/offer"
           element={
@@ -181,6 +179,7 @@ export default function App() {
             </Protected>
           }
         />
+
         <Route
           path="/driver/offers/:id/edit"
           element={
@@ -213,6 +212,7 @@ export default function App() {
             </RequireRole>
           }
         />
+
         <Route
           path="/bus/routes"
           element={
@@ -221,6 +221,7 @@ export default function App() {
             </RequireRole>
           }
         />
+
         <Route
           path="/bus/routes/new"
           element={
@@ -229,6 +230,7 @@ export default function App() {
             </RequireRole>
           }
         />
+
         <Route
           path="/bus/routes/:id"
           element={
@@ -237,6 +239,7 @@ export default function App() {
             </RequireRole>
           }
         />
+
         <Route
           path="/bus/approvals"
           element={
@@ -245,6 +248,7 @@ export default function App() {
             </RequireRole>
           }
         />
+
         <Route
           path="/bus/schedules"
           element={
@@ -262,6 +266,7 @@ export default function App() {
             </RequireRole>
           }
         />
+
         <Route
           path="/private/driver-approvals"
           element={
@@ -281,11 +286,7 @@ export default function App() {
         />
       </Route>
 
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-
       <Route path="*" element={<Navigate to="/" replace />} />
-    
     </Routes>
   );
 }

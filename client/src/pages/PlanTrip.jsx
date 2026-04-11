@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../state/AuthContext";
 import PlaceInput from "../components/PlaceInput";
 import MapPicker from "../components/MapPicker";
-import TransportPlannerNav from "../components/TransportPlannerNav";
 import { getRoute } from "../lib/osrm";
 import { api } from "../lib/api";
 import { startLiveLocation, stopLiveLocation } from "../lib/geolocate";
@@ -291,74 +290,60 @@ export default function PlanTrip() {
   }
 
   return (
-    <div className="min-h-screen bg-[#060812] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0f172a] via-[#060812] to-black text-white font-sans selection:bg-indigo-500/30 pb-12">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8">
-        <TransportPlannerNav />
-
-        <div className="mt-8 grid grid-cols-12 gap-8">
-          {/* LEFT PANEL - Controls */}
-          <div className="col-span-12 lg:col-span-4 space-y-6">
-            <div className="rounded-3xl border border-white/5 bg-white/[0.02] backdrop-blur-xl shadow-2xl p-6 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-
-              <div className="mb-10">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-[2px] w-6 bg-gradient-to-r from-[#1ABCFE] to-transparent rounded-full"></div>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#1ABCFE]/80">
-                    Travel Smart
-                  </span>
+    <div className="min-h-screen bg-[#060812] text-white">
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        <div className="grid grid-cols-12 gap-6">
+          <div className="col-span-12 space-y-4 lg:col-span-4">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-xl font-semibold">Plan your DropMe Journey</h1>
+                  <p className="mt-1 text-sm text-white/60">
+                    Type or click on map to select points + live location.
+                  </p>
                 </div>
-
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h1 className="text-3xl font-extrabold tracking-tight text-white leading-tight">
-                      Plan Your{" "}
-                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#1ABCFE] via-white to-white/70">
-                        Journey
-                      </span>
-                    </h1>
-                    <p className="text-xs text-white/40 mt-2 font-medium max-w-[240px] leading-relaxed">
-                      Set your route parameters to discover available professional rides nearby.
-                    </p>
-                  </div>
-
-                  <div className="flex items-center px-3 py-1.5 rounded-2xl bg-[#1ABCFE]/5 border border-[#1ABCFE]/20 text-[10px] font-bold text-[#1ABCFE] backdrop-blur-md shadow-[0_0_15px_rgba(26,188,254,0.1)]">
-                    {user ? (
-                      <span className="flex items-center gap-2">
-                        <span className="relative flex h-1.5 w-1.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1ABCFE] opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#1ABCFE]"></span>
-                        </span>
-                        {user.role.toUpperCase()}
-                      </span>
-                    ) : (
-                      "GUEST"
-                    )}
-                  </div>
+                <div className="mt-1 text-xs text-white/50">
+                  {user ? `Signed in: ${user.role}` : "Not signed in"}
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <div className="space-y-3 relative z-10">
-                  <PlaceInput
-                    label="Pick-up location"
-                    placeholder="Where from?"
-                    valueLabel={pickupText}
-                    onValueLabelChange={setPickupText}
-                    onSelect={(p) => {
-                      setPickup(p);
-                      setPickupText(p.label);
-                      setActivePin("dropoff");
-                      if (dropoff) buildRoute(p, dropoff);
-                    }}
-                  />
+              <div className="mt-5 space-y-4">
+                <PlaceInput
+                  label="Pick-up"
+                  placeholder="Type pickup location"
+                  valueLabel={pickupText}
+                  onValueLabelChange={setPickupText}
+                  onSelect={(p) => {
+                    setPickup(p);
+                    setPickupText(p.label);
+                    setActivePin("dropoff");
+                    if (dropoff) buildRoute(p, dropoff);
+                  }}
+                />
 
-                  <div className="flex gap-3">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={useMyLocationOnce}
+                    disabled={gpsLoading}
+                    className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm hover:bg-white/10 disabled:opacity-60"
+                  >
+                    {gpsLoading ? "Getting location..." : "Use my location"}
+                  </button>
+
+                  {!tracking ? (
                     <button
                       type="button"
-                      onClick={useMyLocationOnce}
-                      disabled={gpsLoading}
-                      className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-white/80 transition-all duration-200 hover:bg-white/[0.08] hover:text-white active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                      onClick={startTracking}
+                      className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black hover:opacity-90"
+                    >
+                      Start live
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={stopTracking}
+                      className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 hover:bg-red-500/15"
                     >
                       {gpsLoading ? <span className="animate-pulse">Locating...</span> : "My Location"}
                     </button>

@@ -59,6 +59,10 @@ export default function Shell() {
               <TrainFront className="h-4 w-4" /> Train
             </Link>
 
+            <Link to="/buses" className="pill">
+              <Bus className="h-4 w-4" /> Bus
+            </Link>
+
             {user ? (
               <>
                 {showAdmin ? (

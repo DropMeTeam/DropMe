@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import Landing from "./pages/Landing";
+// Added the import for the new LandingPage
+import LandingPage from "./pages/LandingPage"; 
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import PlanTrip from "./pages/PlanTrip";
@@ -59,6 +61,9 @@ export default function App() {
       <Route element={<Shell />}>
         <Route index element={<Landing />} />
         <Route path="/plan" element={<PlanTrip />} />
+        
+        {/* Added route for the Carpooling Landing Page */}
+        <Route path="/carpooling" element={<LandingPage />} />
 
         {/* bus passenger */}
         <Route path="/bus-booking" element={<BusBookingPage />} />

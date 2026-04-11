@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, Search, ArrowRightLeft } from "lucide-react";
 import PlaceInput from "../PlaceInput";
 
@@ -21,6 +21,15 @@ function addDays(date, days) {
   return copy;
 }
 
+function formatDisplayDate(dateString) {
+  if (!dateString) return "Select travel date";
+
+  const parsed = new Date(`${dateString}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return "Select travel date";
+
+  return parsed.toLocaleDateString();
+}
+
 export default function BusPassengerSearch({
   onSearch,
   loading = false,
@@ -33,6 +42,7 @@ export default function BusPassengerSearch({
 
   const [fromText, setFromText] = useState(initialValues?.from?.label || "");
   const [toText, setToText] = useState(initialValues?.to?.label || "");
+  const dateInputRef = useRef(null);
 
   const minDate = useMemo(() => {
     const today = new Date();
@@ -130,6 +140,17 @@ export default function BusPassengerSearch({
     event.preventDefault();
   }
 
+  function openDatePicker() {
+    if (!dateInputRef.current) return;
+
+    if (typeof dateInputRef.current.showPicker === "function") {
+      dateInputRef.current.showPicker();
+    } else {
+      dateInputRef.current.focus();
+      dateInputRef.current.click();
+    }
+  }
+
   return (
     <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-sm">
       <div className="mb-6">
@@ -185,15 +206,35 @@ export default function BusPassengerSearch({
           </div>
         </div>
 
-        <div>
+        <div className="mx-auto max-w-[500px]">
           <label className="mb-2 block text-sm font-medium text-white/70">
             Travel date
           </label>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 transition focus-within:border-white/30">
-            <CalendarDays className="h-5 w-5 text-white/50" />
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={openDatePicker}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openDatePicker();
+              }
+            }}
+            className="relative flex h-14 w-full cursor-pointer items-center justify-center rounded-[22px] border border-sky-400/20 bg-black/20 px-5 text-white shadow-[0_0_0_1px_rgba(56,189,248,0.08),0_0_20px_rgba(56,189,248,0.08)] transition-all duration-300 hover:border-sky-300/35 hover:bg-white/[0.05] hover:shadow-[0_0_0_1px_rgba(125,211,252,0.16),0_0_24px_rgba(56,189,248,0.18)]"
+          >
+            <div className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-white/50">
+              <CalendarDays className="h-5 w-5" />
+            </div>
+
+            <div className="pointer-events-none text-center">
+              <div className="text-base font-semibold text-white">
+                {formatDisplayDate(form.date)}
+              </div>
+            </div>
 
             <input
+              ref={dateInputRef}
               type="date"
               min={minDate}
               max={maxDate}
@@ -201,23 +242,25 @@ export default function BusPassengerSearch({
               onChange={handleDateChange}
               onKeyDown={blockManualDateTyping}
               onPaste={(e) => e.preventDefault()}
-              className="w-full bg-transparent text-white outline-none"
+              className="absolute inset-0 cursor-pointer opacity-0"
             />
           </div>
 
-          <p className="mt-2 text-xs text-white/45">
+          <p className="mt-2 text-center text-xs text-white/45">
             You can choose from {minDate} to {maxDate}.
           </p>
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3.5 font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Search className="h-4 w-4" />
-          {loading ? "Searching..." : "Search buses"}
-        </button>
+        <div className="mx-auto max-w-[500px]">
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-sky-300/35 bg-[#dff3ff] px-6 py-3.5 font-semibold text-[#08111f] shadow-[0_0_0_1px_rgba(125,211,252,0.18),0_0_22px_rgba(56,189,248,0.18)] transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-200/60 hover:shadow-[0_0_0_1px_rgba(125,211,252,0.24),0_0_30px_rgba(56,189,248,0.35)] hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Search className="h-4 w-4" />
+            {loading ? "Searching..." : "Search buses"}
+          </button>
+        </div>
       </form>
     </section>
   );

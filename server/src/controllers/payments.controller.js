@@ -17,6 +17,13 @@ import {
 import { BusBooking } from "../modules/bus/models/BusBooking.js";
 import { TrainInventory } from "../modules/train/models/TrainInventory.js";
 
+//for carbon
+import { TrainSchedule } from "../modules/train/models/TrainSchedule.js";
+import {
+  createCarbonImpactForBusBooking,
+  createCarbonImpactForTrainBooking,
+} from "../services/carbonImpact.service.js";
+//-----carbon
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const MIN_TRAIN_PAYMENT_LKR = Number(process.env.MIN_TRAIN_PAYMENT_LKR || 200);
@@ -539,6 +546,13 @@ export async function verifyTrainStripePayment(req, res, next) {
 
     await booking.save();
 
+//    add carbon
+    try {
+      await createCarbonImpactForTrainBooking(booking);
+    } catch (ecoErr) {
+      console.error("Train carbon impact creation failed:", ecoErr);
+    }
+
     try {
       const pdfBuffer = await generateTrainTicketPdfBuffer(
         booking.toObject ? booking.toObject() : booking
@@ -754,6 +768,13 @@ export async function verifyBusStripePayment(req, res, next) {
     booking.paidAt = booking.paidAt || new Date();
 
     await booking.save();
+
+//    add carbon
+    try {
+      await createCarbonImpactForBusBooking(booking);
+    } catch (ecoErr) {
+      console.error("Bus carbon impact creation failed:", ecoErr);
+    }
 
     try {
       const pdfBuffer = await generateBusTicketPdfBuffer(

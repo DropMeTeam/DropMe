@@ -1,7 +1,7 @@
 .bus-hero {
   position: relative;
   width: 100%;
-  min-height: 620px;
+  min-height: 100vh;
   overflow: hidden;
   isolation: isolate;
   background: #02060a;
@@ -17,6 +17,7 @@
   background-size: cover;
   z-index: 0;
 }
+
 
 .bus-hero__overlay {
   position: absolute;
@@ -54,8 +55,8 @@
   position: relative;
   z-index: 3;
   width: 100%;
-  max-width: 640px;
-  padding: 64px 0 64px 42px;
+  max-width: 720px;
+  padding: 64px 0 64px 60px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;

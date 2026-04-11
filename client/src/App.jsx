@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import Landing from "./pages/Landing";
+// Added the import for the new LandingPage
+import LandingPage from "./pages/LandingPage"; 
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import PlanTrip from "./pages/PlanTrip";
@@ -72,8 +74,9 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Shell />}>
-        <Route index element={<Landing />} />
-        <Route path="/plan" element={<PlanTrip />} />
+        <Route index element={<OnboardingPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
         {/* Bus passenger flow */}
         <Route path="/buses" element={<Bus />} />
@@ -127,6 +130,14 @@ export default function App() {
             </RequireRole>
           }
         />
+        <Route path="/plan" element={<PlanTrip />} />
+        
+        {/* Added route for the Carpooling Landing Page */}
+        <Route path="/carpooling" element={<LandingPage />} />
+
+        <Route path="/bus-booking" element={<BusBookingPage />} />
+        <Route path="/bus-booking/details" element={<BusBookingDetailsPage />} />
+
         <Route
           path="/buses/checkout/success"
           element={
@@ -164,6 +175,7 @@ export default function App() {
         <Route path="/trains" element={<Train />} />
         <Route path="/train-service" element={<TrainSearchPage />} />
         <Route path="/train-service/:id" element={<TrainScheduleDetailsPage />} />
+
         <Route
           path="/train-service/:id/book"
           element={
@@ -172,6 +184,7 @@ export default function App() {
             </Protected>
           }
         />
+
         <Route
           path="/train-service/bookings"
           element={
@@ -198,6 +211,7 @@ export default function App() {
             </Protected>
           }
         />
+
         <Route
           path="/checkout/success"
           element={
@@ -206,6 +220,7 @@ export default function App() {
             </Protected>
           }
         />
+
         <Route
           path="/checkout/cancel"
           element={
@@ -223,6 +238,7 @@ export default function App() {
             </Protected>
           }
         />
+
         <Route
           path="/driver/register"
           element={
@@ -231,6 +247,7 @@ export default function App() {
             </Protected>
           }
         />
+
         <Route
           path="/driver/offer"
           element={
@@ -239,6 +256,7 @@ export default function App() {
             </Protected>
           }
         />
+
         <Route
           path="/driver/offers/:id/edit"
           element={
@@ -271,6 +289,7 @@ export default function App() {
             </RequireRole>
           }
         />
+
         <Route
           path="/bus/routes"
           element={
@@ -279,6 +298,7 @@ export default function App() {
             </RequireRole>
           }
         />
+
         <Route
           path="/bus/routes/new"
           element={
@@ -287,6 +307,7 @@ export default function App() {
             </RequireRole>
           }
         />
+
         <Route
           path="/bus/routes/:id"
           element={
@@ -295,6 +316,7 @@ export default function App() {
             </RequireRole>
           }
         />
+
         <Route
           path="/bus/approvals"
           element={
@@ -303,6 +325,7 @@ export default function App() {
             </RequireRole>
           }
         />
+
         <Route
           path="/bus/schedules"
           element={
@@ -320,6 +343,7 @@ export default function App() {
             </RequireRole>
           }
         />
+
         <Route
           path="/private/driver-approvals"
           element={
@@ -339,9 +363,6 @@ export default function App() {
         />
       </Route>
 
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/onboarding" element={<OnboardingPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

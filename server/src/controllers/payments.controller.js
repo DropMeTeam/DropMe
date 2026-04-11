@@ -15,6 +15,8 @@ import {
   sendBusTicketEmail,
 } from "../utils/mailer.js";
 import { BusBooking } from "../modules/bus/models/BusBooking.js";
+import { TrainInventory } from "../modules/train/models/TrainInventory.js";
+
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const MIN_TRAIN_PAYMENT_LKR = Number(process.env.MIN_TRAIN_PAYMENT_LKR || 200);
@@ -447,6 +449,8 @@ export async function verifyTrainStripePayment(req, res, next) {
       throw new HttpError(400, "Session mismatch");
     }
 
+    // Idempotent safety:
+    // if already confirmed earlier, do not reserve seats again.
     if (booking.paymentStatus === "paid" && booking.bookingStatus === "booked") {
       return res.json({ ok: true, booking });
     }
@@ -456,6 +460,72 @@ export async function verifyTrainStripePayment(req, res, next) {
 
     if (session.payment_status !== "paid") {
       throw new HttpError(402, "Payment not completed");
+    }
+
+    // Ensure train inventory row exists for this schedule + date.
+    let inventory = await TrainInventory.findOne({
+      scheduleId: booking.scheduleId,
+      travelDate: booking.travelDate,
+    });
+
+    if (!inventory) {
+      const schedule = await TrainSchedule.findById(booking.scheduleId).lean();
+
+      if (!schedule) {
+        booking.bookingStatus = "failed";
+        booking.paymentStatus = "failed";
+        await booking.save();
+
+        throw new HttpError(404, "Train schedule not found while verifying payment");
+      }
+
+      try {
+        inventory = await TrainInventory.create({
+          scheduleId: booking.scheduleId,
+          travelDate: booking.travelDate,
+          capacity: Number(schedule.seatCapacity || 0),
+          bookedSeats: 0,
+        });
+      } catch (err) {
+        if (err?.code === 11000) {
+          inventory = await TrainInventory.findOne({
+            scheduleId: booking.scheduleId,
+            travelDate: booking.travelDate,
+          });
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    // Final atomic reservation.
+    // This is the real overbooking protection point.
+    const reservedInventory = await TrainInventory.findOneAndUpdate(
+      {
+        scheduleId: booking.scheduleId,
+        travelDate: booking.travelDate,
+        $expr: {
+          $gte: [
+            { $subtract: ["$capacity", "$bookedSeats"] },
+            Number(booking.seats || 0),
+          ],
+        },
+      },
+      {
+        $inc: { bookedSeats: Number(booking.seats || 0) },
+      },
+      { new: true }
+    );
+
+    if (!reservedInventory) {
+      booking.bookingStatus = "failed";
+      booking.paymentStatus = "failed";
+      await booking.save();
+
+      throw new HttpError(
+        409,
+        "Train seats sold out while payment was processing"
+      );
     }
 
     booking.bookingStatus = "booked";
@@ -489,12 +559,21 @@ export async function verifyTrainStripePayment(req, res, next) {
       console.error("Train ticket email send failed:", mailErr);
     }
 
-    return res.json({ ok: true, booking });
+    return res.json({
+      ok: true,
+      booking,
+      inventory: {
+        capacity: reservedInventory.capacity,
+        bookedSeats: reservedInventory.bookedSeats,
+        remainingSeats:
+          Number(reservedInventory.capacity || 0) -
+          Number(reservedInventory.bookedSeats || 0),
+      },
+    });
   } catch (err) {
     next(err);
   }
 }
-
 
 export async function createBusStripeSession(req, res, next) {
   try {

@@ -50,6 +50,7 @@ import OnboardingPage from "./pages/OnboardingPage";
 
 import RiderReviewsPage from "./pages/rider/RiderReviewsPage";
 import RiderLeaderboardPage from "./pages/rider/RiderLeaderboardPage";
+import EcoLeaderboardPage from "./pages/eco/EcoLeaderboardPage";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -135,8 +136,20 @@ export default function App() {
           }
         >
             <Route path="reviews" element={<RiderReviewsPage />} />
-            <Route path="leaderboard" element={<RiderLeaderboardPage />} />
+{/*             <Route path="leaderboard" element={<RiderLeaderboardPage />} /> */}
+
         </Route>
+
+        <Route
+          path="/eco"
+          element={
+            <Protected>
+              <EcoLeaderboardPage />
+            </Protected>
+          }
+        />
+
+        <Route path="/rider/leaderboard" element={<Navigate to="/eco" replace />} />
 
         <Route
           path="/checkout/:offerId"

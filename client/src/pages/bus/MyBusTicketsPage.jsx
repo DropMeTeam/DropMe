@@ -8,9 +8,9 @@ import {
   Search,
   Ticket,
   CreditCard,
-  Clock3,
 } from "lucide-react";
 import { api } from "../../lib/api";
+import ticketHeroImage from "../../assets/bus-MyBusTickets/Ticket.png";
 
 function formatDateTime(value) {
   if (!value) return "—";
@@ -320,38 +320,53 @@ export default function MyBusTicketsPage() {
   return (
     <div className="min-h-screen bg-[#060812] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 md:p-7">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-fuchsia-400/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-medium text-fuchsia-200">
+        <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-white/5">
+          <img
+            src={ticketHeroImage}
+            alt="Bus ticket hero"
+            className="absolute inset-0 h-full w-full object-cover opacity-30"
+          />
+
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(6,8,18,0.96)_0%,rgba(6,8,18,0.88)_35%,rgba(6,8,18,0.62)_65%,rgba(6,8,18,0.35)_100%)]" />
+
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.14),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_28%)]" />
+
+          <div className="relative z-10 p-6 md:p-7 lg:p-8">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-fuchsia-400/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-medium text-fuchsia-200 backdrop-blur-sm">
                 <Ticket className="h-4 w-4" />
                 Passenger Bus Tickets
               </div>
 
-              <h1 className="mt-4 text-3xl font-bold md:text-4xl">My Bus Tickets</h1>
-              <p className="mt-2 text-sm leading-7 text-white/60">
+              <h1 className="mt-4 text-3xl font-bold md:text-4xl lg:text-5xl">
+                My Bus Tickets
+              </h1>
+
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-white/70 md:text-base">
                 Your successful tickets are separated into upcoming travel days and past travel days.
               </p>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => loadTickets(true)}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium backdrop-blur-sm transition hover:bg-white/10"
+                >
+                  <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                  Refresh
+                </button>
+
+                <Link
+                  to="/buses/search"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black transition hover:opacity-90"
+                >
+                  <Search className="h-4 w-4" />
+                  Search Buses
+                </Link>
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => loadTickets(true)}
-                className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium hover:bg-white/10"
-              >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-                Refresh
-              </button>
-
-              <Link
-                to="/buses/search"
-                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black hover:opacity-90"
-              >
-                <Search className="h-4 w-4" />
-                Search Buses
-              </Link>
-            </div>
+            <div className="h-10 md:h-14 lg:h-16" />
           </div>
         </div>
 
@@ -413,25 +428,25 @@ export default function MyBusTicketsPage() {
 }
 
 function JourneyRow({ icon, label, place, time }) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-white/45">
-          {icon}
-          {label}
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-white/45">
+        {icon}
+        {label}
+      </div>
+
+      <div className="mt-2 flex items-center justify-between gap-4">
+        <div className="min-w-0 text-sm font-medium text-white">
+          {place || "—"}
         </div>
-  
-        <div className="mt-2 flex items-center justify-between gap-4">
-          <div className="min-w-0 text-sm font-medium text-white">
-            {place || "—"}
-          </div>
-  
-          <div className="shrink-0 text-sm font-medium text-cyan-200">
-            {time || "—"}
-          </div>
+
+        <div className="shrink-0 text-sm font-medium text-cyan-200">
+          {time || "—"}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
 function TicketSection({
   title,

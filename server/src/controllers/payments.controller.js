@@ -543,49 +543,49 @@ export async function createBusStripeSession(req, res, next) {
     const base = getClientBaseUrl();
 
     let session;
-    try {
-      session = await stripeClient.checkout.sessions.create({
-        mode: "payment",
-        payment_method_types: ["card"],
-        client_reference_id: String(booking._id),
-        customer_email: booking.passengerSnapshot?.email || undefined,
-        line_items: [
-          {
-            price_data: {
-              currency: "lkr",
-              product_data: {
-                name: "DropMe Bus Ticket",
-                description:
-                  `${booking.pickupStop?.label || ""} → ${booking.dropoffStop?.label || ""}` +
-                  `${booking.journeySnapshot?.busNumber ? ` | Bus ${booking.journeySnapshot.busNumber}` : ""}` +
-                  `${booking.travelDate ? ` | ${booking.travelDate}` : ""}`,
+      try {
+        session = await stripeClient.checkout.sessions.create({
+          mode: "payment",
+          payment_method_types: ["card"],
+          client_reference_id: String(booking._id),
+          customer_email: booking.passengerSnapshot?.email || undefined,
+          line_items: [
+            {
+              price_data: {
+                currency: "lkr",
+                product_data: {
+                  name: "DropMe Bus Ticket",
+                  description:
+                    `${booking.pickupStop?.label || ""} → ${booking.dropoffStop?.label || ""}` +
+                    `${booking.journeySnapshot?.busNumber ? ` | Bus ${booking.journeySnapshot.busNumber}` : ""}` +
+                    `${booking.travelDate ? ` | ${booking.travelDate}` : ""}`,
+                },
+                unit_amount: unitAmount,
               },
-              unit_amount: unitAmount,
+              quantity: 1,
             },
-            quantity: 1,
+          ],
+          success_url:
+            `${base}/buses/checkout/success` +
+            `?bookingId=${booking._id}` +
+            `&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url:
+            `${base}/buses/checkout/cancel` +
+            `?bookingId=${booking._id}`,
+          metadata: {
+            bookingId: String(booking._id),
+            module: "bus",
+            passengerId: String(booking.passengerId),
+            scheduleId: String(booking.scheduleId || ""),
+            travelDate: String(booking.travelDate || ""),
           },
-        ],
-        success_url:
-          `${base}/bus-booking/checkout/success` +
-          `?bookingId=${booking._id}` +
-          `&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url:
-          `${base}/bus-booking/checkout/cancel` +
-          `?bookingId=${booking._id}`,
-        metadata: {
-          bookingId: String(booking._id),
-          module: "bus",
-          passengerId: String(booking.passengerId),
-          scheduleId: String(booking.scheduleId || ""),
-          travelDate: String(booking.travelDate || ""),
-        },
-      });
-    } catch (err) {
-      booking.bookingStatus = "failed";
-      booking.paymentStatus = "failed";
-      await booking.save();
-      throw new HttpError(err?.statusCode || 500, getSafeStripeMessage(err));
-    }
+        });
+      } catch (err) {
+        booking.bookingStatus = "failed";
+        booking.paymentStatus = "failed";
+        await booking.save();
+        throw new HttpError(err?.statusCode || 500, getSafeStripeMessage(err));
+      }
 
     booking.stripeSessionId = session.id;
     booking.bookingStatus = "pending_payment";

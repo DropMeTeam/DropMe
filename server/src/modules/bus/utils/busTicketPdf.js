@@ -7,6 +7,22 @@ function shortLabel(label = "") {
   return String(label).split(",")[0].trim();
 }
 
+function shortRouteLabel(routeLabel = "") {
+  const value = String(routeLabel || "").trim();
+  if (!value) return "-";
+
+  const parts = value
+    .split(/\s*(?:→|->)\s*/g)
+    .map((part) => shortLabel(part))
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0]} -> ${parts[1]}`;
+  }
+
+  return shortLabel(value);
+}
+
 function formatLkr(value) {
   return `LKR ${Number(value || 0).toLocaleString()}`;
 }
@@ -181,7 +197,7 @@ export async function generateBusTicketPdfBuffer(booking) {
   const travelDate = booking?.travelDate || "-";
   const busNo = booking?.journeySnapshot?.busNumber || "-";
   const routeNo = booking?.journeySnapshot?.routeNumber || "-";
-  const busRoute = booking?.journeySnapshot?.routeLabel || "-";
+  const busRoute = shortRouteLabel(booking?.journeySnapshot?.routeLabel);
   const pickupName = shortLabel(booking?.pickupStop?.label);
   const dropoffName = shortLabel(booking?.dropoffStop?.label);
   const pickupTime = booking?.pickupStop?.time || "Time not available";

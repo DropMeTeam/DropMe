@@ -128,7 +128,7 @@ export default function RiderDashboard() {
     <div className="flex min-h-screen bg-[#050506] text-zinc-100 font-sans selection:bg-[#B8860B]/30">
       
       {/* --- SIDEBAR --- */}
-      <aside className="fixed top-12 left-0 h-full w-64 border-r border-zinc-800/50 bg-[#09090b]/80 backdrop-blur-xl hidden md:flex flex-col z-30">
+      <aside className="fixed top-13 left-0 h-full w-64 border-r border-zinc-800/50 bg-[#09090b]/80 backdrop-blur-xl hidden md:flex flex-col z-30">
         <div className="p-8" />
         <nav className="flex-1 px-3 space-y-1">
           <NavItem id="profile" icon={User} label="Overview" />

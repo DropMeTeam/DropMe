@@ -35,7 +35,7 @@ const LandingPage = () => {
         
         {/* 1. DISCOVER CARPOOLS SECTION */}
         <section 
-          className="relative overflow-hidden rounded-[2.5rem] min-h-[550px] bg-cover bg-center border border-white/5" 
+          className="relative overflow-hidden rounded-[2.5rem] min-h-[600px] bg-cover bg-center border border-white/5" 
           style={{ backgroundImage: `url(${HeroBg})` }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-transparent p-8 md:p-12 flex flex-col md:flex-row justify-between items-center gap-10">
@@ -197,7 +197,7 @@ const LandingPage = () => {
 
         {/* 3. DRIVER REGISTRATION SECTION */}
         <section 
-          className="rounded-[2.5rem] border border-white/5 overflow-hidden relative group shadow-2xl min-h-[400px] bg-cover bg-right"
+          className="rounded-[2.5rem] border border-white/5 overflow-hidden relative group shadow-2xl min-h-[550px] bg-cover bg-right"
           style={{ backgroundImage: `linear-gradient(to right, black, transparent), url(${driver})` }}
         >
           <div className="p-8 md:p-16 z-10 flex flex-col justify-center h-full max-w-[650px] relative">
@@ -214,7 +214,7 @@ const LandingPage = () => {
 
         {/* 4. DASHBOARD & COMMUNITY SECTION */}
 <section 
-  className="relative rounded-[2.5rem] border border-white/5 overflow-hidden min-h-[500px] bg-cover bg-center shadow-2xl"
+  className="relative rounded-[2.5rem] border border-white/5 overflow-hidden min-h-[600px] bg-cover bg-center shadow-2xl"
   style={{ backgroundImage: `url(${DashPreview})` }} // DashPreview refers to your 'd.png' asset
 >
   {/* Dark gradient overlay to ensure text readability */}
@@ -243,7 +243,7 @@ const LandingPage = () => {
 
         {/* 5. TRUST & RATINGS SECTION */}
         <section 
-  className="relative rounded-[2.5rem] border border-white/5 overflow-hidden min-h-[500px] bg-cover bg-center shadow-2xl"
+  className="relative rounded-[2.5rem] border border-white/5 overflow-hidden min-h-[705px] bg-cover bg-center shadow-2xl"
   style={{ backgroundImage: `url(${DashPreview2})` }} // DashPreview refers to your 'd.png' asset
 >
   {/* Dark gradient overlay to ensure text readability */}

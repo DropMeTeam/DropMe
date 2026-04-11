@@ -249,7 +249,7 @@ export default function DriverDashboard() {
         className="relative overflow-hidden rounded-[2.5rem] py-28 px-8 border border-white/5 bg-cover bg-center shadow-2xl transition-transform duration-1000 hover:scale-105 opacity-85"
         style={{ backgroundImage: `url(${planRideBg})` }} 
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent" />
+        <div className="" />
         
         <div className="relative z-10 flex flex-wrap items-center justify-between gap-6">
           <div>

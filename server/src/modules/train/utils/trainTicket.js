@@ -88,40 +88,51 @@ export async function generateTrainTicketPdfBuffer(booking) {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    const pageWidth = doc.page.width;   // 595
-    const pageHeight = doc.page.height; // 842
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
+
+    // Theme colors
+    const PAGE_BG = "#0A0A0A";
+    const FRAME_BORDER = "#FFFFFF";
+    const PRIMARY_TEXT = "#FFFFFF";
+    const SECONDARY_TEXT = "#D1D5DB";
+    const MUTED_LINE = "#F3F4F6";
+    const ACCENT_BOX = "#FFFFFF";
+    const LOGO_FALLBACK_PRIMARY = "#FFFFFF";
+    const LOGO_FALLBACK_SECONDARY = "#D1D5DB";
 
     // ── Frame ──────────────────────────────────────────────────────────────
     const frameX = 55;
     const frameY = 45;
-    const frameW = pageWidth - 110;   // 485
-    const frameH = pageHeight - 90;   // 752
+    const frameW = pageWidth - 110;
+    const frameH = pageHeight - 90;
 
-    doc.rect(0, 0, pageWidth, pageHeight).fill("#FFFFFF");
+    doc.rect(0, 0, pageWidth, pageHeight).fill(PAGE_BG);
+
     doc
       .save()
       .lineWidth(1)
-      .strokeColor("#2F2F2F")
+      .strokeColor(FRAME_BORDER)
       .rect(frameX, frameY, frameW, frameH)
       .stroke()
       .restore();
 
     // ── Data ───────────────────────────────────────────────────────────────
-    const ticketNumber        = getTrainTicketNumber(booking);
-    const passengerName       = safeText(booking?.passengerSnapshot?.name, "Passenger");
-    const passengerEmail      = safeText(booking?.passengerSnapshot?.email);
-    const boardingStation     = safeText(booking?.boardingStationName, "Boarding");
-    const destinationStation  = safeText(booking?.destinationStationName, "Destination");
-    const trainName           = safeText(booking?.journeySnapshot?.trainName, "Train Service");
-    const trainNo             = safeText(booking?.journeySnapshot?.trainNo);
-    const departureTime       = formatTime(booking?.journeySnapshot?.departureTime || "");
-    const arrivalTime         = formatTime(booking?.journeySnapshot?.arrivalTime || "");
-    const durationLabel       = safeText(booking?.journeySnapshot?.durationLabel);
-    const travelDate          = formatTravelDate(booking?.travelDate || "");
-    const paidAt              = formatDate(booking?.paidAt || booking?.updatedAt);
-    const seats               = Number(booking?.seats || 1);
-    const farePerSeat         = formatMoney(booking?.journeySnapshot?.farePerSeatLkr || 0);
-    const totalFare           = formatMoney(booking?.totalFareLkr || 0);
+    const ticketNumber = getTrainTicketNumber(booking);
+    const passengerName = safeText(booking?.passengerSnapshot?.name, "Passenger");
+    const passengerEmail = safeText(booking?.passengerSnapshot?.email);
+    const boardingStation = safeText(booking?.boardingStationName, "Boarding");
+    const destinationStation = safeText(booking?.destinationStationName, "Destination");
+    const trainName = safeText(booking?.journeySnapshot?.trainName, "Train Service");
+    const trainNo = safeText(booking?.journeySnapshot?.trainNo);
+    const departureTime = formatTime(booking?.journeySnapshot?.departureTime || "");
+    const arrivalTime = formatTime(booking?.journeySnapshot?.arrivalTime || "");
+    const durationLabel = safeText(booking?.journeySnapshot?.durationLabel);
+    const travelDate = formatTravelDate(booking?.travelDate || "");
+    const paidAt = formatDate(booking?.paidAt || booking?.updatedAt);
+    const seats = Number(booking?.seats || 1);
+    const farePerSeat = formatMoney(booking?.journeySnapshot?.farePerSeatLkr || 0);
+    const totalFare = formatMoney(booking?.totalFareLkr || 0);
 
     // ── Logo + Title header ────────────────────────────────────────────────
     const logoX = frameX + 28;
@@ -131,18 +142,26 @@ export async function generateTrainTicketPdfBuffer(booking) {
     if (logoPath) {
       doc.image(logoPath, logoX, logoY, { fit: [90, 90], align: "left", valign: "top" });
     } else {
-      // Simple text fallback if JPEG not found
-      doc.font("Helvetica-Bold").fontSize(20).fillColor("#1D4ED8").text("DropMe", logoX, logoY + 20);
-      doc.font("Helvetica").fontSize(10).fillColor("#6B7280").text("Rail", logoX + 4, logoY + 46);
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(20)
+        .fillColor(LOGO_FALLBACK_PRIMARY)
+        .text("DropMe", logoX, logoY + 20);
+
+      doc
+        .font("Helvetica")
+        .fontSize(10)
+        .fillColor(LOGO_FALLBACK_SECONDARY)
+        .text("Rail", logoX + 4, logoY + 46);
     }
 
-    // "DropMe Train Ticket" title — centred in the remaining width
     const titleX = logoX + 45;
     const titleY = frameY + 58;
+
     doc
       .font("Helvetica")
       .fontSize(28)
-      .fillColor("#000000")
+      .fillColor(PRIMARY_TEXT)
       .text("DropMe Train Ticket", titleX, titleY, {
         width: frameW - 90 - 28,
         align: "center",
@@ -156,70 +175,71 @@ export async function generateTrainTicketPdfBuffer(booking) {
       doc
         .save()
         .lineWidth(0.8)
-        .strokeColor("#AAAAAA")
+        .strokeColor(MUTED_LINE)
         .moveTo(dividerL, y)
         .lineTo(dividerR, y)
         .stroke()
         .restore();
     }
 
-  // ── Route section ──────────────────────────────────────────────────────
-// Change from 3 columns to 2 columns
-const routeY   = frameY + 150;
-const colW     = frameW / 2;
-const colLeft  = frameX;
-const colRight = frameX + colW;
+    // ── Route section ──────────────────────────────────────────────────────
+    const routeY = frameY + 150;
+    const colW = frameW / 2;
+    const colLeft = frameX;
+    const colRight = frameX + colW;
 
-// "Booked from" label
-doc
-  .font("Helvetica-Bold")
-  .fontSize(11)
-  .fillColor("#333333")
-  .text("Booked from", colLeft, routeY, { width: colW, align: "center" });
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .fillColor(SECONDARY_TEXT)
+      .text("Booked from", colLeft, routeY, { width: colW, align: "center" });
 
-// "To" label
-doc
-  .font("Helvetica-Bold")
-  .fontSize(11)
-  .fillColor("#333333")
-  .text("To", colRight, routeY, { width: colW, align: "center" });
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .fillColor(SECONDARY_TEXT)
+      .text("To", colRight, routeY, { width: colW, align: "center" });
 
-// Station names
-const stationY = routeY + 22;
+    const stationY = routeY + 22;
 
-doc
-  .font("Helvetica")
-  .fontSize(26)
-  .fillColor("#000000")
-  .text(boardingStation, colLeft, stationY, { width: colW, align: "center" });
+    doc
+      .font("Helvetica")
+      .fontSize(26)
+      .fillColor(PRIMARY_TEXT)
+      .text(boardingStation, colLeft, stationY, { width: colW, align: "center" });
 
-doc
-  .font("Helvetica")
-  .fontSize(26)
-  .fillColor("#000000")
-  .text(destinationStation, colRight, stationY, { width: colW, align: "center" });
+    doc
+      .font("Helvetica")
+      .fontSize(26)
+      .fillColor(PRIMARY_TEXT)
+      .text(destinationStation, colRight, stationY, { width: colW, align: "center" });
 
-// Divider below route
-hLine(routeY + 74);
+    hLine(routeY + 74);
 
     // ── Passenger + Train ──────────────────────────────────────────────────
-    const sec1Y   = routeY + 94;       // section title Y
-    const sec1ValY = sec1Y + 28;       // values start Y
-    const leftCol  = frameX + 28;
-const rightCol = frameX + frameW / 2 + 38; // move right sections more to the right
-const colValW  = frameW / 2 - 78;          // slightly reduce right/left block width
+    const sec1Y = routeY + 94;
+    const sec1ValY = sec1Y + 28;
+    const leftCol = frameX + 28;
+    const rightCol = frameX + frameW / 2 + 38;
+    const colValW = frameW / 2 - 78;
 
-    // Section titles
-    doc.font("Helvetica").fontSize(16).fillColor("#111111")
-       .text("Passenger Details", leftCol, sec1Y);
-    doc.font("Helvetica").fontSize(16).fillColor("#111111")
-       .text("Train Details", rightCol, sec1Y);
+    doc
+      .font("Helvetica")
+      .fontSize(16)
+      .fillColor(PRIMARY_TEXT)
+      .text("Passenger Details", leftCol, sec1Y);
 
-    // Values
+    doc
+      .font("Helvetica")
+      .fontSize(16)
+      .fillColor(PRIMARY_TEXT)
+      .text("Train Details", rightCol, sec1Y);
+
     const passengerLines = [
       `Name : ${passengerName}`,
       `Email : ${passengerEmail}`,
     ];
+
     const trainLines = [
       `Name : ${trainName}`,
       `ID : ${trainNo}`,
@@ -228,8 +248,11 @@ const colValW  = frameW / 2 - 78;          // slightly reduce right/left block w
     function drawLines(lines, x, startY, width) {
       let y = startY;
       for (const line of lines) {
-        doc.font("Helvetica").fontSize(11.5).fillColor("#333333")
-           .text(line, x, y, { width, align: "left", lineBreak: false });
+        doc
+          .font("Helvetica")
+          .fontSize(11.5)
+          .fillColor(SECONDARY_TEXT)
+          .text(line, x, y, { width, align: "left", lineBreak: false });
         y += 18;
       }
       return y;
@@ -238,17 +261,23 @@ const colValW  = frameW / 2 - 78;          // slightly reduce right/left block w
     drawLines(passengerLines, leftCol, sec1ValY, colValW);
     drawLines(trainLines, rightCol, sec1ValY, colValW);
 
-    // Divider below passenger/train section
     hLine(sec1ValY + 56);
 
     // ── Journey + Fare ─────────────────────────────────────────────────────
-    const sec2Y    = sec1ValY + 74;
+    const sec2Y = sec1ValY + 74;
     const sec2ValY = sec2Y + 28;
 
-    doc.font("Helvetica").fontSize(16).fillColor("#111111")
-       .text("Journey Details", leftCol, sec2Y);
-    doc.font("Helvetica").fontSize(16).fillColor("#111111")
-       .text("Fare Details", rightCol, sec2Y);
+    doc
+      .font("Helvetica")
+      .fontSize(16)
+      .fillColor(PRIMARY_TEXT)
+      .text("Journey Details", leftCol, sec2Y);
+
+    doc
+      .font("Helvetica")
+      .fontSize(16)
+      .fillColor(PRIMARY_TEXT)
+      .text("Fare Details", rightCol, sec2Y);
 
     const journeyLines = [
       `Travel Date : ${travelDate}`,
@@ -256,6 +285,7 @@ const colValW  = frameW / 2 - 78;          // slightly reduce right/left block w
       `Arrival Time : ${arrivalTime}`,
       `Duration : ${durationLabel}`,
     ];
+
     const fareLines = [
       `Seats : ${seats}`,
       `Fare Per Seat : ${farePerSeat}`,
@@ -266,19 +296,18 @@ const colValW  = frameW / 2 - 78;          // slightly reduce right/left block w
     drawLines(journeyLines, leftCol, sec2ValY, colValW);
     drawLines(fareLines, rightCol, sec2ValY, colValW);
 
-    // Divider below journey/fare section
     hLine(sec2ValY + 88);
 
     // ── Ticket number box ──────────────────────────────────────────────────
-    const boxW  = 280;
-    const boxH  = 64;
-    const boxX  = (pageWidth - boxW) / 2;
-    const boxY  = sec2ValY + 108;
+    const boxW = 280;
+    const boxH = 64;
+    const boxX = (pageWidth - boxW) / 2;
+    const boxY = sec2ValY + 108;
 
     doc
       .save()
       .lineWidth(1.5)
-      .strokeColor("#222222")
+      .strokeColor(ACCENT_BOX)
       .roundedRect(boxX, boxY, boxW, boxH, 14)
       .stroke()
       .restore();
@@ -286,7 +315,7 @@ const colValW  = frameW / 2 - 78;          // slightly reduce right/left block w
     doc
       .font("Helvetica-Bold")
       .fontSize(19)
-      .fillColor("#000000")
+      .fillColor(PRIMARY_TEXT)
       .text(`Ticket No: ${ticketNumber}`, boxX, boxY + 20, {
         width: boxW,
         align: "center",
@@ -294,10 +323,11 @@ const colValW  = frameW / 2 - 78;          // slightly reduce right/left block w
 
     // ── Footer ─────────────────────────────────────────────────────────────
     const footerY = frameY + frameH - 32;
+
     doc
       .font("Helvetica")
       .fontSize(9.5)
-      .fillColor("#888888")
+      .fillColor(SECONDARY_TEXT)
       .text(
         "Please carry this ticket during your journey. Thank you for using DropMe Rail.",
         frameX,

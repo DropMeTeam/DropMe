@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 
 import api from "../../lib/api";
 import { getRoute } from "../../lib/osrm";
+import { getLatLng } from "../train/lib/geo";
 
 import TrainSearchSidebar from "./components/TrainSearchSidebar";
 import SearchMapPanel from "./components/SearchMapPanel";
@@ -20,14 +21,37 @@ function normalizeLocation(location) {
   }
 
   if (
+    typeof location?.lat === "string" &&
+    typeof location?.lng === "string"
+  ) {
+    const lat = Number(location.lat);
+    const lng = Number(location.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng };
+    }
+  }
+
+  if (Array.isArray(location) && location.length >= 2) {
+    const lat = Number(location[0]);
+    const lng = Number(location[1]);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng };
+    }
+  }
+
+  if (
     Array.isArray(location?.coordinates) &&
     location.coordinates.length >= 2
   ) {
-    return {
-      lng: Number(location.coordinates[0]),
-      lat: Number(location.coordinates[1]),
-    };
+    const lng = Number(location.coordinates[0]);
+    const lat = Number(location.coordinates[1]);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng };
+    }
   }
+
+  const shared = getLatLng(location);
+  if (shared) return shared;
 
   return null;
 }
@@ -43,25 +67,39 @@ function hhmmToMinutes(value) {
 
 function samePoint(a, b) {
   if (!a || !b) return false;
-  return a.lat === b.lat && a.lng === b.lng;
+  return Number(a.lat) === Number(b.lat) && Number(a.lng) === Number(b.lng);
 }
 
-function buildTrainPathPoints(train) {
-  const raw = Array.isArray(train?.stopsBetween)
-    ? train.stopsBetween
-        .map((item) => normalizeLocation(item?.station?.location))
-        .filter(Boolean)
-    : [];
+function dedupePoints(points = []) {
+  const out = [];
 
-  const deduped = [];
-  for (const point of raw) {
-    const prev = deduped[deduped.length - 1];
+  for (const item of points) {
+    const point = normalizeLocation(item);
+    if (!point) continue;
+
+    const prev = out[out.length - 1];
     if (!samePoint(prev, point)) {
-      deduped.push(point);
+      out.push(point);
     }
   }
 
-  return deduped;
+  return out;
+}
+
+function buildTrainPathPoints(train) {
+  const railPath = Array.isArray(train?.railPathPoints)
+    ? dedupePoints(train.railPathPoints)
+    : [];
+
+  if (railPath.length > 1) {
+    return railPath;
+  }
+
+  const rawStops = Array.isArray(train?.stopsBetween)
+    ? train.stopsBetween.map((item) => item?.station?.location)
+    : [];
+
+  return dedupePoints(rawStops);
 }
 
 export default function TrainSearchPage() {
@@ -74,8 +112,9 @@ export default function TrainSearchPage() {
   const [destinationStationId, setDestinationStationId] = useState(
     searchParams.get("toStationId") || ""
   );
-  const [day, setDay] = useState(searchParams.get("day") || "");
-
+  const [travelDate, setTravelDate] = useState(
+    searchParams.get("travelDate") || ""
+  );
   const [currentLocation, setCurrentLocation] = useState(null);
   const [nearestStations, setNearestStations] = useState([]);
 
@@ -145,11 +184,12 @@ export default function TrainSearchPage() {
   }, [stations, destinationStationId]);
 
   const canSearch = useMemo(() => {
-    if (fromStationId && destinationStationId) return true;
-    return Boolean(
-      currentLocation?.lat && currentLocation?.lng && destinationStationId
-    );
-  }, [currentLocation, fromStationId, destinationStationId]);
+    const hasRoute =
+      (fromStationId && destinationStationId) ||
+      (currentLocation?.lat && currentLocation?.lng && destinationStationId);
+
+    return Boolean(hasRoute && travelDate);
+  }, [currentLocation, fromStationId, destinationStationId, travelDate]);
 
   async function syncSelectedTrainVisuals(
     train,
@@ -280,13 +320,13 @@ export default function TrainSearchPage() {
     const params = new URLSearchParams();
     if (fromStationId) params.set("fromStationId", fromStationId);
     if (destinationStationId) params.set("toStationId", destinationStationId);
-    if (day) params.set("day", day);
+    if (travelDate) params.set("travelDate", travelDate);
     setSearchParams(params);
 
     try {
       const searchParamsObj = {
         toStationId: destinationStationId,
-        ...(day ? { day } : {}),
+        travelDate,
         candidateLimit: 15,
       };
 
@@ -372,25 +412,27 @@ export default function TrainSearchPage() {
   }, [selectedTrain]);
 
   const scheduleHref = useMemo(() => {
-    if (!selectedTrain?._id) return "#";
-    return `/train-service/${selectedTrain._id}${day ? `?day=${day}` : ""}`;
-  }, [selectedTrain, day]);
+  if (!selectedTrain?._id) return "#";
+  return `/train-service/${selectedTrain._id}${
+    travelDate ? `?travelDate=${travelDate}` : ""
+  }`;
+}, [selectedTrain, travelDate]);
 
-  const bookingHref = useMemo(() => {
-    if (!selectedTrain?._id) return "#";
+const bookingHref = useMemo(() => {
+  if (!selectedTrain?._id) return "#";
 
-    const params = new URLSearchParams({
-      ...(day ? { day } : {}),
-      ...(selectedTrain?.boardingStation?._id
-        ? { fromStationId: selectedTrain.boardingStation._id }
-        : {}),
-      ...(selectedTrain?.destinationStation?._id
-        ? { toStationId: selectedTrain.destinationStation._id }
-        : {}),
-    });
+  const params = new URLSearchParams({
+    ...(travelDate ? { travelDate } : {}),
+    ...(selectedTrain?.boardingStation?._id
+      ? { fromStationId: selectedTrain.boardingStation._id }
+      : {}),
+    ...(selectedTrain?.destinationStation?._id
+      ? { toStationId: selectedTrain.destinationStation._id }
+      : {}),
+  });
 
-    return `/train-service/${selectedTrain._id}/book?${params.toString()}`;
-  }, [selectedTrain, day]);
+  return `/train-service/${selectedTrain._id}/book?${params.toString()}`;
+}, [selectedTrain, travelDate]);
 
   return (
     <div className="relative left-1/2 right-1/2 w-screen -translate-x-1/2 bg-[#030814]">
@@ -405,8 +447,8 @@ export default function TrainSearchPage() {
           onFromChange={setFromStationId}
           destinationStationId={destinationStationId}
           onDestinationChange={setDestinationStationId}
-          day={day}
-          onDayChange={setDay}
+          travelDate={travelDate}
+          onTravelDateChange={setTravelDate}
           onSearch={handleSearch}
           canSearch={canSearch}
           searching={searching}

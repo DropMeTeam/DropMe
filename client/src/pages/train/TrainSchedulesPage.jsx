@@ -50,15 +50,17 @@ export default function TrainSchedulesPage() {
 
   async function loadAll() {
     setMsg("");
+
     try {
-      const [stRes, scRes] = await Promise.all([
+      const [stationsRes, schedulesRes] = await Promise.all([
         api.get("/api/admin/train/stations"),
         api.get("/api/admin/train/schedules"),
       ]);
-      setStations(stRes.data.stations || []);
-      setSchedules(scRes.data.schedules || []);
-    } catch (e) {
-      setMsg(e?.response?.data?.message || "Failed to load stations/schedules");
+
+      setStations(Array.isArray(stationsRes.data?.stations) ? stationsRes.data.stations : []);
+      setSchedules(Array.isArray(schedulesRes.data?.schedules) ? schedulesRes.data.schedules : []);
+    } catch (error) {
+      setMsg(error?.response?.data?.message || "Failed to load stations/schedules");
     }
   }
 
@@ -68,16 +70,18 @@ export default function TrainSchedulesPage() {
 
   const stationById = useMemo(() => {
     const map = new Map();
-    stations.forEach((station) => map.set(String(station._id), station));
+    stations.forEach((station) => {
+      map.set(String(station._id), station);
+    });
     return map;
   }, [stations]);
 
   const stopsOrdered = useMemo(() => {
     return [...stops]
-      .sort((a, b) => a.order - b.order)
+      .sort((a, b) => Number(a.order) - Number(b.order))
       .map((stop) => ({
         ...stop,
-        station: stop.stationId ? stationById.get(String(stop.stationId)) : null,
+        station: stop.stationId ? stationById.get(String(stop.stationId)) || null : null,
       }));
   }, [stops, stationById]);
 
@@ -85,34 +89,66 @@ export default function TrainSchedulesPage() {
     if (!startId && !endId) return;
 
     setStops((prev) => {
-      const ordered = [...prev].sort((a, b) => a.order - b.order);
-      const base = ordered.length >= 2 ? ordered : [newStop(1), newStop(2)];
-      const next = base.map((stop) => ({ ...stop }));
+      const ordered = [...prev].sort((a, b) => Number(a.order) - Number(b.order));
+      const next = ordered.length >= 2 ? ordered.map((item) => ({ ...item })) : [newStop(1), newStop(2)];
 
-      if (startId) next[0].stationId = startId;
-      if (endId) next[next.length - 1].stationId = endId;
+      if (startId) {
+        next[0].stationId = startId;
+      }
 
-      return next.map((stop, index) => ({ ...stop, order: index + 1 }));
+      if (endId) {
+        next[next.length - 1].stationId = endId;
+      }
+
+      return next.map((item, index) => ({
+        ...item,
+        order: index + 1,
+      }));
     });
   }, [startId, endId]);
 
-  const stopsKey = useMemo(
-    () => stopsOrdered.map((stop) => String(stop.stationId || "")).join("|"),
-    [stopsOrdered]
-  );
+  const stopsKey = useMemo(() => {
+    return stopsOrdered.map((stop) => String(stop.stationId || "")).join("|");
+  }, [stopsOrdered]);
 
   useEffect(() => {
     let cancelled = false;
 
-    (async () => {
+    async function rebuildRoute() {
       try {
-        const orderedStations = stopsOrdered.map((stop) => stop.station).filter(Boolean);
+        const orderedStations = stopsOrdered
+          .map((stop) => stop.station)
+          .filter(Boolean);
+
+        if (orderedStations.length < 2) {
+          if (!cancelled) {
+            setSegments([]);
+            setRoutePolyline([]);
+            setTotalKm(0);
+            setTotalMin(0);
+          }
+          return;
+        }
+
         const result = await computeSegments(orderedStations);
         if (cancelled) return;
-        setSegments(result.segments || []);
-        setRoutePolyline(result.polyline || []);
-        setTotalKm(result.totalKm || 0);
-        setTotalMin(result.totalMin || 0);
+
+        const nextSegments = Array.isArray(result?.segments) ? result.segments : [];
+        setSegments(nextSegments);
+        setRoutePolyline(Array.isArray(result?.polyline) ? result.polyline : []);
+        setTotalKm(Number(result?.totalKm || 0));
+        setTotalMin(Number(result?.totalMin || 0));
+
+        setSegmentFares((prev) => {
+          const next = {};
+
+          nextSegments.forEach((segment) => {
+            const key = getSegmentKey(segment);
+            next[key] = prev[key] ?? "";
+          });
+
+          return next;
+        });
       } catch {
         if (!cancelled) {
           setSegments([]);
@@ -121,17 +157,39 @@ export default function TrainSchedulesPage() {
           setTotalMin(0);
         }
       }
-    })();
+    }
+
+    rebuildRoute();
 
     return () => {
       cancelled = true;
     };
   }, [stopsKey]);
 
+  function resetForm() {
+    setMode("route");
+    setTrainName("");
+    setTrainNo("");
+    setSeatCapacity(200);
+    setActive(true);
+
+    setStartId("");
+    setEndId("");
+    setStops([newStop(1), newStop(2)]);
+
+    setSegments([]);
+    setRoutePolyline([]);
+    setTotalKm(0);
+    setTotalMin(0);
+
+    setSegmentFares({});
+    setGeneratedStopTimes([]);
+  }
+
   function addStop() {
     setStops((prev) => {
-      const ordered = [...prev].sort((a, b) => a.order - b.order);
-      const maxOrder = ordered.reduce((max, stop) => Math.max(max, stop.order), 0);
+      const ordered = [...prev].sort((a, b) => Number(a.order) - Number(b.order));
+      const maxOrder = ordered.reduce((max, item) => Math.max(max, Number(item.order) || 0), 0);
       return [...ordered, newStop(maxOrder + 1)];
     });
   }
@@ -140,21 +198,43 @@ export default function TrainSchedulesPage() {
     setStops((prev) =>
       prev
         .filter((stop) => stop.key !== key)
-        .sort((a, b) => a.order - b.order)
-        .map((stop, index) => ({ ...stop, order: index + 1 }))
+        .sort((a, b) => Number(a.order) - Number(b.order))
+        .map((stop, index) => ({
+          ...stop,
+          order: index + 1,
+        }))
     );
   }
 
   function updateStopStation(key, stationId) {
-    setStops((prev) => prev.map((stop) => (stop.key === key ? { ...stop, stationId } : stop)));
+    setStops((prev) =>
+      prev.map((stop) =>
+        stop.key === key
+          ? {
+              ...stop,
+              stationId,
+            }
+          : stop
+      )
+    );
   }
 
   function addIntermediateStation(stationId) {
     if (!stationId) return;
 
     setStops((prev) => {
-      const ordered = [...prev].sort((a, b) => a.order - b.order);
-      if (ordered.some((stop) => String(stop.stationId) === String(stationId))) return prev;
+      const ordered = [...prev].sort((a, b) => Number(a.order) - Number(b.order));
+
+      if (ordered.some((stop) => String(stop.stationId) === String(stationId))) {
+        return prev;
+      }
+
+      if (ordered.length < 2) {
+        return [
+          { ...newStop(1), stationId },
+          newStop(2),
+        ];
+      }
 
       const first = ordered[0];
       const last = ordered[ordered.length - 1];
@@ -167,23 +247,9 @@ export default function TrainSchedulesPage() {
     });
   }
 
-  function resetForm() {
-    setTrainName("");
-    setTrainNo("");
-    setSeatCapacity(200);
-    setActive(true);
-    setStartId("");
-    setEndId("");
-    setStops([newStop(1), newStop(2)]);
-    setMode("route");
-    setGeneratedStopTimes([]);
-    setSegmentFares({});
-    setMsg("");
-  }
-
-  function getSegmentKey(seg) {
-    const fromId = String(seg.fromStationId || seg.fromId || "");
-    const toId = String(seg.toStationId || seg.toId || "");
+  function getSegmentKey(segment) {
+    const fromId = String(segment?.fromStationId || segment?.fromId || "");
+    const toId = String(segment?.toStationId || segment?.toId || "");
     return `${fromId}-${toId}`;
   }
 
@@ -192,10 +258,15 @@ export default function TrainSchedulesPage() {
     setBusy(true);
 
     try {
-      if (!trainNo.trim()) throw new Error("Train No is required");
+      if (!trainNo.trim()) {
+        throw new Error("Train No is required");
+      }
 
       const ordered = stopsOrdered;
-      if (ordered.length < 2) throw new Error("At least 2 stops required");
+      if (ordered.length < 2) {
+        throw new Error("At least 2 stops required");
+      }
+
       if (ordered.some((stop) => !stop.stationId)) {
         throw new Error("Select station for every stop");
       }
@@ -203,17 +274,37 @@ export default function TrainSchedulesPage() {
       if (!generatedStopTimes || generatedStopTimes.length !== ordered.length) {
         throw new Error("Open Timetable tab and generate times before saving.");
       }
+
       if (generatedStopTimes.some((stop) => !stop.departureTime)) {
         throw new Error("Departure times missing. Generate timetable first.");
       }
 
-      const faresArr = segments.map((seg) => {
-        const key = getSegmentKey(seg);
-        const val = Number(segmentFares[key] || 0);
-        if (Number.isNaN(val) || val < 0) {
+      if (!Array.isArray(segments) || segments.length !== ordered.length - 1) {
+        throw new Error("Rail route is not ready yet. Wait for route preview to finish.");
+      }
+
+      const faresArr = segments.map((segment) => {
+        const key = getSegmentKey(segment);
+        const value = Number(segmentFares[key] || 0);
+
+        if (!Number.isFinite(value) || value < 0) {
           throw new Error(`Invalid fare for segment: ${key}`);
         }
-        return val;
+
+        return value;
+      });
+
+      const segmentRailPaths = segments.map((segment, index) => {
+        const line = Array.isArray(segment?.railPath) ? segment.railPath : [];
+
+        if (line.length < 2) {
+          throw new Error(`Rail path missing for segment ${index + 1}`);
+        }
+
+        return line.map((point) => ({
+          lat: Number(point.lat),
+          lng: Number(point.lng),
+        }));
       });
 
       const payload = {
@@ -222,6 +313,7 @@ export default function TrainSchedulesPage() {
         seatCapacity: Number(seatCapacity),
         active,
         segmentFares: faresArr,
+        segmentRailPaths,
         stops: generatedStopTimes.map((stop, index) => ({
           stationId: stop.stationId,
           order: index + 1,
@@ -235,8 +327,8 @@ export default function TrainSchedulesPage() {
 
       await loadAll();
       resetForm();
-    } catch (e) {
-      setMsg(e?.response?.data?.message || e.message || "Save failed");
+    } catch (error) {
+      setMsg(error?.response?.data?.message || error.message || "Save failed");
     } finally {
       setBusy(false);
     }
@@ -297,6 +389,7 @@ export default function TrainSchedulesPage() {
                   >
                     Route Builder
                   </button>
+
                   <button
                     type="button"
                     onClick={() => setMode("timetable")}

@@ -13,7 +13,9 @@ import {
   TrendingUp,
   Settings,
   ShieldCheck,
-  CreditCard
+  CreditCard,
+  Contact,
+  Delete
 } from "lucide-react";
 import RiderReviewsPage from "./RiderReviewsPage";
 import RiderLeaderboardPage from "./RiderLeaderboardPage";
@@ -114,26 +116,41 @@ export default function RiderDashboard() {
     </button>
   );
 
+  async function handleLogOut() {
+    try {
+      await api.post("/api/auth/logout").catch(() => {});
+      queryClient.clear(); // Clears all user data from cache
+      nav("/login", { replace: true }); // Redirects to login
+    } catch (e) {
+      console.error("Logout failed", e);
+    }
+  }
+
   return (
     <div className="flex min-h-screen bg-[#050506] text-zinc-100 font-sans selection:bg-[#B8860B]/30">
       
       {/* --- SIDEBAR --- */}
-      <aside className="fixed top-12 left-0 h-full w-64 border-r border-zinc-800/50 bg-[#09090b]/80 backdrop-blur-xl hidden md:flex flex-col z-30">
+      <aside className="fixed top-13 left-0 h-full w-64 border-r border-zinc-800/50 bg-[#09090b]/80 backdrop-blur-xl hidden md:flex flex-col z-30">
         <div className="p-8" />
         <nav className="flex-1 px-3 space-y-1">
           <NavItem id="profile" icon={User} label="Overview" />
           <NavItem id="bookings" icon={Calendar} label="Bookings" />
           <NavItem id="reviews" icon={Star} label="Ratings" />
           <NavItem id="leaderboard" icon={Trophy} label="Leaderboard" />
-          <NavItem id="logOut" icon={LogOut} label="Log Out" />
-        </nav>
-        <div className="p-6 border-t border-zinc-800/50">
-          <button onClick={handleDeleteAccount} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-[10px] font-black text-zinc-500 hover:text-[#B8860B] hover:bg-[#B8860B]/5 transition-all tracking-widest uppercase">
-            <LogOut size={14} />
-            Terminate
+          <div onClick={handleLogOut} className="cursor-pointer">
+           <NavItem id="logOut" icon={LogOut} label="Log Out" />
+          </div>
+         
+
+<div className="p-6 border-t border-zinc-800/50">
+          <button onClick={handleDeleteAccount} className="flex items-center gap-3 w-full px-0 py-3 rounded-xl text-[10px] font-black text-zinc-500 hover:text-[#FF0000] hover:bg-[#FF0000]/5 transition-all tracking-widest uppercase">
+            <Delete size={25} />
+            Remove Account
           </button>
-        </div>
-      </aside>
+</div>
+        </nav>
+</aside>         
+      
 
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 md:ml-64 p-6 lg:p-0 space-y-10">
@@ -186,22 +203,7 @@ export default function RiderDashboard() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-6 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 hover:border-violet-500/50 transition-colors group">
-                    <div className="h-10 w-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-500 mb-4 group-hover:scale-110 transition-transform">
-                      <TrendingUp size={20} />
-                    </div>
-                    <p className="text-2xl font-black">Level 12</p>
-                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Progress</p>
-                  </div>
-                  <div className="p-6 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 hover:border-[#B8860B]/50 transition-colors group">
-                    <div className="h-10 w-10 rounded-xl bg-[#B8860B]/10 flex items-center justify-center text-[#B8860B] mb-4 group-hover:scale-110 transition-transform">
-                      <ShieldCheck size={20} />
-                    </div>
-                    <p className="text-2xl font-black">Secure</p>
-                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Account</p>
-                  </div>
-                </div>
+                
               </div>
 
               <div className="lg:col-span-8">
@@ -214,17 +216,17 @@ export default function RiderDashboard() {
                     <div className="space-y-8 relative z-10">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-3">
-                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">Display Name</label>
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1"> Name</label>
                           <input value={name} onChange={(e) => setName(e.target.value)} placeholder={me?.name} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-5 py-4 focus:border-[#B8860B] focus:ring-1 focus:ring-[#B8860B] outline-none font-bold transition-all text-white" />
                         </div>
                         <div className="space-y-3">
-                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">Primary Contact</label>
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1"> Contact Number</label>
                           <input value={contactNo} onChange={(e) => setContactNo(e.target.value)} placeholder={me?.contactNo || "Not set"} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-5 py-4 focus:border-[#B8860B] focus:ring-1 focus:ring-[#B8860B] outline-none font-bold transition-all text-white" />
                         </div>
                       </div>
                       <div className="pt-4">
                         <button onClick={handleUpdateProfile} disabled={saving} className="w-full bg-gradient-to-r from-[#B8860B] to-[#D4AF37] hover:from-[#D4AF37] hover:to-[#B8860B] py-5 rounded-xl font-black text-black text-xs transition-all uppercase tracking-[0.2em] shadow-lg shadow-[#B8860B]/20 disabled:opacity-50">
-                          {saving ? "Processing..." : "Commit Changes"}
+                          {saving ? "Processing..." : "Save Changes"}
                         </button>
                       </div>
                       {msg && <p className="text-emerald-400 text-[10px] text-center font-black uppercase tracking-widest bg-emerald-500/5 py-4 rounded-xl border border-emerald-500/10">{msg}</p>}
@@ -232,14 +234,12 @@ export default function RiderDashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="h-full min-h-[400px] rounded-[2.5rem] border border-dashed border-zinc-800 flex flex-col items-center justify-center p-12 text-center bg-zinc-900/20 group hover:border-[#B8860B]/30 transition-colors">
+                  <div className="h-full min-h-[300px] rounded-[2.5rem] border border-dashed border-zinc-800 flex flex-col items-center justify-center p-12 text-center bg-zinc-900/20 group hover:border-[#B8860B]/30 transition-colors">
                     <div className="h-20 w-20 rounded-3xl bg-zinc-900 flex items-center justify-center mb-6 border border-zinc-800 group-hover:rotate-12 group-hover:border-[#B8860B]/50 transition-all duration-500">
-                      <CreditCard size={32} className="text-[#B8860B]" />
+                      <Contact size={32} className="text-[#B8860B]" />
                     </div>
                     <h4 className="text-lg font-bold mb-2 text-[#E5E7EB]">Account Activity</h4>
-                    <p className="text-zinc-500 font-medium max-w-xs leading-relaxed">
-                      Your recent activity and billing history will appear here. Select a tab to dive deeper.
-                    </p>
+                    
                   </div>
                 )}
               </div>
@@ -263,59 +263,94 @@ export default function RiderDashboard() {
                       Pick Your <span className="text-[#B8860B]">Ride!</span>
                     </h3>
                     <p className="text-white text-sm font-medium mt-2 max-w-xs leading-relaxed">
-                      Manage your active and past reservations or start a new adventure.
+                      Search from your location, view rides on the map, and choose the journey that fits you best with DropMe.
                     </p>
                   </div>
-                  <Link to="/plan" className="px-10 py-5 bg-[#B8860B] text-black rounded-2xl text-[11px] font-black hover:bg-white hover:scale-105 transition-all shadow-2xl shadow-black uppercase tracking-[0.2em]">
-                    Book Ride
+                  <Link to="/plan" className="px-10 py-5 bg-[#B8860B] text-black rounded-2xl text-[11px] font-black hover:bg-[#FF0000] hover:scale-105 transition-all shadow-2xl shadow-black uppercase tracking-[0.2em]">
+                    Get Ride
                   </Link>
                 </div>
               </div>
 
               <div className="grid gap-6">
-                {bookings.length > 0 ? bookings.map((b) => {
-                  const route = bookingRoute(b);
-                  const canReceipt = b.status === "confirmed" || b.paymentStatus === "paid";
-                  return (
-                    <div key={b._id} className="group relative flex flex-col md:flex-row md:items-center justify-between p-8 bg-zinc-900/40 border border-zinc-800/50 rounded-[2rem] hover:border-[#B8860B]/50 transition-all hover:bg-zinc-900/60 shadow-xl">
-                      <div className="flex items-center gap-8 mb-6 md:mb-0">
-                        <div className="h-16 w-16 rounded-2xl bg-black border border-zinc-800 flex items-center justify-center text-[#B8860B] group-hover:scale-110 group-hover:bg-[#B8860B] group-hover:text-black transition-all duration-500">
-                          <MapPin size={24} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-3 font-black text-xl tracking-tight">
-                            <span className="text-zinc-100">{route.from}</span>
-                            <ChevronRight size={18} className="text-[#B8860B]" />
-                            <span className="text-zinc-100">{route.to}</span>
-                          </div>
-                          <div className="flex items-center gap-4 mt-3">
-                            <div className="flex items-center gap-1.5 px-3 py-1 bg-zinc-800 rounded-lg">
-                              <User size={12} className="text-zinc-500" />
-                              <span className="text-[10px] font-black text-zinc-300 uppercase">{b.seatsBooked} Pax</span>
-                            </div>
-                            <span className={`px-4 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
-                              b.status === 'confirmed' ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/20' : 'bg-orange-500/5 text-orange-500 border-orange-500/20'
-                            }`}>
-                              {b.status}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <a
-                        href={`${apiOrigin}/api/bookings/${b._id}/receipt`}
-                        target="_blank" rel="noreferrer"
-                        className={`px-10 py-4 rounded-xl font-black text-[10px] tracking-[0.2em] border border-[#B8860B]/20 bg-[#B8860B]/5 text-[#B8860B] hover:bg-[#B8860B] hover:text-black hover:border-[#B8860B] transition-all uppercase text-center shadow-lg shadow-black/40 ${!canReceipt && "opacity-20 pointer-events-none"}`}
-                      >
-                        Get Receipt
-                      </a>
-                    </div>
-                  );
-                }) : (
-                  <div className="py-32 text-center border border-dashed border-zinc-800 rounded-[3rem] bg-zinc-900/20">
-                    <p className="text-zinc-600 font-black uppercase tracking-[0.4em] text-xs">Zero movement detected</p>
-                  </div>
-                )}
+  {bookings.length > 0 ? bookings.map((b) => {
+    const route = bookingRoute(b);
+    const canReceipt = b.status === "confirmed" || b.paymentStatus === "paid";
+    return (
+      <div 
+        key={b._id} 
+        className="group relative flex flex-col md:flex-row md:items-center justify-between p-1 bg-gradient-to-br from-zinc-800/50 to-transparent rounded-[2.5rem] transition-all duration-500 hover:shadow-2xl hover:shadow-[#B8860B]/10 hover:-translate-y-1"
+      >
+        <div className="flex flex-col md:flex-row md:items-center gap-8 p-7 w-full bg-[#09090b]/90 rounded-[2.4rem] backdrop-blur-xl border border-white/5 group-hover:border-[#B8860B]/30 transition-colors">
+          
+          {/* Visual Route Indicator */}
+          <div className="flex items-center gap-6">
+            <div className="relative">
+              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-zinc-900 to-black border border-zinc-800 flex items-center justify-center text-[#B8860B] shadow-inner group-hover:scale-110 group-hover:shadow-[#B8860B]/20 transition-all duration-500">
+                <MapPin size={22} className="group-hover:animate-bounce" />
               </div>
+              {/* Decorative line connecting to status badge */}
+              <div className="absolute -bottom-4 left-1/2 w-px h-4 bg-gradient-to-b from-[#B8860B]/50 to-transparent hidden md:block" />
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-black uppercase tracking-widest text-zinc-500">Route Details</span>
+                <div className="h-[1px] w-8 bg-[#B8860B]/30" />
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-2xl font-light text-white tracking-tight">{route.from}</span>
+                <div className="flex items-center">
+                  <div className="w-2 h-2 rounded-full bg-[#B8860B] animate-pulse" />
+                  <div className="w-12 h-[2px] bg-gradient-to-r from-[#B8860B] to-transparent opacity-30" />
+                  <ChevronRight size={20} className="text-[#B8860B] -ml-2" />
+                </div>
+                <span className="text-2xl font-light text-zinc-400 tracking-tight font-sans">{route.to}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Divider for mobile */}
+          <div className="h-px w-full bg-zinc-800/50 md:hidden" />
+
+          {/* Metadata & Actions */}
+          <div className="flex flex-1 flex-row md:flex-row items-center justify-between md:justify-end gap-6 lg:gap-12">
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col items-end">
+                <div className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900/80 rounded-full border border-zinc-800 shadow-sm">
+                  <User size={12} className="text-[#B8860B]" />
+                  <span className="text-[8px] font-black text-zinc-200 uppercase tracking-tighter">{b.seatsBooked} Seats</span>
+                </div>
+                
+              </div>
+            </div>
+
+            <a
+              href={`${apiOrigin}/api/bookings/${b._id}/receipt`}
+              target="_blank" rel="noreferrer"
+              className={`relative overflow-hidden group/btn px-10 py-4 rounded-2xl font-black text-[10px] tracking-[0.2em] border border-[#B8860B]/40 bg-[#B8860B]/5 text-[#B8860B] hover:text-black transition-all duration-300 uppercase shadow-lg shadow-black/40 ${!canReceipt ? "opacity-20 cursor-not-allowed" : "hover:bg-[#B8860B] active:scale-95"}`}
+            >
+              <span className="relative z-10 flex items-center gap-2">
+                <CreditCard size={14} />
+                Ticket
+              </span>
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }) : (
+    <div className="py-40 text-center border-2 border-dashed border-zinc-900 rounded-[3rem] bg-zinc-900/10 flex flex-col items-center justify-center gap-4">
+      <div className="p-4 rounded-full bg-zinc-900 border border-zinc-800">
+        <Calendar size={32} className="text-zinc-700" />
+      </div>
+      <div>
+        <p className="text-zinc-500 font-black uppercase tracking-[0.3em] text-[10px]">No active reservations</p>
+        <p className="text-zinc-700 text-xs mt-1">Your travel history is currently empty</p>
+      </div>
+    </div>
+  )}
+</div>
             </div>
           )}
           

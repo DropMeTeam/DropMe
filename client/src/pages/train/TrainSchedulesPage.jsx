@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../../lib/api";
 
-// ✅ Put these files in: client/src/pages/train/components/
-import RouteBuilder from "./components/RouteBuilder";
-import TimetableBuilder from "./components/TimetableBuilder";
-import RouteMapPanel from "./components/RouteMapPanel";
+import "./components/schedules/train-schedules-theme.css";
+import RouteBuilder from "./components/schedules/RouteBuilder";
+import TimetableBuilder from "./components/schedules/TimetableBuilder";
+import TrainSchedulesHeader from "./components/schedules/TrainSchedulesHeader";
+import TrainDetailsCard from "./components/schedules/TrainDetailsCard";
+import ScheduleAlert from "./components/schedules/ScheduleAlert";
+import SegmentFaresCard from "./components/schedules/SegmentFaresCard";
+import ScheduleActionBar from "./components/schedules/ScheduleActionBar";
+import RoutePreviewPanel from "./components/schedules/RoutePreviewPanel";
 
-// ✅ Put routing.js in: client/src/pages/train/lib/routing.js
 import { computeSegments } from "./lib/routing";
 
 function uid() {
-  // crypto.randomUUID may not exist in some environments
-  return (globalThis.crypto && crypto.randomUUID)
+  return globalThis.crypto && crypto.randomUUID
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -26,9 +29,8 @@ export default function TrainSchedulesPage() {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const [mode, setMode] = useState("route"); // route | timetable
+  const [mode, setMode] = useState("route");
 
-  const [editingId, setEditingId] = useState(null);
   const [trainName, setTrainName] = useState("");
   const [trainNo, setTrainNo] = useState("");
   const [seatCapacity, setSeatCapacity] = useState(200);
@@ -43,20 +45,22 @@ export default function TrainSchedulesPage() {
   const [totalKm, setTotalKm] = useState(0);
   const [totalMin, setTotalMin] = useState(0);
 
-  // timetable rows generated from TimetableBuilder
+  const [segmentFares, setSegmentFares] = useState({});
   const [generatedStopTimes, setGeneratedStopTimes] = useState([]);
 
   async function loadAll() {
     setMsg("");
+
     try {
-      const [stRes, scRes] = await Promise.all([
+      const [stationsRes, schedulesRes] = await Promise.all([
         api.get("/api/admin/train/stations"),
         api.get("/api/admin/train/schedules"),
       ]);
-      setStations(stRes.data.stations || []);
-      setSchedules(scRes.data.schedules || []);
-    } catch (e) {
-      setMsg(e?.response?.data?.message || "Failed to load stations/schedules");
+
+      setStations(Array.isArray(stationsRes.data?.stations) ? stationsRes.data.stations : []);
+      setSchedules(Array.isArray(schedulesRes.data?.schedules) ? schedulesRes.data.schedules : []);
+    } catch (error) {
+      setMsg(error?.response?.data?.message || "Failed to load stations/schedules");
     }
   }
 
@@ -65,56 +69,87 @@ export default function TrainSchedulesPage() {
   }, []);
 
   const stationById = useMemo(() => {
-    const m = new Map();
-    stations.forEach((s) => m.set(String(s._id), s));
-    return m;
+    const map = new Map();
+    stations.forEach((station) => {
+      map.set(String(station._id), station);
+    });
+    return map;
   }, [stations]);
 
   const stopsOrdered = useMemo(() => {
     return [...stops]
-      .sort((a, b) => a.order - b.order)
-      .map((s) => ({
-        ...s,
-        station: s.stationId ? stationById.get(String(s.stationId)) : null,
+      .sort((a, b) => Number(a.order) - Number(b.order))
+      .map((stop) => ({
+        ...stop,
+        station: stop.stationId ? stationById.get(String(stop.stationId)) || null : null,
       }));
   }, [stops, stationById]);
 
-  // enforce first/last station = start/end when selected
   useEffect(() => {
     if (!startId && !endId) return;
 
     setStops((prev) => {
-      const ordered = [...prev].sort((a, b) => a.order - b.order);
-      const base = ordered.length >= 2 ? ordered : [newStop(1), newStop(2)];
-      const next = base.map((s) => ({ ...s }));
+      const ordered = [...prev].sort((a, b) => Number(a.order) - Number(b.order));
+      const next = ordered.length >= 2 ? ordered.map((item) => ({ ...item })) : [newStop(1), newStop(2)];
 
-      if (startId) next[0].stationId = startId;
-      if (endId) next[next.length - 1].stationId = endId;
+      if (startId) {
+        next[0].stationId = startId;
+      }
 
-      return next.map((s, idx) => ({ ...s, order: idx + 1 }));
+      if (endId) {
+        next[next.length - 1].stationId = endId;
+      }
+
+      return next.map((item, index) => ({
+        ...item,
+        order: index + 1,
+      }));
     });
   }, [startId, endId]);
 
-  // compute route whenever station order changes
-  const stopsKey = useMemo(
-    () => stopsOrdered.map((s) => String(s.stationId || "")).join("|"),
-    [stopsOrdered]
-  );
+  const stopsKey = useMemo(() => {
+    return stopsOrdered.map((stop) => String(stop.stationId || "")).join("|");
+  }, [stopsOrdered]);
 
   useEffect(() => {
     let cancelled = false;
 
-    (async () => {
+    async function rebuildRoute() {
       try {
-        const orderedStations = stopsOrdered.map((s) => s.station).filter(Boolean);
-        const r = await computeSegments(orderedStations);
+        const orderedStations = stopsOrdered
+          .map((stop) => stop.station)
+          .filter(Boolean);
+
+        if (orderedStations.length < 2) {
+          if (!cancelled) {
+            setSegments([]);
+            setRoutePolyline([]);
+            setTotalKm(0);
+            setTotalMin(0);
+          }
+          return;
+        }
+
+        const result = await computeSegments(orderedStations);
         if (cancelled) return;
-        setSegments(r.segments);
-        setRoutePolyline(r.polyline);
-        setTotalKm(r.totalKm);
-        setTotalMin(r.totalMin);
+
+        const nextSegments = Array.isArray(result?.segments) ? result.segments : [];
+        setSegments(nextSegments);
+        setRoutePolyline(Array.isArray(result?.polyline) ? result.polyline : []);
+        setTotalKm(Number(result?.totalKm || 0));
+        setTotalMin(Number(result?.totalMin || 0));
+
+        setSegmentFares((prev) => {
+          const next = {};
+
+          nextSegments.forEach((segment) => {
+            const key = getSegmentKey(segment);
+            next[key] = prev[key] ?? "";
+          });
+
+          return next;
+        });
       } catch {
-        // ignore routing failures (e.g., not enough stations selected yet)
         if (!cancelled) {
           setSegments([]);
           setRoutePolyline([]);
@@ -122,17 +157,39 @@ export default function TrainSchedulesPage() {
           setTotalMin(0);
         }
       }
-    })();
+    }
+
+    rebuildRoute();
 
     return () => {
       cancelled = true;
     };
-  }, [stopsKey]); // ✅ stable dependency
+  }, [stopsKey]);
+
+  function resetForm() {
+    setMode("route");
+    setTrainName("");
+    setTrainNo("");
+    setSeatCapacity(200);
+    setActive(true);
+
+    setStartId("");
+    setEndId("");
+    setStops([newStop(1), newStop(2)]);
+
+    setSegments([]);
+    setRoutePolyline([]);
+    setTotalKm(0);
+    setTotalMin(0);
+
+    setSegmentFares({});
+    setGeneratedStopTimes([]);
+  }
 
   function addStop() {
     setStops((prev) => {
-      const ordered = [...prev].sort((a, b) => a.order - b.order);
-      const maxOrder = ordered.reduce((m, s) => Math.max(m, s.order), 0);
+      const ordered = [...prev].sort((a, b) => Number(a.order) - Number(b.order));
+      const maxOrder = ordered.reduce((max, item) => Math.max(max, Number(item.order) || 0), 0);
       return [...ordered, newStop(maxOrder + 1)];
     });
   }
@@ -140,46 +197,60 @@ export default function TrainSchedulesPage() {
   function removeStop(key) {
     setStops((prev) =>
       prev
-        .filter((s) => s.key !== key)
-        .sort((a, b) => a.order - b.order)
-        .map((s, idx) => ({ ...s, order: idx + 1 }))
+        .filter((stop) => stop.key !== key)
+        .sort((a, b) => Number(a.order) - Number(b.order))
+        .map((stop, index) => ({
+          ...stop,
+          order: index + 1,
+        }))
     );
   }
 
   function updateStopStation(key, stationId) {
-    setStops((prev) => prev.map((s) => (s.key === key ? { ...s, stationId } : s)));
+    setStops((prev) =>
+      prev.map((stop) =>
+        stop.key === key
+          ? {
+              ...stop,
+              stationId,
+            }
+          : stop
+      )
+    );
   }
 
   function addIntermediateStation(stationId) {
     if (!stationId) return;
 
     setStops((prev) => {
-      const ordered = [...prev].sort((a, b) => a.order - b.order);
-      if (ordered.some((s) => String(s.stationId) === String(stationId))) return prev;
+      const ordered = [...prev].sort((a, b) => Number(a.order) - Number(b.order));
+
+      if (ordered.some((stop) => String(stop.stationId) === String(stationId))) {
+        return prev;
+      }
+
+      if (ordered.length < 2) {
+        return [
+          { ...newStop(1), stationId },
+          newStop(2),
+        ];
+      }
 
       const first = ordered[0];
       const last = ordered[ordered.length - 1];
       const middle = ordered.slice(1, -1);
 
-      const next = [first, ...middle, { ...newStop(0), stationId }, last].map((s, idx) => ({
-        ...s,
-        order: idx + 1,
+      return [first, ...middle, { ...newStop(0), stationId }, last].map((stop, index) => ({
+        ...stop,
+        order: index + 1,
       }));
-      return next;
     });
   }
 
-  function resetForm() {
-    setEditingId(null);
-    setTrainName("");
-    setTrainNo("");
-    setSeatCapacity(200);
-    setActive(true);
-    setStartId("");
-    setEndId("");
-    setStops([newStop(1), newStop(2)]);
-    setMode("route");
-    setGeneratedStopTimes([]);
+  function getSegmentKey(segment) {
+    const fromId = String(segment?.fromStationId || segment?.fromId || "");
+    const toId = String(segment?.toStationId || segment?.toId || "");
+    return `${fromId}-${toId}`;
   }
 
   async function saveToBackend() {
@@ -187,251 +258,202 @@ export default function TrainSchedulesPage() {
     setBusy(true);
 
     try {
-      if (!trainNo.trim()) throw new Error("Train No is required");
+      if (!trainNo.trim()) {
+        throw new Error("Train No is required");
+      }
 
       const ordered = stopsOrdered;
-      if (ordered.length < 2) throw new Error("At least 2 stops required");
-      if (ordered.some((s) => !s.stationId)) throw new Error("Select station for every stop");
+      if (ordered.length < 2) {
+        throw new Error("At least 2 stops required");
+      }
 
-      // timetable must be generated
+      if (ordered.some((stop) => !stop.stationId)) {
+        throw new Error("Select station for every stop");
+      }
+
       if (!generatedStopTimes || generatedStopTimes.length !== ordered.length) {
         throw new Error("Open Timetable tab and generate times before saving.");
       }
-      if (generatedStopTimes.some((s) => !s.departureTime)) {
+
+      if (generatedStopTimes.some((stop) => !stop.departureTime)) {
         throw new Error("Departure times missing. Generate timetable first.");
       }
+
+      if (!Array.isArray(segments) || segments.length !== ordered.length - 1) {
+        throw new Error("Rail route is not ready yet. Wait for route preview to finish.");
+      }
+
+      const faresArr = segments.map((segment) => {
+        const key = getSegmentKey(segment);
+        const value = Number(segmentFares[key] || 0);
+
+        if (!Number.isFinite(value) || value < 0) {
+          throw new Error(`Invalid fare for segment: ${key}`);
+        }
+
+        return value;
+      });
+
+      const segmentRailPaths = segments.map((segment, index) => {
+        const line = Array.isArray(segment?.railPath) ? segment.railPath : [];
+
+        if (line.length < 2) {
+          throw new Error(`Rail path missing for segment ${index + 1}`);
+        }
+
+        return line.map((point) => ({
+          lat: Number(point.lat),
+          lng: Number(point.lng),
+        }));
+      });
 
       const payload = {
         trainName,
         trainNo: trainNo.trim(),
         seatCapacity: Number(seatCapacity),
         active,
-        stops: generatedStopTimes.map((s, idx) => ({
-          stationId: s.stationId,
-          order: idx + 1,
-          arrivalTime: s.arrivalTime || "",
-          departureTime: s.departureTime || "",
+        segmentFares: faresArr,
+        segmentRailPaths,
+        stops: generatedStopTimes.map((stop, index) => ({
+          stationId: stop.stationId,
+          order: index + 1,
+          arrivalTime: stop.arrivalTime || "",
+          departureTime: stop.departureTime || "",
         })),
       };
 
-      if (editingId) {
-        await api.put(`/api/admin/train/schedules/${editingId}`, payload);
-        setMsg("Route + timetable updated");
-      } else {
-        await api.post("/api/admin/train/schedules", payload);
-        setMsg("Route + timetable created");
-      }
+      await api.post("/api/admin/train/schedules", payload);
+      setMsg("Route + timetable created");
 
       await loadAll();
       resetForm();
-    } catch (e) {
-      setMsg(e?.response?.data?.message || e.message || "Save failed");
+    } catch (error) {
+      setMsg(error?.response?.data?.message || error.message || "Save failed");
     } finally {
       setBusy(false);
     }
   }
 
-  function startEdit(item) {
-    setEditingId(item._id);
-    setTrainName(item.trainName || "");
-    setTrainNo(item.trainNo || "");
-    setSeatCapacity(item.seatCapacity || 200);
-    setActive(item.active ?? true);
-
-    const mappedStops =
-      (item.stops || [])
-        .slice()
-        .sort((a, b) => a.order - b.order)
-        .map((s) => ({
-          key: uid(),
-          stationId: String(s.stationId?._id || s.stationId),
-          order: s.order,
-        })) || [];
-
-    const safeStops = mappedStops.length >= 2 ? mappedStops : [newStop(1), newStop(2)];
-    setStops(safeStops.map((s, idx) => ({ ...s, order: idx + 1 })));
-    setStartId(safeStops?.[0]?.stationId || "");
-    setEndId(safeStops?.[safeStops.length - 1]?.stationId || "");
-
-    setGeneratedStopTimes(
-      (item.stops || [])
-        .slice()
-        .sort((a, b) => a.order - b.order)
-        .map((s) => ({
-          stationId: String(s.stationId?._id || s.stationId),
-          order: s.order,
-          arrivalTime: s.arrivalTime || "",
-          departureTime: s.departureTime || "",
-        }))
-    );
-
-    setMode("route");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  async function removeSchedule(id) {
-    if (!confirm("Delete this route?")) return;
-
-    setMsg("");
-    setBusy(true);
-    try {
-      await api.delete(`/api/admin/train/schedules/${id}`);
-      setMsg("Deleted");
-      await loadAll();
-      if (editingId === id) resetForm();
-    } catch (e) {
-      setMsg(e?.response?.data?.message || "Delete failed");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const scheduleStats = useMemo(
+    () => ({
+      stationCount: stations.length,
+      scheduleCount: schedules.length,
+      activeCount: schedules.filter((schedule) => schedule.active).length,
+      segmentCount: segments.length,
+    }),
+    [stations, schedules, segments]
+  );
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "600px 1fr", gap: 16 }}>
-      <div style={{ border: "1px solid #eee", borderRadius: 16, padding: 14 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-          <h3 style={{ margin: 0 }}>{editingId ? "Edit Train Route" : "Create Train Route"}</h3>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              type="button"
-              onClick={() => setMode("route")}
-              style={{ padding: "8px 12px", borderRadius: 10, border: mode === "route" ? "1px solid #111" : "1px solid #ddd" }}
-            >
-              Route Builder
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("timetable")}
-              style={{ padding: "8px 12px", borderRadius: 10, border: mode === "timetable" ? "1px solid #111" : "1px solid #ddd" }}
-            >
-              Timetable
-            </button>
-          </div>
-        </div>
+    <div className="train-schedules-shell min-h-full bg-[#040914] px-1 py-1 text-white md:px-2">
+      <div className="grid w-full min-w-0 gap-4 2xl:gap-5">
+        <section className="space-y-5 min-w-0">
+          <TrainSchedulesHeader
+            stationCount={scheduleStats.stationCount}
+            scheduleCount={scheduleStats.scheduleCount}
+            activeCount={scheduleStats.activeCount}
+          />
 
-        {msg && (
-          <div style={{ background: "#fff3cd", border: "1px solid #ffeeba", padding: 10, borderRadius: 10, marginTop: 10 }}>
-            {msg}
-          </div>
-        )}
+          {msg ? <ScheduleAlert message={msg} /> : null}
 
-        <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <label>
-              Train No *
-              <input value={trainNo} onChange={(e) => setTrainNo(e.target.value)} style={{ width: "100%", padding: 8 }} />
-            </label>
-            <label>
-              Train Name
-              <input value={trainName} onChange={(e) => setTrainName(e.target.value)} style={{ width: "100%", padding: 8 }} />
-            </label>
-          </div>
+          <TrainDetailsCard
+            trainNo={trainNo}
+            setTrainNo={setTrainNo}
+            trainName={trainName}
+            setTrainName={setTrainName}
+            seatCapacity={seatCapacity}
+            setSeatCapacity={setSeatCapacity}
+            active={active}
+            setActive={setActive}
+          />
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <label>
-              Seat Capacity *
-              <input type="number" min={1} value={seatCapacity} onChange={(e) => setSeatCapacity(e.target.value)} style={{ width: "100%", padding: 8 }} />
-            </label>
-            <label style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 22 }}>
-              <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-              Active
-            </label>
-          </div>
-
-          {mode === "route" ? (
-            <RouteBuilder
-              stations={stations}
-              startId={startId}
-              setStartId={setStartId}
-              endId={endId}
-              setEndId={setEndId}
-              stopsOrdered={stopsOrdered}
-              onAddIntermediate={addIntermediateStation}
-              onAddStop={addStop}
-              onRemoveStop={removeStop}
-              onUpdateStopStation={updateStopStation}
-            />
-          ) : (
-            <TimetableBuilder
-              stopsOrdered={stopsOrdered}
-              segments={segments}
-              defaultDwell={20}
-              onGeneratedTimesChange={setGeneratedStopTimes}
-            />
-          )}
-
-          <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 10 }}>
-            <div style={{ fontWeight: 900, marginBottom: 6 }}>Computed metrics</div>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13 }}>
-              <div>
-                Total distance: <b>{totalKm} km</b>
-              </div>
-              <div>
-                Total time: <b>{totalMin} min</b>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button
-              disabled={busy}
-              type="button"
-              onClick={saveToBackend}
-              style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid #111" }}
-            >
-              {busy ? "Saving..." : editingId ? "Update Route" : "Create Route"}
-            </button>
-
-            {editingId && (
-              <button type="button" onClick={resetForm} style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid #ddd" }}>
-                Cancel
-              </button>
-            )}
-          </div>
-        </div>
-
-        <hr style={{ margin: "16px 0", opacity: 0.3 }} />
-
-        <h4 style={{ margin: 0 }}>Routes</h4>
-        <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-          {schedules.map((sc) => (
-            <div key={sc._id} style={{ border: "1px solid #eee", borderRadius: 14, padding: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+          <div className="grid gap-4 rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(21,30,43,0.96)_0%,rgba(11,17,27,0.96)_100%)] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.32)] xl:grid-cols-[minmax(0,1.2fr)_300px]">
+            <section className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
                 <div>
-                  <div style={{ fontWeight: 900 }}>
-                    {sc.trainNo} {sc.trainName ? `• ${sc.trainName}` : ""}
-                  </div>
-                  <div style={{ fontSize: 13, opacity: 0.8 }}>
-                    Seats: <b>{sc.seatCapacity}</b> • Stops: <b>{sc.stops?.length || 0}</b> • Distance:{" "}
-                    <b>{sc.totalDistanceKm ?? 0} km</b>
-                  </div>
+                  <h2 className="text-xl font-semibold text-white">Create Railway Schedule</h2>
+                  <p className="mt-1 text-sm text-white/45">
+                    Build the station path first, then switch to timetable and generate departure flow.
+                  </p>
                 </div>
 
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => startEdit(sc)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd" }}>
-                    Edit
+                <div className="inline-flex rounded-2xl border border-white/10 bg-black/20 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setMode("route")}
+                    className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                      mode === "route"
+                        ? "bg-blue-500/20 text-blue-100 shadow-[inset_0_0_0_1px_rgba(96,165,250,0.35)]"
+                        : "text-white/55 hover:text-white"
+                    }`}
+                  >
+                    Route Builder
                   </button>
-                  <button onClick={() => removeSchedule(sc._id)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #f1c0c0" }}>
-                    Delete
+
+                  <button
+                    type="button"
+                    onClick={() => setMode("timetable")}
+                    className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                      mode === "timetable"
+                        ? "bg-blue-500/20 text-blue-100 shadow-[inset_0_0_0_1px_rgba(96,165,250,0.35)]"
+                        : "text-white/55 hover:text-white"
+                    }`}
+                  >
+                    Timetable
                   </button>
                 </div>
               </div>
-            </div>
-          ))}
 
-          {schedules.length === 0 && (
-            <div style={{ opacity: 0.7, border: "1px dashed #ddd", borderRadius: 14, padding: 12 }}>
-              No routes yet.
-            </div>
-          )}
-        </div>
-      </div>
+              {mode === "route" ? (
+                <RouteBuilder
+                  stations={stations}
+                  startId={startId}
+                  setStartId={setStartId}
+                  endId={endId}
+                  setEndId={setEndId}
+                  stopsOrdered={stopsOrdered}
+                  onAddIntermediate={addIntermediateStation}
+                  onAddStop={addStop}
+                  onRemoveStop={removeStop}
+                  onUpdateStopStation={updateStopStation}
+                />
+              ) : (
+                <TimetableBuilder
+                  stopsOrdered={stopsOrdered}
+                  segments={segments}
+                  defaultDwell={20}
+                  onGeneratedTimesChange={setGeneratedStopTimes}
+                />
+              )}
+            </section>
 
-      <div style={{ display: "grid", gap: 12 }}>
-        <div style={{ border: "1px solid #eee", borderRadius: 16, padding: 14 }}>
-          <h3 style={{ marginTop: 0 }}>Route Preview (Real path)</h3>
-          <RouteMapPanel stopsOrdered={stopsOrdered} polyline={routePolyline} />
-        </div>
+            <aside className="space-y-4 xl:border-l xl:border-white/10 xl:pl-5">
+              <SegmentFaresCard
+                segments={segments}
+                stationById={stationById}
+                segmentFares={segmentFares}
+                setSegmentFares={setSegmentFares}
+              />
+
+              <ScheduleActionBar
+                busy={busy}
+                onSave={saveToBackend}
+                onReset={resetForm}
+              />
+            </aside>
+          </div>
+        </section>
+
+        <section className="min-w-0">
+          <RoutePreviewPanel
+            stopsOrdered={stopsOrdered}
+            polyline={routePolyline}
+            totalKm={totalKm}
+            totalMin={totalMin}
+            stopCount={stopsOrdered.filter((stop) => stop.stationId).length}
+            segmentCount={scheduleStats.segmentCount}
+          />
+        </section>
       </div>
     </div>
   );

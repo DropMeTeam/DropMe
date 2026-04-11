@@ -1,0 +1,95 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g opacity="0.85" filter="url(#blurSoft)">
+    <ellipse cx="196" cy="690" rx="260" ry="190" fill="#0F766E"/>
+    <ellipse cx="1310" cy="164" rx="280" ry="220" fill="#1D4ED8"/>
+    <ellipse cx="1124" cy="322" rx="180" ry="140" fill="#0EA5E9" opacity="0.65"/>
+  </g>
+  <g opacity="0.28">
+    <path d="M-60 560C230 480 456 420 738 420C1042 420 1286 478 1658 592" stroke="url(#rail1)" stroke-width="8"/>
+    <path d="M-80 612C238 530 492 490 760 490C1064 490 1312 552 1684 662" stroke="url(#rail2)" stroke-width="4"/>
+  </g>
+  <g opacity="0.22">
+    <path d="M160 150H920" stroke="#7DD3FC" stroke-width="6" stroke-linecap="round"/>
+    <path d="M210 118H780" stroke="#60A5FA" stroke-width="3" stroke-linecap="round"/>
+    <path d="M1200 230H1490" stroke="#7C3AED" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <g filter="url(#trainShadow)">
+    <path d="M622 558C622 506.086 664.086 464 716 464H1124C1177.46 464 1221.43 506.017 1224.54 559.381L1240 824H666L622 558Z" fill="url(#trainBody)"/>
+    <path d="M1032 494H1128C1157.82 494 1182.89 516.462 1186.17 546.101L1191 590H1016L1032 494Z" fill="#C6D8FF" fill-opacity="0.92"/>
+    <path d="M750 500H997L983 590H734L750 500Z" fill="#D6E5FF" fill-opacity="0.88"/>
+    <path d="M645 600H1230L1240 824H666L645 600Z" fill="url(#lowerBody)"/>
+    <rect x="690" y="624" width="470" height="16" rx="8" fill="#0B1736" fill-opacity="0.75"/>
+    <rect x="700" y="662" width="430" height="10" rx="5" fill="#0F1C43" fill-opacity="0.7"/>
+    <circle cx="788" cy="824" r="34" fill="#111C36"/>
+    <circle cx="1098" cy="824" r="34" fill="#111C36"/>
+    <circle cx="788" cy="824" r="16" fill="#7DD3FC" fill-opacity="0.18"/>
+    <circle cx="1098" cy="824" r="16" fill="#7DD3FC" fill-opacity="0.18"/>
+    <path d="M633 605H1230" stroke="#7DD3FC" stroke-opacity="0.18" stroke-width="2"/>
+    <rect x="925" y="603" width="240" height="6" rx="3" fill="#93C5FD" fill-opacity="0.36"/>
+    <circle cx="648" cy="656" r="18" fill="#F8FAFC" fill-opacity="0.95"/>
+    <circle cx="648" cy="656" r="44" fill="#F8FAFC" fill-opacity="0.14"/>
+  </g>
+  <g opacity="0.26">
+    <path d="M160 704H1170" stroke="url(#motion1)" stroke-width="14" stroke-linecap="round"/>
+    <path d="M80 748H1060" stroke="url(#motion2)" stroke-width="10" stroke-linecap="round"/>
+    <path d="M20 790H980" stroke="url(#motion3)" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <defs>
+    <linearGradient id="bg" x1="72" y1="24" x2="1416" y2="862" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#031022"/>
+      <stop offset="0.42" stop-color="#07162F"/>
+      <stop offset="1" stop-color="#0A1C43"/>
+    </linearGradient>
+    <linearGradient id="rail1" x1="-60" y1="480" x2="1658" y2="592" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0EA5E9" stop-opacity="0"/>
+      <stop offset="0.35" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#0EA5E9" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rail2" x1="-80" y1="530" x2="1684" y2="662" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60A5FA" stop-opacity="0"/>
+      <stop offset="0.38" stop-color="#A78BFA"/>
+      <stop offset="1" stop-color="#60A5FA" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="trainBody" x1="666" y1="464" x2="1240" y2="824" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#CBDCFF"/>
+      <stop offset="0.35" stop-color="#8CB4FF"/>
+      <stop offset="0.75" stop-color="#4979E7"/>
+      <stop offset="1" stop-color="#2444A0"/>
+    </linearGradient>
+    <linearGradient id="lowerBody" x1="645" y1="600" x2="1240" y2="824" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#274BAF"/>
+      <stop offset="1" stop-color="#102455"/>
+    </linearGradient>
+    <linearGradient id="motion1" x1="160" y1="704" x2="1170" y2="704" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8" stop-opacity="0"/>
+      <stop offset="0.25" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#38BDF8" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="motion2" x1="80" y1="748" x2="1060" y2="748" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60A5FA" stop-opacity="0"/>
+      <stop offset="0.35" stop-color="#60A5FA"/>
+      <stop offset="1" stop-color="#60A5FA" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="motion3" x1="20" y1="790" x2="980" y2="790" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A78BFA" stop-opacity="0"/>
+      <stop offset="0.4" stop-color="#A78BFA"/>
+      <stop offset="1" stop-color="#A78BFA" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="blurSoft" x="-264" y="-256" width="1854" height="1236" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+      <feGaussianBlur stdDeviation="70" result="effect1_foregroundBlur_1_2"/>
+    </filter>
+    <filter id="trainShadow" x="560" y="420" width="760" height="460" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="20"/>
+      <feGaussianBlur stdDeviation="26"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.00784314 0 0 0 0 0.027451 0 0 0 0 0.0901961 0 0 0 0.55 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_2"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_2" result="shape"/>
+    </filter>
+  </defs>
+</svg>

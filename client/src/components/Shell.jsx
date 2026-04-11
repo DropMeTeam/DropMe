@@ -111,7 +111,7 @@ export default function Shell() {
         <Outlet />
       </main>
 
-      <footer className="mt-0  bg-zinc-950 px-4 py-6 text-zinc-400">
+      <footer className="mt-20 border-t border-zinc-800 bg-zinc-950 px-4 py-6 text-zinc-400">
         <div className="mx-auto max-w-5xl">
           <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
             

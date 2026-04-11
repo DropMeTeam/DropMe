@@ -75,7 +75,7 @@ export default function BusBookingDetailsPage() {
           </p>
 
           <button
-            onClick={() => navigate("/bus-booking")}
+            onClick={() => navigate("/buses/search")}
             className="mt-6 rounded-xl bg-white px-5 py-3 font-medium text-black"
           >
             Back to Bus Booking

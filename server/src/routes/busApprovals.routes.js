@@ -1,23 +1,8 @@
-/*import { Router } from "express";
-import { requireAuth, requireRole } from "../middleware/auth.js";
-import {
-  listPendingBusRegistrations,
-  approveBus,
-  rejectBus
-} from "../controllers/busApprovals.controller.js";
-
-export const busApprovalsRouter = Router();
-
-busApprovalsRouter.use(requireAuth, requireRole("ADMIN_BUS"));
-
-busApprovalsRouter.get("/bus-registrations/pending", listPendingBusRegistrations);
-busApprovalsRouter.post("/bus-registrations/:id/approve", approveBus);
-busApprovalsRouter.post("/bus-registrations/:id/reject", rejectBus);*/
-
 import { Router } from "express";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import {
   listPendingBusRegistrations,
+  listApprovedBusRegistrations,
   approveBus,
   rejectBus,
 } from "../controllers/busApprovals.controller.js";
@@ -29,6 +14,13 @@ busApprovalsRouter.get(
   requireAuth,
   requireRole("ADMIN_BUS"),
   listPendingBusRegistrations
+);
+
+busApprovalsRouter.get(
+  "/bus-registrations/approved",
+  requireAuth,
+  requireRole("ADMIN_BUS"),
+  listApprovedBusRegistrations
 );
 
 busApprovalsRouter.post(

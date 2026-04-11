@@ -15,7 +15,8 @@ import {
   ShieldCheck,
   CreditCard,
   Contact,
-  Delete
+  Delete,
+  Camera
 } from "lucide-react";
 import RiderReviewsPage from "./RiderReviewsPage";
 import RiderLeaderboardPage from "./RiderLeaderboardPage";
@@ -215,6 +216,27 @@ export default function RiderDashboard() {
                     </div>
                     <h3 className="text-xl font-black mb-8 uppercase tracking-widest text-white">Security & Identity</h3>
                     <div className="space-y-8 relative z-10">
+                      
+                      {/* --- PROFILE PICTURE UPDATE SECTION --- */}
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">Profile Picture</label>
+                        <div className="flex items-center gap-4">
+                           <div className="relative h-16 w-16 rounded-xl bg-black/40 border border-zinc-800 flex items-center justify-center overflow-hidden">
+                             {avatar ? (
+                               <img src={URL.createObjectURL(avatar)} className="h-full w-full object-cover" alt="Preview" />
+                             ) : (
+                               <Camera size={20} className="text-zinc-600" />
+                             )}
+                           </div>
+                           <input 
+                             type="file" 
+                             accept="image/*" 
+                             onChange={(e) => setAvatar(e.target.files[0])}
+                             className="text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-[#B8860B]/10 file:text-[#B8860B] hover:file:bg-[#B8860B]/20 cursor-pointer" 
+                           />
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-3">
                           <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1"> Name</label>

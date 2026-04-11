@@ -13,6 +13,7 @@ import {
 
 const EXPANDED_WIDTH = 240;
 const COLLAPSED_WIDTH = 84;
+const NAVBAR_OFFSET = 120; // adjust this if your top navbar height changes
 
 const navItems = [
   { label: "Stations", to: "/train/stations", icon: MapPinned },
@@ -75,7 +76,11 @@ function SidebarContent({ collapsed, onCollapseToggle, onNavigate }) {
           className="ml-auto hidden h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/70 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white lg:inline-flex"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
         </button>
       </div>
 
@@ -104,11 +109,17 @@ export default function TrainAdminLayout() {
   );
 
   return (
-    <div className="-mx-3 -my-4 overflow-x-clip md:-mx-4 xl:-mx-5">
-      <div className="relative min-h-[calc(100vh-68px)] bg-[radial-gradient(1200px_700px_at_0%_0%,rgba(30,64,175,0.08),transparent_55%),#040914]">
+    <div className="-mx-3 overflow-x-clip md:-mx-4 xl:-mx-5">
+      <div
+        className="relative bg-[radial-gradient(1200px_700px_at_0%_0%,rgba(30,64,175,0.08),transparent_55%),#040914]"
+        style={{ minHeight: `calc(100vh - ${NAVBAR_OFFSET}px)` }}
+      >
         <aside
-          className="fixed bottom-0 left-0 top-[61px] z-30 hidden border-r border-white/10 shadow-[18px_0_40px_rgba(0,0,0,0.35)] lg:block"
-          style={{ width: `${sidebarWidth}px` }}
+          className="fixed bottom-0 left-0 z-30 hidden border-r border-white/10 shadow-[18px_0_40px_rgba(0,0,0,0.35)] lg:block"
+          style={{
+            width: `${sidebarWidth}px`,
+            top: `${NAVBAR_OFFSET}px`,
+          }}
         >
           <SidebarContent
             collapsed={collapsed}
@@ -116,7 +127,10 @@ export default function TrainAdminLayout() {
           />
         </aside>
 
-        <div className="sticky top-[61px] z-20 border-b border-white/10 bg-[#08111e]/90 px-4 py-3 backdrop-blur lg:hidden">
+        <div
+          className="sticky z-20 border-b border-white/10 bg-[#08111e]/90 px-4 py-3 backdrop-blur lg:hidden"
+          style={{ top: `${NAVBAR_OFFSET}px` }}
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-white">
               <TrainFront className="h-4 w-4 text-blue-200" />
@@ -141,7 +155,10 @@ export default function TrainAdminLayout() {
               onClick={() => setMobileOpen(false)}
               aria-label="Close train admin menu"
             />
-            <aside className="absolute bottom-0 left-0 top-0 w-[86%] max-w-[300px] border-r border-white/10 shadow-[24px_0_50px_rgba(0,0,0,0.45)]">
+            <aside
+              className="absolute bottom-0 left-0 w-[86%] max-w-[300px] border-r border-white/10 shadow-[24px_0_50px_rgba(0,0,0,0.45)]"
+              style={{ top: `${NAVBAR_OFFSET}px` }}
+            >
               <SidebarContent
                 collapsed={false}
                 onCollapseToggle={() => {}}

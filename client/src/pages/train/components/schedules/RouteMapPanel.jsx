@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from "react-leaflet";
-import { getLatLng } from "../lib/geo";
-import { fixLeafletIcon } from "../lib/leafletIcons";
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
+import { getLatLng } from "../../lib/geo";
+import { fixLeafletIcon } from "../../lib/leafletIcons";
 
 fixLeafletIcon();
 
@@ -22,39 +22,41 @@ function FitBounds({ points }) {
   return null;
 }
 
-export default function RouteMapPanel({ stopsOrdered, polyline }) {
+export default function RouteMapPanel({ stopsOrdered, polyline, height = 520 }) {
   const markers = useMemo(() => {
     return stopsOrdered
-      .map((s, idx) => {
-        const st = s.station;
-        const c = getLatLng(st);
-        if (!st || !c) return null;
-        return { id: String(st._id), name: st.name, lat: c.lat, lng: c.lng, idx };
+      .map((stop, index) => {
+        const station = stop.station;
+        const coords = getLatLng(station);
+        if (!station || !coords) return null;
+        return { id: String(station._id), name: station.name, lat: coords.lat, lng: coords.lng, idx: index };
       })
       .filter(Boolean);
   }, [stopsOrdered]);
 
-  const points = useMemo(() => markers.map((m) => [m.lat, m.lng]), [markers]);
+  const points = useMemo(() => markers.map((marker) => [marker.lat, marker.lng]), [markers]);
   const center = points[0] || [6.9271, 79.8612];
-
   const fitPoints = polyline?.length >= 2 ? polyline : points;
 
   return (
-    <div style={{ height: 520, width: "100%", overflow: "hidden", borderRadius: 16, border: "1px solid #eee" }}>
+    <div
+      style={{ height, width: "100%" }}
+      className="overflow-hidden rounded-[24px] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.28)]"
+    >
       <MapContainer center={center} zoom={11} style={{ height: "100%", width: "100%" }}>
-        {/* Base map */}
         <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-
-        {/* Railway overlay */}
-        <TileLayer url="https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png" attribution="&copy; OpenRailwayMap contributors" />
+        <TileLayer
+          url="https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png"
+          attribution="&copy; OpenRailwayMap contributors"
+        />
 
         <FitBounds points={fitPoints} />
 
-        {markers.map((m) => (
-          <Marker key={m.id} position={[m.lat, m.lng]}>
+        {markers.map((marker) => (
+          <Marker key={marker.id} position={[marker.lat, marker.lng]}>
             <Popup>
               <div style={{ fontWeight: 800 }}>
-                {m.idx + 1}. {m.name}
+                {marker.idx + 1}. {marker.name}
               </div>
             </Popup>
           </Marker>

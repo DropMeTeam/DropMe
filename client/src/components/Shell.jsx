@@ -1,14 +1,8 @@
 import { Outlet, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../state/AuthContext";
+import { Bus, Car, LogOut, MapPinned, UserRound, Shield, Users, Caravan, CarTaxiFront, CarTaxiFrontIcon, CarIcon,TrainFront } from "lucide-react";
 import logo from "../assets/dropme-logo.jpeg";
-import {
-  Bus,
-  LogOut,
-  MapPinned,
-  UserRound,
-  Shield,
-  TrainFront,
-} from "lucide-react";
+
 
 function isAdmin(role) {
   return role === "ADMIN_TRAIN" || role === "ADMIN_BUS" || role === "ADMIN_PRIVATE";
@@ -52,7 +46,12 @@ export default function Shell() {
 
           <nav className="flex items-center gap-2">
             <Link to="/plan" className="pill">
-              <MapPinned className="h-4 w-4" /> Plan
+              <MapPinned className="h-4 w-4" /> Plan Ride
+            </Link>
+
+            {/* Added Carpooling Button */}
+            <Link to="/carpooling" className="pill">
+              <CarIcon className="h-4 w-4" /> Carpool
             </Link>
 
             <Link to="/trains" className="pill">

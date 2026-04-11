@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   CreditCard
 } from "lucide-react";
+import RiderReviewsPage from "./RiderReviewsPage";
+import RiderLeaderboardPage from "./RiderLeaderboardPage";
 
 // MAIN Background
 import heroBg from "../../assets/travel.png"; 
@@ -317,16 +319,10 @@ export default function RiderDashboard() {
             </div>
           )}
           
-          {(activeTab === 'reviews' || activeTab === 'leaderboard') && (
-            <div className="flex flex-col items-center justify-center py-40 animate-pulse">
-              <div className="relative mb-6">
-                <div className="absolute inset-0 bg-[#B8860B] blur-3xl opacity-20"></div>
-                <Trophy size={80} className="relative text-[#B8860B]/40" />
-              </div>
-              <h2 className="text-2xl font-black text-zinc-400 uppercase tracking-[0.5em]">Classified</h2>
-              <p className="text-zinc-600 text-xs mt-4 font-bold tracking-widest uppercase italic text-[#B8860B]">This sector is currently under construction</p>
-            </div>
-          )}
+          {activeTab === "reviews" && <RiderReviewsPage />}
+
+          {activeTab === "leaderboard" && <RiderLeaderboardPage />}
+          
         </div>
       </main>
     </div>

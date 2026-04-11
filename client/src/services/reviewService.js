@@ -19,3 +19,18 @@ export async function getDriverReviews(driverId) {
   const { data } = await api.get(`/api/reviews/driver/${driverId}`);
   return data;
 }
+
+export async function getMyGivenReviews() {
+  const { data } = await api.get("/api/reviews/mine/given");
+  return data;
+}
+
+export async function updateRideReview(reviewId, payload) {
+  const { data } = await api.patch(`/api/reviews/${reviewId}`, payload);
+  return data;
+}
+
+export async function getReviewById(reviewId) {
+  const { data } = await api.get(`/api/reviews/${reviewId}`);
+  return data;
+}

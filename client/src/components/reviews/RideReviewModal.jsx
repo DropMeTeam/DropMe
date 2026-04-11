@@ -1,22 +1,24 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Star, X } from "lucide-react";
-import { createRideReview } from "../../services/reviewService";
+import { createRideReview, updateRideReview } from "../../services/reviewService";
 
-function StarRating({ value, onChange, size = 28 }) {
+function StarRating({ value, onChange, size = 26, disabled = false }) {
   return (
     <div className="flex items-center gap-2">
       {[1, 2, 3, 4, 5].map((star) => {
         const active = star <= value;
+
         return (
           <button
             key={star}
             type="button"
-            onClick={() => onChange(star)}
-            className="transition-transform hover:scale-110"
+            disabled={disabled}
+            onClick={() => !disabled && onChange(star)}
+            className="transition-transform hover:scale-110 disabled:cursor-default disabled:hover:scale-100"
           >
             <Star
               size={size}
-              className={active ? "fill-yellow-400 text-yellow-400" : "text-slate-300"}
+              className={active ? "fill-yellow-400 text-yellow-400" : "text-zinc-500"}
             />
           </button>
         );
@@ -29,27 +31,57 @@ export default function RideReviewModal({
   open,
   onClose,
   booking,
+  reviewData = null,
+  mode = "create", // create | edit | view
   onSubmitted,
 }) {
+  const isViewOnly = mode === "view";
+  const isEditMode = mode === "edit";
+
   const [overallRating, setOverallRating] = useState(0);
-  const [cleanlinessRating, setCleanlinessRating] = useState(4);
-  const [punctualityRating, setPunctualityRating] = useState(5);
-  const [behaviorRating, setBehaviorRating] = useState(4);
+  const [cleanlinessRating, setCleanlinessRating] = useState(0);
+  const [punctualityRating, setPunctualityRating] = useState(0);
+  const [behaviorRating, setBehaviorRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const driverName = useMemo(() => {
-    return booking?.offerSnapshot?.driverName || "your driver";
-  }, [booking]);
+    return (
+      reviewData?.driverName ||
+      booking?.offerSnapshot?.driverName ||
+      "your driver"
+    );
+  }, [booking, reviewData]);
 
-  if (!open || !booking) return null;
+  useEffect(() => {
+    if (!open) return;
+
+    setOverallRating(reviewData?.overallRating || 0);
+    setCleanlinessRating(reviewData?.cleanlinessRating || 0);
+    setPunctualityRating(reviewData?.punctualityRating || 0);
+    setBehaviorRating(reviewData?.behaviorRating || 0);
+    setReviewText(reviewData?.originalText || reviewData?.sanitizedText || "");
+    setError("");
+  }, [open, reviewData]);
+
+  if (!open || (!booking && !reviewData)) return null;
 
   async function handleSubmit(e) {
     e.preventDefault();
 
+    if (isViewOnly) {
+      onClose?.();
+      return;
+    }
+
     if (!overallRating) {
       setError("Please select the overall rating");
+      return;
+    }
+
+    if (!cleanlinessRating || !punctualityRating || !behaviorRating) {
+      setError("Please rate cleanliness, punctuality, and behavior");
       return;
     }
 
@@ -57,35 +89,59 @@ export default function RideReviewModal({
       setSubmitting(true);
       setError("");
 
-      const result = await createRideReview({
-        bookingId: booking._id,
-        overallRating,
-        cleanlinessRating,
-        punctualityRating,
-        behaviorRating,
-        reviewText,
-      });
+      if (isEditMode && reviewData?._id) {
+        await updateRideReview(reviewData._id, {
+          overallRating,
+          cleanlinessRating,
+          punctualityRating,
+          behaviorRating,
+          reviewText,
+        });
+      } else {
+        await createRideReview({
+          bookingId: booking?._id,
+          overallRating,
+          cleanlinessRating,
+          punctualityRating,
+          behaviorRating,
+          reviewText,
+        });
+      }
 
-      onSubmitted?.(result?.review);
+      onSubmitted?.();
       onClose?.();
     } catch (err) {
       setError(
         err?.response?.data?.message ||
           err?.response?.data?.error ||
-          "Failed to submit review"
+          "Failed to save review"
       );
     } finally {
       setSubmitting(false);
     }
   }
 
+  const title =
+    mode === "create"
+      ? "Rate Your Ride"
+      : mode === "edit"
+      ? "Update Your Review"
+      : "Review Details";
+
+  const buttonLabel =
+    mode === "create"
+      ? "Submit Review"
+      : mode === "edit"
+      ? "Update Review"
+      : "Close";
+
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 px-4">
-      <div className="w-full max-w-2xl rounded-[28px] bg-white p-8 shadow-2xl">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4 py-6">
+      <div className="w-full max-w-3xl rounded-[24px] border border-zinc-800 bg-[#0c0c0f] p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div className="w-full text-center">
-            <h2 className="text-4xl font-extrabold text-slate-900">Rate Your Ride</h2>
-            <p className="mt-2 text-2xl text-slate-500">
+            <h2 className="text-3xl font-black text-white">{title}</h2>
+            <p className="mt-2 text-lg text-zinc-400">
               How was your trip with {driverName}?
             </p>
           </div>
@@ -93,58 +149,82 @@ export default function RideReviewModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+            className="rounded-full p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white"
           >
             <X size={22} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8">
+        <form onSubmit={handleSubmit} className="mt-6">
           <div className="text-center">
-            <p className="text-xl font-bold uppercase tracking-wide text-slate-400">
+            <p className="text-lg font-black uppercase tracking-wide text-zinc-400">
               Overall Experience
             </p>
 
-            <div className="mt-5 flex justify-center">
-              <StarRating value={overallRating} onChange={setOverallRating} size={40} />
+            <div className="mt-4 flex justify-center">
+              <StarRating
+                value={overallRating}
+                onChange={setOverallRating}
+                size={38}
+                disabled={isViewOnly}
+              />
             </div>
           </div>
 
-          <div className="my-8 border-t border-slate-200" />
+          <div className="my-6 border-t border-zinc-800" />
 
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-2xl font-semibold text-slate-800">Cleanliness</span>
-              <StarRating value={cleanlinessRating} onChange={setCleanlinessRating} />
+              <span className="text-xl font-semibold text-white">Cleanliness</span>
+              <StarRating
+                value={cleanlinessRating}
+                onChange={setCleanlinessRating}
+                disabled={isViewOnly}
+              />
             </div>
 
             <div className="flex items-center justify-between gap-4">
-              <span className="text-2xl font-semibold text-slate-800">Punctuality</span>
-              <StarRating value={punctualityRating} onChange={setPunctualityRating} />
+              <span className="text-xl font-semibold text-white">Punctuality</span>
+              <StarRating
+                value={punctualityRating}
+                onChange={setPunctualityRating}
+                disabled={isViewOnly}
+              />
             </div>
 
             <div className="flex items-center justify-between gap-4">
-              <span className="text-2xl font-semibold text-slate-800">Behavior</span>
-              <StarRating value={behaviorRating} onChange={setBehaviorRating} />
+              <span className="text-xl font-semibold text-white">Behavior</span>
+              <StarRating
+                value={behaviorRating}
+                onChange={setBehaviorRating}
+                disabled={isViewOnly}
+              />
             </div>
           </div>
 
-          <div className="mt-8">
-            <label className="mb-3 block text-2xl font-semibold text-slate-800">
+          <div className="mt-6">
+            <label className="mb-3 block text-xl font-semibold text-white">
               Write a review (optional)
             </label>
 
             <textarea
-              rows={5}
+              rows={4}
               value={reviewText}
+              disabled={isViewOnly}
               onChange={(e) => setReviewText(e.target.value)}
               placeholder="Share details of your experience..."
-              className="w-full rounded-3xl border border-slate-300 px-5 py-4 text-xl text-slate-700 outline-none transition focus:border-blue-500"
+              className="w-full resize-none rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-base text-white placeholder:text-zinc-500 outline-none transition focus:border-[#B8860B] disabled:opacity-80"
             />
           </div>
 
+          {reviewData?.reviewDeadlineAt ? (
+            <div className="mt-4 text-sm text-zinc-400">
+              Edit deadline: {new Date(reviewData.reviewDeadlineAt).toLocaleString()}
+            </div>
+          ) : null}
+
           {error ? (
-            <div className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-base text-red-600">
+            <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
               {error}
             </div>
           ) : null}
@@ -152,9 +232,9 @@ export default function RideReviewModal({
           <button
             type="submit"
             disabled={submitting}
-            className="mt-8 w-full rounded-2xl bg-blue-600 px-6 py-5 text-2xl font-bold text-white shadow-lg transition hover:bg-blue-700 disabled:opacity-60"
+            className="mt-6 w-full rounded-2xl bg-[#B8860B] px-6 py-4 text-lg font-black text-black transition hover:brightness-110 disabled:opacity-60"
           >
-            {submitting ? "Submitting..." : "Submit Review"}
+            {submitting ? "Saving..." : buttonLabel}
           </button>
         </form>
       </div>

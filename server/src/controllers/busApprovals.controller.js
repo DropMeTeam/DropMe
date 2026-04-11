@@ -9,7 +9,29 @@ export async function listPendingBusRegistrations(req, res, next) {
       .sort({ createdAt: -1 })
       .lean();
 
-    res.json({ ok: true, pending });
+    res.json({
+      ok: true,
+      pending,
+      count: pending.length,
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function listApprovedBusRegistrations(req, res, next) {
+  try {
+    const approved = await Bus.find({ status: "approved" })
+      .populate("owner", "name email role")
+      .populate("routeId", "routeNumber start end routeType")
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    res.json({
+      ok: true,
+      approved,
+      count: approved.length,
+    });
   } catch (e) {
     next(e);
   }

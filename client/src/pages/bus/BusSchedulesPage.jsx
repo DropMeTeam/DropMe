@@ -1,12 +1,17 @@
 // client/src/pages/bus/BusSchedulesPage.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../lib/api";
 import {
   CalendarClock,
+  ArrowLeft,
   ArrowRightLeft,
   Save,
   RefreshCw,
   Trash2,
+  Bus,
+  MapPin,
+  Clock3,
+  ChevronRight,
 } from "lucide-react";
 
 const DAYS = [
@@ -19,10 +24,22 @@ const DAYS = [
   { k: 0, label: "Sun" },
 ];
 
+function shortPlace(label = "") {
+  if (!label) return "-";
+  return String(label).split(",")[0].trim();
+}
+
 function directionLabel(route, dir) {
   if (!route) return dir;
   const a = route?.start?.label || "Start";
   const b = route?.end?.label || "End";
+  return dir === "A_TO_B" ? `${a} → ${b}` : `${b} → ${a}`;
+}
+
+function directionShortLabel(route, dir) {
+  if (!route) return dir === "A_TO_B" ? "Start → End" : "End → Start";
+  const a = shortPlace(route?.start?.label || "Start");
+  const b = shortPlace(route?.end?.label || "End");
   return dir === "A_TO_B" ? `${a} → ${b}` : `${b} → ${a}`;
 }
 
@@ -42,7 +59,6 @@ function scheduleKey({ busId, direction, dayOfWeek }) {
 }
 
 function timeToNumber(t) {
-  // "08:30" -> 830 for sorting
   if (typeof t !== "string") return 9999;
   const m = t.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
   if (!m) return 9999;
@@ -50,11 +66,21 @@ function timeToNumber(t) {
 }
 
 function isMeaningfulRange(start, end) {
-  // ignore default "00:00 → 00:00"
   return !(start === "00:00" && end === "00:00");
 }
 
-// ✅ READ-ONLY timetable: days as columns, entries sorted by start-point time
+function SmallMetric({ icon, label, value, tone = "text-white" }) {
+  return (
+    <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.22)]">
+      <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-zinc-500">
+        <span className="text-zinc-400">{icon}</span>
+        {label}
+      </div>
+      <div className={`mt-3 text-2xl font-bold ${tone}`}>{value}</div>
+    </div>
+  );
+}
+
 function WeeklyTimetable({ title, direction, schedules, buses }) {
   const busLabelById = useMemo(() => {
     const m = new Map();
@@ -65,7 +91,8 @@ function WeeklyTimetable({ title, direction, schedules, buses }) {
   }, [buses]);
 
   const byDay = useMemo(() => {
-    const map = new Map(); // day -> entries[]
+    const map = new Map();
+
     for (const s of schedules || []) {
       if (s.direction !== direction) continue;
 
@@ -81,7 +108,7 @@ function WeeklyTimetable({ title, direction, schedules, buses }) {
       const last = s?.stopTimes?.[s.stopTimes.length - 1]?.time || "00:00";
       if (!isMeaningfulRange(first, last)) continue;
 
-      const day = s.dayOfWeek; // 0..6
+      const day = s.dayOfWeek;
       if (!map.has(day)) map.set(day, []);
       map.get(day).push({ first, last, label });
     }
@@ -95,15 +122,26 @@ function WeeklyTimetable({ title, direction, schedules, buses }) {
   }, [schedules, direction, busLabelById]);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-      <div className="font-semibold mb-3">{title}</div>
+    <div className="rounded-[24px] border border-white/10 bg-[#0d1219] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.24)]">
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-blue-400/15 bg-blue-400/10 text-blue-300">
+          <Clock3 className="h-5 w-5" />
+        </div>
 
-      <div className="overflow-x-auto rounded-xl border border-white/10">
+        <div>
+          <div className="text-lg font-semibold text-white">{title}</div>
+          <div className="text-sm text-zinc-500">
+            Ordered by start-point departure time
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="min-w-[900px] w-full text-sm">
-          <thead className="bg-white/5">
+          <thead className="bg-white/[0.04]">
             <tr className="text-left">
               {DAYS.map((d) => (
-                <th key={d.k} className="p-3">
+                <th key={d.k} className="p-3 text-zinc-400">
                   {d.label}
                 </th>
               ))}
@@ -117,18 +155,22 @@ function WeeklyTimetable({ title, direction, schedules, buses }) {
                 return (
                   <td key={d.k} className="p-3">
                     {entries.length === 0 ? (
-                      <div className="text-zinc-500">Not set</div>
+                      <div className="rounded-xl border border-dashed border-white/8 bg-white/[0.02] px-3 py-3 text-zinc-500">
+                        Not set
+                      </div>
                     ) : (
                       <div className="grid gap-2">
                         {entries.map((e, idx) => (
                           <div
                             key={idx}
-                            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+                            className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2"
                           >
-                            <div className="text-zinc-200 font-semibold">
+                            <div className="font-semibold text-zinc-100">
                               {e.first} – {e.last}
                             </div>
-                            <div className="text-zinc-400 text-xs">{e.label}</div>
+                            <div className="mt-1 text-xs text-zinc-500">
+                              {e.label}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -139,10 +181,6 @@ function WeeklyTimetable({ title, direction, schedules, buses }) {
             </tr>
           </tbody>
         </table>
-      </div>
-
-      <div className="mt-2 text-xs text-zinc-400">
-        Ordered by start-point departure time.
       </div>
     </div>
   );
@@ -163,7 +201,9 @@ export default function BusSchedulesPage() {
 
   const [schedules, setSchedules] = useState([]);
   const [openEditor, setOpenEditor] = useState(null); // {direction, dayOfWeek, busId}
-  const [draftTimes, setDraftTimes] = useState([]); // {stopIndex,time}
+  const [draftTimes, setDraftTimes] = useState([]);
+
+  const editorRef = useRef(null);
 
   const schedulesMap = useMemo(() => {
     const m = new Map();
@@ -187,6 +227,7 @@ export default function BusSchedulesPage() {
   async function loadRoutes() {
     setLoading(true);
     setMsg(null);
+
     try {
       const res = await api.get("/api/bus/routes");
       const list = res.data?.routes || [];
@@ -206,6 +247,7 @@ export default function BusSchedulesPage() {
 
   async function loadRouteBundle(rid) {
     if (!rid) return;
+
     setLoadingRoute(true);
     setMsg(null);
     setOpenEditor(null);
@@ -244,14 +286,24 @@ export default function BusSchedulesPage() {
 
   useEffect(() => {
     loadRoutes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!routeId) return;
     loadRouteBundle(routeId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeId]);
+
+  useEffect(() => {
+    if (!openEditor) return;
+    const timer = setTimeout(() => {
+      editorRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+
+    return () => clearTimeout(timer);
+  }, [openEditor]);
 
   function closeEditor() {
     setOpenEditor(null);
@@ -270,8 +322,7 @@ export default function BusSchedulesPage() {
       return;
     }
 
-    const selectedBus =
-      busIdOverride || (direction === "A_TO_B" ? busA : busB);
+    const selectedBus = busIdOverride || (direction === "A_TO_B" ? busA : busB);
 
     if (!selectedBus) {
       setMsg({ type: "error", text: "Select a bus first" });
@@ -283,6 +334,7 @@ export default function BusSchedulesPage() {
 
     const stops = orderedStops(route, direction);
     const existingTimes = new Map();
+
     for (const st of existing?.stopTimes || []) {
       existingTimes.set(st.stopIndex, hhmmOr00(st.time));
     }
@@ -301,9 +353,8 @@ export default function BusSchedulesPage() {
     if (!openEditor) return;
 
     const { direction, dayOfWeek, busId } = openEditor;
-    const selectedBus = busId;
 
-    if (!selectedBus) {
+    if (!busId) {
       return setMsg({ type: "error", text: "Select a bus first" });
     }
 
@@ -320,7 +371,7 @@ export default function BusSchedulesPage() {
       setMsg(null);
 
       const payload = {
-        busId: selectedBus,
+        busId,
         direction,
         dayOfWeek,
         times: draftTimes,
@@ -340,8 +391,7 @@ export default function BusSchedulesPage() {
   }
 
   function getSchedule(direction, dayOfWeek, busIdOverride) {
-    const busId =
-      busIdOverride || (direction === "A_TO_B" ? busA : busB);
+    const busId = busIdOverride || (direction === "A_TO_B" ? busA : busB);
     if (!busId) return null;
 
     const key = scheduleKey({ busId, direction, dayOfWeek });
@@ -355,7 +405,10 @@ export default function BusSchedulesPage() {
   async function deleteScheduleEntry(direction, dayOfWeek, busIdOverride) {
     const s = getSchedule(direction, dayOfWeek, busIdOverride);
     if (!s?._id) {
-      return setMsg({ type: "error", text: "No schedule to delete for this bus/day." });
+      return setMsg({
+        type: "error",
+        text: "No schedule to delete for this bus/day.",
+      });
     }
 
     const ok = window.confirm("Delete this schedule? This cannot be undone.");
@@ -385,8 +438,7 @@ export default function BusSchedulesPage() {
   }
 
   function summaryFor(direction, dayOfWeek, busIdOverride) {
-    const busId =
-      busIdOverride || (direction === "A_TO_B" ? busA : busB);
+    const busId = busIdOverride || (direction === "A_TO_B" ? busA : busB);
     if (!busId) return "—";
 
     const key = scheduleKey({ busId, direction, dayOfWeek });
@@ -409,91 +461,139 @@ export default function BusSchedulesPage() {
     return b ? b.busNumber || b.plateNumber || b._id : openEditor.busId;
   }, [openEditor?.busId, buses]);
 
+  const currentDirectionTitle = useMemo(() => {
+    if (!route || !openEditor) return "";
+    return directionShortLabel(route, openEditor.direction);
+  }, [route, openEditor]);
+
   return (
-    <div className="p-6">
-      <div className="card p-6">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <CalendarClock className="h-5 w-5" />
-            <h1 className="text-xl font-semibold">Bus Schedules</h1>
-          </div>
-          <div className="text-sm text-zinc-400">
-            Publish weekly timetables per route • direction • bus
-          </div>
-        </div>
-
-        <p className="mt-2 text-sm text-zinc-400">
-          Schedules are defined per <b>Route + Direction + Day + Bus</b>.
-        </p>
-
-        {msg && (
-          <div
-            className={
-              "mt-4 rounded-xl border p-3 " +
-              (msg.type === "success"
-                ? "border-emerald-400/30 bg-emerald-500/10"
-                : "border-red-400/30 bg-red-500/10")
-            }
-          >
-            {msg.text}
-          </div>
-        )}
-
-        <div className="mt-5 grid gap-4">
-          {/* Route selector */}
-          <div className="grid gap-2 max-w-2xl">
-            <div className="text-sm text-white/70">Route</div>
-            <div className="flex gap-2 items-center flex-wrap">
-              <select
-                className="rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white outline-none min-w-[280px]"
-                value={routeId}
-                onChange={(e) => setRouteId(e.target.value)}
-                disabled={loading}
-              >
-                {routes.map((r) => (
-                  <option key={r._id} value={r._id}>
-                    {r.routeNumber} ({r.routeType})
-                  </option>
-                ))}
-              </select>
-
+    <div className="min-h-screen bg-[#06080d] px-4 py-5 md:px-6">
+      <div className="mx-auto max-w-[1500px]">
+        <div className="rounded-[30px] border border-white/8 bg-[#090b10] p-5 shadow-[0_18px_55px_rgba(0,0,0,0.35)] md:p-7">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+            <div className="flex items-start gap-3">
               <button
-                className="btn"
-                onClick={() => loadRouteBundle(routeId)}
-                disabled={!routeId || loadingRoute}
+                type="button"
+                onClick={() => window.history.back()}
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white transition hover:bg-white/[0.08]"
+                title="Back"
               >
-                <RefreshCw className="h-4 w-4" />
-                <span className="ml-2">
-                  {loadingRoute ? "Refreshing..." : "Refresh"}
-                </span>
+                <ArrowLeft className="h-5 w-5" />
               </button>
 
-              <div className="text-sm text-zinc-400">{routeHeader}</div>
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-blue-400/15 bg-blue-400/10 text-blue-300">
+                <CalendarClock className="h-6 w-6" />
+              </div>
+
+              <div>
+                <h1 className="text-4xl font-bold tracking-tight text-white md:text-5xl">
+                  Bus Schedules
+                </h1>
+                <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-zinc-500">
+                  Weekly Timetable & Direction Management
+                </p>
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-400">
+                  Publish weekly timetables per route, direction, day, and assigned bus.
+                  Timetable cards remain read-only, while edits are managed from the
+                  direction panels below.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[460px]">
+              <SmallMetric
+                icon={<MapPin className="h-4 w-4" />}
+                label="Selected Route"
+                value={route ? route.routeNumber : "--"}
+                tone="text-blue-300"
+              />
+              <SmallMetric
+                icon={<Bus className="h-4 w-4" />}
+                label="Assigned Buses"
+                value={buses.length}
+                tone="text-white"
+              />
+              <SmallMetric
+                icon={<Clock3 className="h-4 w-4" />}
+                label="Saved Schedules"
+                value={schedules.length}
+                tone="text-emerald-300"
+              />
             </div>
           </div>
 
-          {/* ✅ READ-ONLY TIMETABLE (NO EDIT/DELETE HERE) */}
-          {route && (
-            <div className="grid gap-4">
+          {msg && (
+            <div
+              className={
+                "mt-6 rounded-[20px] border px-4 py-3 text-sm " +
+                (msg.type === "success"
+                  ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+                  : "border-red-400/20 bg-red-500/10 text-red-200")
+              }
+            >
+              {msg.text}
+            </div>
+          )}
+
+          <div className="mt-7 rounded-[24px] border border-white/8 bg-[#0d1219] p-5 shadow-[0_10px_30px_rgba(0,0,0,0.22)]">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+              <div className="grid gap-2 max-w-3xl">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                  Route Selector
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <select
+                    className="min-w-[280px] rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-blue-400/40"
+                    value={routeId}
+                    onChange={(e) => setRouteId(e.target.value)}
+                    disabled={loading}
+                  >
+                    {routes.map((r) => (
+                      <option key={r._id} value={r._id} className="bg-[#10131a]">
+                        {r.routeNumber} ({r.routeType})
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-sm font-medium text-white transition hover:bg-white/[0.08] disabled:opacity-60"
+                    onClick={() => loadRouteBundle(routeId)}
+                    disabled={!routeId || loadingRoute}
+                    type="button"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${loadingRoute ? "animate-spin" : ""}`} />
+                    {loadingRoute ? "Refreshing..." : "Refresh"}
+                  </button>
+                </div>
+
+                <div className="text-sm text-zinc-400">
+                  {routeHeader}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {route ? (
+            <div className="mt-7 grid gap-4">
               <WeeklyTimetable
-                title="Timetable (A → B) • All buses"
+                title={`Timetable • ${directionShortLabel(route, "A_TO_B")} • All buses`}
                 direction="A_TO_B"
                 schedules={schedules}
                 buses={buses}
               />
               <WeeklyTimetable
-                title="Timetable (B → A) • All buses"
+                title={`Timetable • ${directionShortLabel(route, "B_TO_A")} • All buses`}
                 direction="B_TO_A"
                 schedules={schedules}
                 buses={buses}
               />
             </div>
-          )}
+          ) : null}
 
-          {/* Editors (create/update/delete schedules) */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="mt-7 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <DirectionPanel
-              title="Direction A → B"
+              title={directionShortLabel(route, "A_TO_B")}
               subtitle={directionLabel(route, "A_TO_B")}
               direction="A_TO_B"
               buses={buses}
@@ -503,10 +603,11 @@ export default function BusSchedulesPage() {
               openDayEditor={openDayEditor}
               canDelete={canDelete}
               deleteScheduleEntry={deleteScheduleEntry}
+              openEditor={openEditor}
             />
 
             <DirectionPanel
-              title="Direction B → A"
+              title={directionShortLabel(route, "B_TO_A")}
               subtitle={directionLabel(route, "B_TO_A")}
               direction="B_TO_A"
               buses={buses}
@@ -516,30 +617,42 @@ export default function BusSchedulesPage() {
               openDayEditor={openDayEditor}
               canDelete={canDelete}
               deleteScheduleEntry={deleteScheduleEntry}
+              openEditor={openEditor}
             />
           </div>
 
-          {/* Editor panel */}
-          {openEditor && route && (
-            <div className="mt-2 rounded-2xl border border-white/10 bg-white/5 p-5">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <ArrowRightLeft className="h-4 w-4" />
-                  <div className="font-semibold">
-                    Edit:{" "}
-                    {openEditor.direction === "A_TO_B" ? "A → B" : "B → A"} •{" "}
-                    {DAYS.find((d) => d.k === openEditor.dayOfWeek)?.label} •{" "}
-                    {openBusLabel}
+          {openEditor && route ? (
+            <div
+              ref={editorRef}
+              className="mt-7 rounded-[24px] border border-blue-400/15 bg-[#0d1219] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.24)]"
+            >
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-lg font-semibold text-white">
+                    <ArrowRightLeft className="h-5 w-5 text-blue-300" />
+                    Edit Schedule • {currentDirectionTitle}
+                  </div>
+
+                  <div className="mt-2 text-sm text-zinc-400">
+                    {DAYS.find((d) => d.k === openEditor.dayOfWeek)?.label} • {openBusLabel}
+                  </div>
+
+                  <div className="mt-3 text-sm text-zinc-500">
+                    Fill the time for each stop in order using 24-hour format HH:mm.
                   </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <button className="btn" onClick={closeEditor}>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="inline-flex h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-white transition hover:bg-white/[0.08]"
+                    onClick={closeEditor}
+                    type="button"
+                  >
                     Cancel
                   </button>
 
                   <button
-                    className="btn"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 text-sm font-medium text-red-200 transition hover:bg-red-400/15 disabled:opacity-50"
                     onClick={() =>
                       deleteScheduleEntry(
                         openEditor.direction,
@@ -554,20 +667,21 @@ export default function BusSchedulesPage() {
                         openEditor.busId
                       )
                     }
+                    type="button"
                   >
                     <Trash2 className="h-4 w-4" />
-                    <span className="ml-2">Delete</span>
+                    Delete
                   </button>
 
-                  <button className="btn-primary btn" onClick={saveEditor}>
+                  <button
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#bcd1ff] px-5 text-sm font-semibold text-[#111827] transition hover:brightness-105"
+                    onClick={saveEditor}
+                    type="button"
+                  >
                     <Save className="h-4 w-4" />
-                    <span className="ml-2">Save</span>
+                    Save
                   </button>
                 </div>
-              </div>
-
-              <div className="mt-3 text-sm text-zinc-400">
-                Fill time for each stop in order. Use 24-hour format HH:mm.
               </div>
 
               <StopTimeGrid
@@ -576,7 +690,7 @@ export default function BusSchedulesPage() {
                 onTimeChange={setTimeAt}
               />
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
@@ -594,27 +708,32 @@ function DirectionPanel({
   openDayEditor,
   canDelete,
   deleteScheduleEntry,
+  openEditor,
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div>
-          <div className="font-semibold">{title}</div>
-          <div className="text-xs text-zinc-400 mt-1">{subtitle}</div>
+    <div className="rounded-[24px] border border-white/10 bg-[#0d1219] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.24)]">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
+          <div className="text-2xl font-bold text-white">{title}</div>
+          <div className="mt-2 text-sm leading-6 text-zinc-400 break-words">
+            {subtitle}
+          </div>
         </div>
 
         <div className="min-w-[260px]">
-          <div className="text-xs text-white/60 mb-1">Bus</div>
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+            Bus
+          </div>
           <select
-            className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-white outline-none"
+            className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-blue-400/40"
             value={busId || ""}
             onChange={(e) => setBusId(e.target.value)}
           >
-            <option value="" disabled>
+            <option value="" disabled className="bg-[#10131a]">
               Select bus...
             </option>
             {(buses || []).map((b) => (
-              <option key={b._id} value={b._id}>
+              <option key={b._id} value={b._id} className="bg-[#10131a]">
                 {b.busNumber || b.plateNumber || b._id}
               </option>
             ))}
@@ -622,41 +741,64 @@ function DirectionPanel({
         </div>
       </div>
 
-      <div className="mt-4 rounded-xl overflow-hidden border border-white/10">
-        <div className="grid grid-cols-3 px-4 py-3 text-xs font-semibold bg-white/5">
+      <div className="mt-5 overflow-hidden rounded-2xl border border-white/10">
+        <div className="grid grid-cols-[120px_minmax(0,1fr)_180px] bg-white/[0.04] px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
           <div>Day</div>
           <div>Summary</div>
           <div className="text-right">Action</div>
         </div>
 
-        {DAYS.map((d) => (
-          <div
-            key={d.k}
-            className="grid grid-cols-3 px-4 py-3 border-t border-white/10 text-sm items-center"
-          >
-            <div className="font-semibold">{d.label}</div>
-            <div className="text-zinc-300">{summaryFor(direction, d.k, busId)}</div>
-            <div className="text-right">
+        {DAYS.map((d) => {
+          const active =
+            openEditor?.direction === direction &&
+            openEditor?.dayOfWeek === d.k &&
+            openEditor?.busId === busId;
+
+          return (
+            <div
+              key={d.k}
+              className={[
+                "grid grid-cols-[120px_minmax(0,1fr)_180px] items-center px-4 py-3 text-sm border-t border-white/10",
+                active ? "bg-blue-400/[0.06]" : "",
+              ].join(" ")}
+            >
+              <div className="font-semibold text-white">{d.label}</div>
+
+              <div className="truncate text-zinc-300">
+                {summaryFor(direction, d.k, busId)}
+              </div>
+
               <div className="flex justify-end gap-2">
-                <button className="btn" onClick={() => openDayEditor(direction, d.k, busId)}>
+                <button
+                  className={[
+                    "inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-medium transition",
+                    active
+                      ? "bg-[#bcd1ff] text-[#111827]"
+                      : "border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]",
+                  ].join(" ")}
+                  onClick={() => openDayEditor(direction, d.k, busId)}
+                  type="button"
+                >
                   Edit
                 </button>
 
                 <button
-                  className="btn"
+                  className="inline-flex h-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-white transition hover:bg-white/[0.08] disabled:opacity-50"
                   disabled={!canDelete(direction, d.k, busId)}
                   onClick={() => deleteScheduleEntry(direction, d.k, busId)}
+                  type="button"
                 >
                   Delete
                 </button>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <div className="mt-3 text-xs text-zinc-400">
-        Tip: Keep stop times realistic.
+      <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500">
+        <ChevronRight className="h-3.5 w-3.5" />
+        Clicking Edit opens the day editor below and jumps directly to it.
       </div>
     </div>
   );
@@ -670,31 +812,33 @@ function StopTimeGrid({ stops, draftTimes, onTimeChange }) {
   }, [draftTimes]);
 
   return (
-    <div className="mt-4 rounded-xl overflow-hidden border border-white/10">
-      <div className="grid grid-cols-12 px-4 py-3 text-xs font-semibold bg-white/5">
+    <div className="mt-5 overflow-hidden rounded-2xl border border-white/10">
+      <div className="grid grid-cols-12 bg-white/[0.04] px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
         <div className="col-span-1">#</div>
         <div className="col-span-8">Stop</div>
-        <div className="col-span-3">Time (HH:mm)</div>
+        <div className="col-span-3">Time</div>
       </div>
 
       {(stops || []).map((s, idx) => (
         <div
           key={`${s.lat},${s.lng},${idx}`}
-          className="grid grid-cols-12 px-4 py-3 border-t border-white/10 items-center"
+          className="grid grid-cols-12 items-center border-t border-white/10 px-4 py-3"
         >
           <div className="col-span-1 font-semibold text-zinc-200">{idx}</div>
-          <div className="col-span-8">
-            <div className="text-sm text-zinc-100">{s.label}</div>
-            <div className="text-xs text-zinc-500">
+
+          <div className="col-span-8 pr-4">
+            <div className="break-words text-sm text-zinc-100">{s.label}</div>
+            <div className="mt-1 text-xs text-zinc-500">
               {Number(s.lat).toFixed(5)}, {Number(s.lng ?? s.lon).toFixed(5)}
             </div>
           </div>
+
           <div className="col-span-3">
             <input
               value={timeByIndex.get(idx) || "00:00"}
               onChange={(e) => onTimeChange(idx, e.target.value)}
               placeholder="06:30"
-              className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-white outline-none"
+              className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-white outline-none transition focus:border-blue-400/40"
             />
           </div>
         </div>

@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
 import { useAuth } from "../../state/AuthContext";
+import BusOwnerSidebar from "../../components/bus/BusOwner/BusOwnerSidebar";
+import MyFleetSection from "../../components/bus/BusOwner/MyFleetSection";
+import AddBusSection from "../../components/bus/BusOwner/AddBusSection";
+import BusOwnerSchedulesSection from "../../components/bus/BusOwner/BusOwnerSchedulesSection";
+import OverviewSection from "../../components/bus/BusOwner/OverviewSection";
 
 const SEAT_OPTIONS = {
   Normal: [42, 44, 49, 54],
@@ -9,18 +14,20 @@ const SEAT_OPTIONS = {
   Expressway: [32, 35, 40, 45, 49, 50],
 };
 
-const FEATURE_OPTIONS = ["WiFi", "AC", "CCTV", "USB Charging", "Reclining Seats"];
-
 export default function BusOwnerDashboard() {
   const { user } = useAuth();
 
-  const [tab, setTab] = useState("profile");
+  const [tab, setTab] = useState("overview");
   const [buses, setBuses] = useState([]);
   const [routes, setRoutes] = useState([]);
+  const [schedules, setSchedules] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [loadingRoutes, setLoadingRoutes] = useState(false);
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
+
   const [err, setErr] = useState("");
+  const [scheduleErr, setScheduleErr] = useState("");
 
   const [form, setForm] = useState({
     plateNumber: "",
@@ -46,7 +53,11 @@ export default function BusOwnerDashboard() {
       const { data } = await api.get("/api/bus-owner/buses");
       setBuses(data?.buses || []);
     } catch (e) {
-      setErr(e?.response?.data?.message || e?.response?.data?.error || "Failed to load buses");
+      setErr(
+        e?.response?.data?.message ||
+          e?.response?.data?.error ||
+          "Failed to load buses"
+      );
     } finally {
       setLoading(false);
     }
@@ -57,12 +68,69 @@ export default function BusOwnerDashboard() {
     setErr("");
     try {
       const { data } = await api.get("/api/bus/routes");
-      const list = Array.isArray(data) ? data : (data?.routes || []);
+      const list = Array.isArray(data) ? data : data?.routes || [];
       setRoutes(list);
     } catch (e) {
-      setErr(e?.response?.data?.message || e?.response?.data?.error || "Failed to load routes");
+      setErr(
+        e?.response?.data?.message ||
+          e?.response?.data?.error ||
+          "Failed to load routes"
+      );
     } finally {
       setLoadingRoutes(false);
+    }
+  }
+
+  async function loadSchedulesForOwnerBuses(busList = []) {
+    setLoadingSchedules(true);
+    setScheduleErr("");
+
+    try {
+      const routeIds = [
+        ...new Set(
+          busList
+            .map((bus) => bus?.routeId?._id || bus?.routeId)
+            .filter(Boolean)
+            .map(String)
+        ),
+      ];
+
+      if (routeIds.length === 0) {
+        setSchedules([]);
+        setLoadingSchedules(false);
+        return;
+      }
+
+      const responses = await Promise.all(
+        routeIds.map((routeId) =>
+          api.get(`/api/bus/routes/${routeId}/schedules`)
+        )
+      );
+
+      const mergedSchedules = responses.flatMap((res, index) => {
+        const routeId = routeIds[index];
+        const data = res?.data;
+
+        const list = Array.isArray(data)
+          ? data
+          : data?.schedules || data?.items || [];
+
+        return list.map((item) => ({
+          ...item,
+          routeId: item?.routeId || routeId,
+        }));
+      });
+
+      setSchedules(mergedSchedules);
+    } catch (e) {
+      setSchedules([]);
+      setScheduleErr(
+        e?.response?.data?.message ||
+          e?.response?.data?.error ||
+          "Failed to load schedules"
+      );
+    } finally {
+      setLoadingSchedules(false);
     }
   }
 
@@ -71,7 +139,15 @@ export default function BusOwnerDashboard() {
     loadRoutes();
   }, []);
 
-  // auto-fix selected seat when bus type changes
+  useEffect(() => {
+    if (buses.length > 0) {
+      loadSchedulesForOwnerBuses(buses);
+    } else {
+      setSchedules([]);
+      setScheduleErr("");
+    }
+  }, [buses]);
+
   useEffect(() => {
     if (!allowedSeats.includes(Number(form.seatsTotal))) {
       setForm((s) => ({
@@ -81,8 +157,8 @@ export default function BusOwnerDashboard() {
     }
   }, [form.busType, allowedSeats, form.seatsTotal]);
 
-  function setField(k, v) {
-    setForm((s) => ({ ...s, [k]: v }));
+  function setField(key, value) {
+    setForm((s) => ({ ...s, [key]: value }));
   }
 
   function toggleFeature(feature) {
@@ -102,17 +178,22 @@ export default function BusOwnerDashboard() {
     setErr("");
 
     const seats = Number(form.seatsTotal);
+
     if (!allowedSeats.includes(seats)) {
       return setErr(`Please select a valid seat count for ${form.busType}`);
     }
 
-    if (!form.plateNumber?.trim()) return setErr("Bus registration number (plateNumber) is required");
+    if (!form.plateNumber?.trim()) {
+      return setErr("Bus registration number (plateNumber) is required");
+    }
+
     if (!form.routeId) return setErr("Please select a bus route");
     if (!busPhoto) return setErr("Bus photo is required");
     if (!registrationPhoto) return setErr("Bus registration photo is required");
     if (!permitPhoto) return setErr("Bus permit photo is required");
 
     setLoading(true);
+
     try {
       const fd = new FormData();
       fd.append("plateNumber", form.plateNumber.trim().toUpperCase());
@@ -141,6 +222,7 @@ export default function BusOwnerDashboard() {
         routeId: "",
         features: [],
       });
+
       setBusPhoto(null);
       setRegistrationPhoto(null);
       setPermitPhoto(null);
@@ -148,220 +230,144 @@ export default function BusOwnerDashboard() {
       setTab("mybuses");
       await loadBuses();
     } catch (e2) {
-      setErr(e2?.response?.data?.message || e2?.response?.data?.error || "Bus submit failed");
+      setErr(
+        e2?.response?.data?.message ||
+          e2?.response?.data?.error ||
+          "Bus submit failed"
+      );
     } finally {
       setLoading(false);
     }
   }
 
+  const approvedCount = buses.filter(
+    (bus) => String(bus?.status || "").toLowerCase() === "approved"
+  ).length;
+
+  const pendingCount = buses.filter(
+    (bus) => String(bus?.status || "").toLowerCase() === "pending"
+  ).length;
+
+  const rejectedCount = buses.filter(
+    (bus) => String(bus?.status || "").toLowerCase() === "rejected"
+  ).length;
+
   return (
-    <div className="p-6">
-      <div className="card p-6">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h1 className="text-xl font-semibold">Bus Owner Workspace</h1>
-            <p className="mt-1 text-sm text-zinc-400">
-              Fleet onboarding + compliance lifecycle (pending → approved/rejected).
-            </p>
+    <div className="flex min-h-screen bg-black text-white">
+      <BusOwnerSidebar activeTab={tab} onChangeTab={setTab} />
+
+      <main className="min-h-screen flex-1 bg-[#0a0d12] p-6">
+        {err ? (
+          <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {err}
           </div>
+        ) : null}
 
-          <div className="flex gap-2 flex-wrap">
-            <button
-              type="button"
-              className={`btn ${tab === "profile" ? "btn-primary" : ""}`}
-              onClick={() => setTab("profile")}
-            >
-              Profile
-            </button>
+        {tab === "overview" ? (
+          <OverviewSection
+            user={user}
+            buses={buses}
+            schedules={schedules}
+            onGoToAddBus={() => setTab("add")}
+            onGoToSchedules={() => setTab("schedules")}
+          />
+        ) : null}
 
-            <button
-              type="button"
-              className={`btn ${tab === "add" ? "btn-primary" : ""}`}
-              onClick={() => {
-                setTab("add");
-                if (routes.length === 0) loadRoutes();
-              }}
-            >
-              Add Bus
-            </button>
+        {tab === "profile" ? (
+          <div className="rounded-3xl border border-white/10 bg-[#10141b] p-6 shadow-xl">
+            <h2 className="text-lg font-semibold">Owner Details</h2>
 
-            <button
-              type="button"
-              className={`btn ${tab === "mybuses" ? "btn-primary" : ""}`}
-              onClick={() => setTab("mybuses")}
-            >
-              My Buses
-            </button>
-          </div>
-        </div>
-      </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-wide text-zinc-500">
+                  Name
+                </p>
+                <p className="mt-2 text-sm text-zinc-200">{user?.name || "-"}</p>
+              </div>
 
-      {err ? <div className="mt-4 text-sm text-red-300">{err}</div> : null}
+              <div className="rounded-2xl bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-wide text-zinc-500">
+                  Email
+                </p>
+                <p className="mt-2 text-sm text-zinc-200">{user?.email || "-"}</p>
+              </div>
 
-      {tab === "profile" ? (
-        <div className="card mt-4 p-6">
-          <h2 className="text-lg font-semibold">Owner Details</h2>
-          <div className="mt-3 grid gap-2 text-sm text-zinc-300">
-            <div><span className="text-zinc-400">Name:</span> {user?.name}</div>
-            <div><span className="text-zinc-400">Email:</span> {user?.email}</div>
-            <div><span className="text-zinc-400">Role:</span> {user?.role}</div>
-          </div>
-        </div>
-      ) : null}
-
-      {tab === "add" ? (
-        <div className="card mt-4 p-6">
-          <h2 className="text-lg font-semibold">Add Bus (Submit for Approval)</h2>
-
-          <form className="mt-4 grid gap-3 max-w-xl" onSubmit={submitBus}>
-            <input
-              className="input"
-              placeholder="Bus registration number (plate number)"
-              value={form.plateNumber}
-              onChange={(e) => setField("plateNumber", e.target.value)}
-              required
-            />
-
-            <select
-              className="input"
-              value={form.busType}
-              onChange={(e) => setField("busType", e.target.value)}
-            >
-              <option value="Normal">Normal</option>
-              <option value="Semi-luxury">Semi-luxury</option>
-              <option value="Luxury">Luxury</option>
-              <option value="Expressway">Expressway</option>
-            </select>
-
-            <input
-              className="input"
-              placeholder="Bus color"
-              value={form.color}
-              onChange={(e) => setField("color", e.target.value)}
-            />
-
-            <select
-              className="input"
-              value={form.seatsTotal}
-              onChange={(e) => setField("seatsTotal", Number(e.target.value))}
-              required
-            >
-              {allowedSeats.map((seat) => (
-                <option key={seat} value={seat}>
-                  {seat} Seats
-                </option>
-              ))}
-            </select>
-
-            <div className="grid gap-2 rounded-xl border border-white/10 p-3">
-              <label className="text-sm text-zinc-400">Bus Features</label>
-
-              <div className="grid grid-cols-2 gap-2">
-                {FEATURE_OPTIONS.map((feature) => (
-                  <label key={feature} className="flex items-center gap-2 text-sm text-zinc-200">
-                    <input
-                      type="checkbox"
-                      checked={form.features.includes(feature)}
-                      onChange={() => toggleFeature(feature)}
-                    />
-                    <span>{feature}</span>
-                  </label>
-                ))}
+              <div className="rounded-2xl bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-wide text-zinc-500">
+                  Role
+                </p>
+                <p className="mt-2 text-sm text-zinc-200">{user?.role || "-"}</p>
               </div>
             </div>
-
-            <select
-              className="input"
-              value={form.routeId}
-              onChange={(e) => setField("routeId", e.target.value)}
-              required
-              disabled={loadingRoutes}
-            >
-              <option value="">{loadingRoutes ? "Loading routes…" : "Select bus route"}</option>
-              {routes.map((r) => (
-                <option key={r._id} value={r._id}>
-                  {r.routeNumber} • {r.start?.label} → {r.end?.label} ({r.routeType})
-                </option>
-              ))}
-            </select>
-
-            <div className="grid gap-1">
-              <label className="text-sm text-zinc-400">Bus Photo</label>
-              <input className="input" type="file" accept="image/*" onChange={(e) => setBusPhoto(e.target.files?.[0] || null)} />
-            </div>
-
-            <div className="grid gap-1">
-              <label className="text-sm text-zinc-400">Bus Registration Photo</label>
-              <input className="input" type="file" accept="image/*" onChange={(e) => setRegistrationPhoto(e.target.files?.[0] || null)} />
-            </div>
-
-            <div className="grid gap-1">
-              <label className="text-sm text-zinc-400">Bus Permit Photo</label>
-              <input className="input" type="file" accept="image/*" onChange={(e) => setPermitPhoto(e.target.files?.[0] || null)} />
-            </div>
-
-            <button className="btn btn-primary" type="submit" disabled={loading}>
-              {loading ? "Submitting…" : "Submit for Approval"}
-            </button>
-          </form>
-        </div>
-      ) : null}
-
-      {tab === "mybuses" ? (
-        <div className="card mt-4 p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">My Buses</h2>
-            <button className="btn" type="button" onClick={loadBuses} disabled={loading}>
-              {loading ? "Refreshing…" : "Refresh"}
-            </button>
           </div>
+        ) : null}
 
-          <div className="mt-4 grid gap-3">
-            {buses.map((b) => (
-              <div key={b._id} className="rounded-xl border border-white/10 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold">{b.plateNumber}</div>
-                  <div className="text-sm"><StatusBadge status={b.status} /></div>
-                </div>
+        {tab === "add" ? (
+          <AddBusSection
+            form={form}
+            setField={setField}
+            toggleFeature={toggleFeature}
+            allowedSeats={allowedSeats}
+            routes={routes}
+            loadingRoutes={loadingRoutes}
+            busPhoto={busPhoto}
+            setBusPhoto={setBusPhoto}
+            registrationPhoto={registrationPhoto}
+            setRegistrationPhoto={setRegistrationPhoto}
+            permitPhoto={permitPhoto}
+            setPermitPhoto={setPermitPhoto}
+            submitBus={submitBus}
+            loading={loading}
+          />
+        ) : null}
 
-                <div className="mt-2 text-sm text-zinc-400">
-                  Type: {b.busType} • Seats: {b.seatsTotal} • Color: {b.color || "-"}
-                </div>
-
-                <div className="mt-1 text-sm text-zinc-400">
-                  Features: {Array.isArray(b.features) && b.features.length > 0 ? b.features.join(", ") : "-"}
-                </div>
-
-                <div className="mt-1 text-sm text-zinc-400">
-                  Route: {b.routeId?.routeNumber || "-"} • {b.routeId?.start?.label || "-"} → {b.routeId?.end?.label || "-"}
-                </div>
-
-                {b.reviewNote ? (
-                  <div className="mt-2 text-sm text-amber-300">Review Note: {b.reviewNote}</div>
-                ) : null}
+        {tab === "mybuses" ? (
+          <div className="rounded-3xl border border-white/10 bg-[#10141b] p-6 shadow-xl">
+            <div className="mb-6 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-bold text-white">My Fleet</h2>
+                <p className="mt-1 text-sm text-zinc-400">
+                  Approved, pending, and rejected buses in one place.
+                </p>
               </div>
-            ))}
 
-            {buses.length === 0 ? (
-              <div className="text-sm text-zinc-400">No buses submitted yet.</div>
+              <button
+                className="rounded-xl bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10 disabled:opacity-60"
+                type="button"
+                onClick={loadBuses}
+                disabled={loading}
+              >
+                {loading ? "Refreshing..." : "Refresh"}
+              </button>
+            </div>
+
+            <MyFleetSection buses={buses} />
+          </div>
+        ) : null}
+
+        {tab === "schedules" ? (
+          <div className="space-y-4">
+            {scheduleErr ? (
+              <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                {scheduleErr}
+              </div>
             ) : null}
+
+            <BusOwnerSchedulesSection buses={buses} schedules={schedules} />
+
+            <div className="flex justify-end">
+              <button
+                className="rounded-xl bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10 disabled:opacity-60"
+                type="button"
+                onClick={() => loadSchedulesForOwnerBuses(buses)}
+                disabled={loadingSchedules}
+              >
+                {loadingSchedules ? "Refreshing..." : "Refresh Schedules"}
+              </button>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </main>
     </div>
-  );
-}
-
-function StatusBadge({ status }) {
-  const map = {
-    pending: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
-    approved: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
-    rejected: "bg-red-500/15 text-red-300 border border-red-500/30",
-  };
-
-  return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${map[status] || "border border-white/10 text-zinc-300"}`}>
-      {status || "unknown"}
-    </span>
   );
 }

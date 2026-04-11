@@ -425,41 +425,8 @@ export default function PlanTrip() {
 
                 <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-6"></div>
 
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-3">Ride Type</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { id: "pool", title: "Pool", desc: "Share" },
-                      { id: "private", title: "Private", desc: "Solo" },
-                      { id: "transit", title: "Transit", desc: "Public" },
-                    ].map((m) => (
-                      <button
-                        key={m.id}
-                        onClick={() => setMode(m.id)}
-                        className={`group relative rounded-2xl border px-3 py-3 text-center transition-all duration-300 active:scale-[0.97] ${
-                          mode === m.id
-                            ? "border-white/30 bg-white/10 shadow-[0_0_20px_rgba(255,255,255,0.05)]"
-                            : "border-white/5 bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/20"
-                        }`}
-                      >
-                        <div
-                          className={`font-semibold text-sm transition-colors ${
-                            mode === m.id ? "text-white" : "text-white/80 group-hover:text-white"
-                          }`}
-                        >
-                          {m.title}
-                        </div>
-                        <div
-                          className={`text-[11px] mt-0.5 transition-colors ${
-                            mode === m.id ? "text-white/70" : "text-white/40"
-                          }`}
-                        >
-                          {m.desc}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                
+                
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>

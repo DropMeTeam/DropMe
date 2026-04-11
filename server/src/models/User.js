@@ -55,6 +55,13 @@ const UserSchema = new mongoose.Schema(
 
     contactNo: { type: String, default: "" },
 
+    moderation: {
+      strikeCount: { type: Number, default: 0, min: 0 },
+      lastStrikeAt: { type: Date, default: null },
+      reviewRestrictionUntil: { type: Date, default: null },
+      moderationNotes: { type: String, default: "" },
+    },
+
     // ✅ Driver registration + vehicle info (managed by admin approval)
     driverRegistration: { type: DriverRegistrationSchema, default: () => ({}) },
   },

@@ -274,7 +274,7 @@ export default function PlanTrip() {
 
       alert("Offers loaded. Choose one and click Book.");
     } catch (e) {
-      alert(e?.response?.data?.message || "Failed to find matches");
+      alert(e?.response?.data?.message || " Select Your vehicle.🚕");
     } finally {
       setLoading(false);
     }

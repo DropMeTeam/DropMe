@@ -44,6 +44,41 @@ export default function PlanTrip() {
 
   const FUTURE_BUFFER_MS = 60 * 1000;
 
+  const API_ORIGIN = useMemo(() => {
+    const b = api?.defaults?.baseURL;
+
+    if (typeof b === "string" && b.startsWith("http")) {
+      return b.replace(/\/api\/?$/, "").replace(/\/$/, "");
+    }
+
+    return (import.meta.env.VITE_API_ORIGIN || "http://localhost:5000").replace(/\/$/, "");
+  }, []);
+
+  function absUrl(url) {
+    if (!url || typeof url !== "string") return "";
+    if (/^https?:\/\//i.test(url)) return url;
+    return `${API_ORIGIN}${url.startsWith("/") ? "" : "/"}${url}`;
+  }
+
+  function getVehicleImageUrl(offer) {
+    const raw =
+      offer?.vehicleSnapshot?.imageUrl ||
+      offer?.vehicleSnapshot?.photoUrl ||
+      offer?.vehicleSnapshot?.image ||
+      offer?.vehicleSnapshot?.vehicleImage ||
+      offer?.vehicleSnapshot?.photos?.[0] ||
+      offer?.vehicle?.imageUrl ||
+      offer?.vehicle?.photoUrl ||
+      offer?.vehicle?.image ||
+      offer?.vehicle?.vehicleImage ||
+      offer?.driverVehicle?.imageUrl ||
+      offer?.driverVehicle?.photoUrl ||
+      offer?.driverVehicle?.image ||
+      "";
+
+    return absUrl(raw);
+  }
+
   function toDatetimeLocalString(d) {
     const pad = (n) => String(n).padStart(2, "0");
     const yyyy = d.getFullYear();
@@ -264,26 +299,29 @@ export default function PlanTrip() {
           {/* LEFT PANEL - Controls */}
           <div className="col-span-12 lg:col-span-4 space-y-6">
             <div className="rounded-3xl border border-white/5 bg-white/[0.02] backdrop-blur-xl shadow-2xl p-6 relative overflow-hidden">
-              {/* Subtle top glow line */}
               <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
 
-              {/* STYLISH HEADER SECTION */}
               <div className="mb-10">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="h-[2px] w-6 bg-gradient-to-r from-[#1ABCFE] to-transparent rounded-full"></div>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#1ABCFE]/80">Travel Smart</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#1ABCFE]/80">
+                    Travel Smart
+                  </span>
                 </div>
-                
+
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h1 className="text-3xl font-extrabold tracking-tight text-white leading-tight">
-                      Plan Your <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#1ABCFE] via-white to-white/70">Journey</span>
+                      Plan Your{" "}
+                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#1ABCFE] via-white to-white/70">
+                        Journey
+                      </span>
                     </h1>
                     <p className="text-xs text-white/40 mt-2 font-medium max-w-[240px] leading-relaxed">
                       Set your route parameters to discover available professional rides nearby.
                     </p>
                   </div>
-                  
+
                   <div className="flex items-center px-3 py-1.5 rounded-2xl bg-[#1ABCFE]/5 border border-[#1ABCFE]/20 text-[10px] font-bold text-[#1ABCFE] backdrop-blur-md shadow-[0_0_15px_rgba(26,188,254,0.1)]">
                     {user ? (
                       <span className="flex items-center gap-2">
@@ -301,7 +339,6 @@ export default function PlanTrip() {
               </div>
 
               <div className="space-y-6">
-                {/* Pickup Section */}
                 <div className="space-y-3 relative z-10">
                   <PlaceInput
                     label="Pick-up location"
@@ -323,11 +360,7 @@ export default function PlanTrip() {
                       disabled={gpsLoading}
                       className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-white/80 transition-all duration-200 hover:bg-white/[0.08] hover:text-white active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      {gpsLoading ? (
-                        <span className="animate-pulse">Locating...</span>
-                      ) : (
-                        "My Location"
-                      )}
+                      {gpsLoading ? <span className="animate-pulse">Locating...</span> : "My Location"}
                     </button>
 
                     {!tracking ? (
@@ -352,7 +385,6 @@ export default function PlanTrip() {
                   {gpsError && <div className="text-xs text-rose-400 font-medium ml-1">{gpsError}</div>}
                 </div>
 
-                {/* Dropoff Section */}
                 <div className="relative z-0">
                   <div className="absolute -left-3.5 top-0 bottom-0 w-[1px] bg-gradient-to-b from-white/10 via-white/5 to-transparent hidden md:block"></div>
                   <PlaceInput
@@ -368,7 +400,6 @@ export default function PlanTrip() {
                   />
                 </div>
 
-                {/* Pin Controllers */}
                 <div className="flex gap-3">
                   <button
                     onClick={() => setActivePin("pickup")}
@@ -394,7 +425,6 @@ export default function PlanTrip() {
 
                 <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-6"></div>
 
-                {/* Mode Selector */}
                 <div>
                   <label className="block text-sm font-medium text-white/70 mb-3">Ride Type</label>
                   <div className="grid grid-cols-3 gap-3">
@@ -412,14 +442,25 @@ export default function PlanTrip() {
                             : "border-white/5 bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/20"
                         }`}
                       >
-                        <div className={`font-semibold text-sm transition-colors ${mode === m.id ? "text-white" : "text-white/80 group-hover:text-white"}`}>{m.title}</div>
-                        <div className={`text-[11px] mt-0.5 transition-colors ${mode === m.id ? "text-white/70" : "text-white/40"}`}>{m.desc}</div>
+                        <div
+                          className={`font-semibold text-sm transition-colors ${
+                            mode === m.id ? "text-white" : "text-white/80 group-hover:text-white"
+                          }`}
+                        >
+                          {m.title}
+                        </div>
+                        <div
+                          className={`text-[11px] mt-0.5 transition-colors ${
+                            mode === m.id ? "text-white/70" : "text-white/40"
+                          }`}
+                        >
+                          {m.desc}
+                        </div>
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Time & Seats */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-white/70 mb-2">Pick-up time</label>
@@ -445,7 +486,6 @@ export default function PlanTrip() {
                   </div>
                 </div>
 
-                {/* Trip Meta Information */}
                 {meta && (
                   <div className="rounded-2xl bg-gradient-to-br from-white/[0.05] to-transparent border border-white/10 p-4 text-sm backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="flex justify-between items-center">
@@ -454,12 +494,13 @@ export default function PlanTrip() {
                     </div>
                     <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5">
                       <span className="text-white/50 font-medium">Estimated Time</span>
-                      <span className="font-semibold text-white/90">{Math.round(meta.durationSeconds / 60)} min</span>
+                      <span className="font-semibold text-white/90">
+                        {Math.round(meta.durationSeconds / 60)} min
+                      </span>
                     </div>
                   </div>
                 )}
 
-                {/* Primary Action Button */}
                 <button
                   onClick={findMatches}
                   disabled={loading}
@@ -499,7 +540,6 @@ export default function PlanTrip() {
               />
             </div>
 
-            {/* Ride Offers Section */}
             <div className="rounded-3xl border border-white/5 bg-white/[0.02] backdrop-blur-xl p-6 relative">
               <div className="flex items-center justify-between gap-3 mb-6">
                 <div className="text-lg font-semibold tracking-tight">Available Rides</div>
@@ -520,6 +560,7 @@ export default function PlanTrip() {
                     const ll = offerLatLng(o);
                     const vehicle = o?.vehicleSnapshot || {};
                     const driver = o?.driverSnapshot || {};
+                    const vehicleImage = getVehicleImageUrl(o);
 
                     const seatsToBook = Number(seats) || 1;
                     const available = Number(o?.seatsAvailable ?? 0);
@@ -532,26 +573,40 @@ export default function PlanTrip() {
                         className="group rounded-2xl border border-white/5 bg-white/[0.02] p-5 transition-all duration-300 hover:bg-white/[0.04] hover:border-white/10 hover:shadow-xl relative overflow-hidden"
                       >
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        
+
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-indigo-200 font-bold">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-indigo-200 font-bold shrink-0">
                                 {driver?.name?.charAt(0) || "D"}
                               </div>
-                              <div>
+
+                              <div className="min-w-0">
                                 <div className="font-semibold text-white/90">{driver?.name || "Driver"}</div>
-                                <div className="text-xs text-white/50 flex items-center gap-2">
+                                <div className="text-xs text-white/50 flex items-center gap-2 flex-wrap">
                                   <span>★ 4.9</span>
                                   <span>•</span>
-                                  <span>{vehicle?.color || "Color"} {vehicle?.type || "Car"}</span>
+                                  <span>
+                                    {vehicle?.color || "Color"} {vehicle?.type || "Car"}
+                                  </span>
                                   <span className="uppercase border border-white/10 px-1.5 py-0.5 rounded text-[10px] ml-1 bg-white/5">
                                     {vehicle?.number || "NO-PLATE"}
                                   </span>
                                 </div>
                               </div>
+
+                              {vehicleImage ? (
+                                <div className="ml-auto w-20 h-14 rounded-xl overflow-hidden border border-white/10 bg-white/5 shrink-0">
+                                  <img
+                                    src={vehicleImage}
+                                    alt={vehicle?.type || "Vehicle"}
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                  />
+                                </div>
+                              ) : null}
                             </div>
-                            
+
                             <div className="mt-4 space-y-2">
                               <div className="flex items-start gap-3">
                                 <div className="mt-1 w-2 h-2 rounded-full bg-white/30 border border-white/50 shadow-[0_0_5px_rgba(255,255,255,0.3)] shrink-0"></div>
@@ -559,19 +614,27 @@ export default function PlanTrip() {
                               </div>
                               <div className="flex items-start gap-3">
                                 <div className="mt-1 w-2 h-2 rounded-full bg-indigo-400 border border-indigo-300 shadow-[0_0_5px_rgba(129,140,248,0.5)] shrink-0"></div>
-                                <div className="text-sm text-white/70 line-clamp-1">{o?.destination?.address || "Destination"}</div>
+                                <div className="text-sm text-white/70 line-clamp-1">
+                                  {o?.destination?.address || "Destination"}
+                                </div>
                               </div>
                             </div>
-                            
+
                             <div className="mt-4 flex flex-wrap gap-4 text-xs font-medium">
-                               <div className="flex items-center gap-1.5 text-white/50 bg-white/5 px-2 py-1 rounded-md">
-                                  ⏰ {o?.pickupTime ? new Date(o.pickupTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "—"}
-                               </div>
-                               {ll && (
+                              <div className="flex items-center gap-1.5 text-white/50 bg-white/5 px-2 py-1 rounded-md">
+                                ⏰{" "}
+                                {o?.pickupTime
+                                  ? new Date(o.pickupTime).toLocaleTimeString([], {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })
+                                  : "—"}
+                              </div>
+                              {ll && (
                                 <div className="flex items-center gap-1.5 text-white/40">
                                   📍 {ll.lat.toFixed(4)}, {ll.lng.toFixed(4)}
                                 </div>
-                               )}
+                              )}
                             </div>
                           </div>
 

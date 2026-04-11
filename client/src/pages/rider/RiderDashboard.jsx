@@ -2,12 +2,12 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import { Link, useNavigate } from "react-router-dom";
-import { 
-  User, 
-  Calendar, 
-  Star, 
-  Trophy, 
-  LogOut, 
+import {
+  User,
+  Calendar,
+  Star,
+  Trophy,
+  LogOut,
   ChevronRight,
   MapPin,
   TrendingUp,
@@ -18,11 +18,14 @@ import {
   Delete,
   Camera
 } from "lucide-react";
+import RiderReviewsPage from "./RiderReviewsPage";
+import RiderLeaderboardPage from "./RiderLeaderboardPage";
+import EcoLeaderboardPage from "../eco/EcoLeaderboardPage";
 
 // MAIN Background
-import heroBg from "../../assets/travel.png"; 
+import heroBg from "../../assets/travel.png";
 // BOOKINGS Background
-import bookingsBg from "../../assets/book.png"; 
+import bookingsBg from "../../assets/book.png";
 
 export default function RiderDashboard() {
   const queryClient = useQueryClient();
@@ -102,8 +105,8 @@ export default function RiderDashboard() {
     <button
       onClick={() => setActiveTab(id)}
       className={`group flex w-full items-center gap-4 px-6 py-4 transition-all duration-500 relative ${
-        activeTab === id 
-        ? "text-white" 
+        activeTab === id
+        ? "text-white"
         : "text-zinc-500 hover:text-[#B8860B]/80"
       }`}
     >
@@ -127,7 +130,7 @@ export default function RiderDashboard() {
 
   return (
     <div className="flex min-h-screen bg-[#050506] text-zinc-100 font-sans selection:bg-[#B8860B]/30">
-      
+
       {/* --- SIDEBAR --- */}
       <aside className="fixed top-13 left-0 h-full w-64 border-r border-zinc-800/50 bg-[#09090b]/80 backdrop-blur-xl hidden md:flex flex-col z-30">
         <div className="p-8" />
@@ -139,7 +142,7 @@ export default function RiderDashboard() {
           <div onClick={handleLogOut} className="cursor-pointer">
            <NavItem id="logOut" icon={LogOut} label="Log Out" />
           </div>
-          
+
 
 <div className="p-6 border-t border-zinc-800/50">
           <button onClick={handleDeleteAccount} className="flex items-center gap-3 w-full px-0 py-3 rounded-xl text-[10px] font-black text-zinc-500 hover:text-[#FF0000] hover:bg-[#FF0000]/5 transition-all tracking-widest uppercase">
@@ -148,16 +151,16 @@ export default function RiderDashboard() {
           </button>
 </div>
         </nav>
-</aside>         
-      
+</aside>
+
 
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 md:ml-64 p-6 lg:p-0 space-y-10">
-        
+
         {/* --- MAIN HERO (PROFILE ONLY) --- */}
         {activeTab === 'profile' && (
           <div className="relative group w-full max-w-[1400px] h-[400px] rounded-[3rem] overflow-hidden border border-white/5 shadow-2xl">
-            <div 
+            <div
               className="absolute inset-0 bg-cover bg-center transition-transform duration-[2s] group-hover:scale-105"
               style={{ backgroundImage: `url(${heroBg})` }}
             />
@@ -192,8 +195,8 @@ export default function RiderDashboard() {
                   </div>
                   <h2 className="text-2xl font-bold tracking-tight">{me?.name}</h2>
                   <p className="text-zinc-500 text-sm mb-8 font-medium">{me?.email}</p>
-                  
-                  <button 
+
+                  <button
                     onClick={() => { setEditing(!editing); setErr(""); setMsg(""); }}
                     className="w-full py-4 rounded-xl bg-[#B8860B]/10 text-[#B8860B] border border-[#B8860B]/20 hover:bg-[#B8860B] hover:text-black transition-all font-black text-[10px] tracking-[0.2em] uppercase flex items-center justify-center gap-2"
                   >
@@ -202,7 +205,7 @@ export default function RiderDashboard() {
                   </button>
                 </div>
 
-                
+
               </div>
 
               <div className="lg:col-span-8">
@@ -259,7 +262,7 @@ export default function RiderDashboard() {
                       <Contact size={32} className="text-[#B8860B]" />
                     </div>
                     <h4 className="text-lg font-bold mb-2 text-[#E5E7EB]">Account Activity</h4>
-                    
+
                   </div>
                 )}
               </div>
@@ -268,14 +271,14 @@ export default function RiderDashboard() {
 
           {activeTab === 'bookings' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
-              
+
               {/* --- BOOKINGS HERO (WITHOUT DARK OVERLAY) --- */}
               <div className="relative group w-full h-[400px] rounded-[2.5rem] overflow-hidden border border-white/5 shadow-xl flex items-center">
-                <div 
+                <div
                   className="absolute inset-0 bg-cover bg-center transition-transform duration-[2s] group-hover:scale-105"
                   style={{ backgroundImage: `url(${bookingsBg})` }}
                 />
-                
+
                 {/* Content layer with drop shadow for text readability without darkening the whole image */}
                 <div className="relative z-10 px-12 flex w-full items-center justify-between">
                   <div className="drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
@@ -297,12 +300,12 @@ export default function RiderDashboard() {
     const route = bookingRoute(b);
     const canReceipt = b.status === "confirmed" || b.paymentStatus === "paid";
     return (
-      <div 
-        key={b._id} 
+      <div
+        key={b._id}
         className="group relative flex flex-col md:flex-row md:items-center justify-between p-1 bg-gradient-to-br from-zinc-800/50 to-transparent rounded-[2.5rem] transition-all duration-500 hover:shadow-2xl hover:shadow-[#B8860B]/10 hover:-translate-y-1"
       >
         <div className="flex flex-col md:flex-row md:items-center gap-8 p-7 w-full bg-[#09090b]/90 rounded-[2.4rem] backdrop-blur-xl border border-white/5 group-hover:border-[#B8860B]/30 transition-colors">
-          
+
           {/* Visual Route Indicator */}
           <div className="flex items-center gap-6">
             <div className="relative">
@@ -341,7 +344,7 @@ export default function RiderDashboard() {
                   <User size={12} className="text-[#B8860B]" />
                   <span className="text-[8px] font-black text-zinc-200 uppercase tracking-tighter">{b.seatsBooked} Seats</span>
                 </div>
-                
+
               </div>
             </div>
 
@@ -373,17 +376,11 @@ export default function RiderDashboard() {
 </div>
             </div>
           )}
-          
-          {(activeTab === 'reviews' || activeTab === 'leaderboard') && (
-            <div className="flex flex-col items-center justify-center py-40 animate-pulse">
-              <div className="relative mb-6">
-                <div className="absolute inset-0 bg-[#B8860B] blur-3xl opacity-20"></div>
-                <Trophy size={80} className="relative text-[#B8860B]/40" />
-              </div>
-              <h2 className="text-2xl font-black text-zinc-400 uppercase tracking-[0.5em]">Classified</h2>
-              <p className="text-zinc-600 text-xs mt-4 font-bold tracking-widest uppercase italic text-[#B8860B]">This sector is currently under construction</p>
-            </div>
-          )}
+
+          {activeTab === "reviews" && <RiderReviewsPage />}
+
+          {activeTab === "leaderboard" && <EcoLeaderboardPage />}
+
         </div>
       </main>
     </div>

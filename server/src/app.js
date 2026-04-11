@@ -38,6 +38,11 @@ import { busApprovalsRouter } from "./routes/busApprovals.routes.js";
 // private/system admin router
 import { adminRouter } from "./routes/admin.routes.js";
 
+//reviews for private rides
+import reviewRouter from "./routes/review.routes.js";
+
+//carbon impact
+import ecoRoutes from "./routes/eco.routes.js";
 export function buildApp({ io }) {
   const app = express();
 
@@ -98,6 +103,9 @@ export function buildApp({ io }) {
   app.use("/api/bookings", bookingsRouter);   // ✅ added
   app.use("/api/payments", paymentsRouter);   // ✅ added
 
+  //reviews
+  app.use("/api/reviews", reviewRouter);
+
   // TRAIN
   app.use("/api/train", trainRouter);
   app.use("/api/admin/train", trainAdminRouter);
@@ -113,6 +121,9 @@ export function buildApp({ io }) {
   app.use("/api/admin", busApprovalsRouter);
   app.use("/api/admin", driverApprovalsRouter);
   app.use("/api/admin", adminRouter);
+
+  //   CARBON IMPACT
+  app.use("/api/eco", ecoRoutes);
 
   // error handler last
   app.use(errorHandler);

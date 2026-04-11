@@ -5,6 +5,10 @@ import { HttpError } from "../utils/httpError.js";
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
 
+//add carbon
+import { createCarbonImpactForRideBooking } from "../services/carbonImpact.service.js";
+// -- carbon
+
 export async function createBooking(req, res, next) {
   try {
     const offerId = req.params.id;
@@ -160,6 +164,13 @@ export async function markPassengerRideCompleted(req, res, next) {
     booking.rideCompletedAt = new Date();
     booking.rideCompletedByDriverId = req.user.sub;
     await booking.save();
+
+//    add carbon
+    try {
+      await createCarbonImpactForRideBooking(booking);
+    } catch (ecoErr) {
+      console.error("Ride carbon impact creation failed:", ecoErr);
+    }
 
     req.io?.to(`rider:${String(booking.riderId?._id || booking.riderId)}`).emit(
       "booking:ride-completed",

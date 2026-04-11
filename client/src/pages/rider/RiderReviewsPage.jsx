@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Star, Clock3, Eye, BellRing, X } from "lucide-react";
+import { Star, Clock3, Eye, BellRing, X, Trash2 } from "lucide-react";
 import {
   getMyPendingRideReviews,
   getMyGivenReviews,
   getReviewById,
+  deleteRideReview,
 } from "../../services/reviewService";
 import RideReviewModal from "../../components/reviews/RideReviewModal";
+import DriverPublicProfileModal from "../../components/reviews/DriverPublicProfileModal";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -50,6 +52,10 @@ export default function RiderReviewsPage() {
   const [selectedReview, setSelectedReview] = useState(null);
   const [modalMode, setModalMode] = useState("create");
   const [showPendingToast, setShowPendingToast] = useState(false);
+
+  const [driverProfileOpen, setDriverProfileOpen] = useState(false);
+  const [selectedDriverId, setSelectedDriverId] = useState("");
+  const [deletingReviewId, setDeletingReviewId] = useState("");
 
   const { data: givenData, isLoading: loadingGiven } = useQuery({
     queryKey: ["my-given-reviews"],
@@ -104,6 +110,12 @@ export default function RiderReviewsPage() {
     }
   }
 
+  function openDriverProfile(driverId) {
+    if (!driverId) return;
+    setSelectedDriverId(driverId);
+    setDriverProfileOpen(true);
+  }
+
   function handlePendingToastClick() {
     setTab("pending");
     setShowPendingToast(false);
@@ -122,11 +134,36 @@ export default function RiderReviewsPage() {
     setTab("given");
   }
 
+  async function handleDeleteReview(reviewId) {
+    const ok = window.confirm("Are you sure you want to delete this review?");
+    if (!ok) return;
+
+    try {
+      setDeletingReviewId(reviewId);
+
+      await deleteRideReview(reviewId);
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["my-given-reviews"] }),
+        queryClient.invalidateQueries({ queryKey: ["my-pending-reviews"] }),
+      ]);
+    } catch (err) {
+      console.error("Failed to delete review", err);
+      alert(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to delete review"
+      );
+    } finally {
+      setDeletingReviewId("");
+    }
+  }
+
   return (
     <div className="space-y-8">
       <div className="rounded-[2.5rem] border border-zinc-800/50 bg-zinc-900/40 p-8">
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-[#B8860B]/10 flex items-center justify-center text-[#B8860B]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#B8860B]/10 text-[#B8860B]">
             <Star size={22} />
           </div>
           <div>
@@ -163,7 +200,7 @@ export default function RiderReviewsPage() {
       </div>
 
       {tab === "given" && (
-        <div className="rounded-[2rem] border border-zinc-800/50 bg-zinc-900/30 overflow-hidden">
+        <div className="overflow-hidden rounded-[2rem] border border-zinc-800/50 bg-zinc-900/30">
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-black/30">
@@ -179,6 +216,7 @@ export default function RiderReviewsPage() {
                   <th className="px-6 py-4">Action</th>
                 </tr>
               </thead>
+
               <tbody>
                 {loadingGiven ? (
                   <tr>
@@ -198,31 +236,68 @@ export default function RiderReviewsPage() {
                       <td className="px-6 py-4 font-mono text-xs">
                         {item.bookingShortId || item.bookingId}
                       </td>
+
                       <td className="px-6 py-4">{formatDate(item.date)}</td>
+
                       <td className="px-6 py-4" title={item.from}>
                         {shortText(item.from)}
                       </td>
+
                       <td className="px-6 py-4" title={item.to}>
                         {shortText(item.to)}
                       </td>
-                      <td className="px-6 py-4">{item.driverName}</td>
+
+                      <td className="px-6 py-4">
+                        {item.driverId ? (
+                          <button
+                            type="button"
+                            onClick={() => openDriverProfile(item.driverId)}
+                            className="font-semibold text-zinc-100 transition hover:text-[#B8860B]"
+                            title="View driver profile"
+                          >
+                            {item.driverName}
+                          </button>
+                        ) : (
+                          <span>{item.driverName}</span>
+                        )}
+                      </td>
+
                       <td className="px-6 py-4">{item.overallRating}/5</td>
+
                       <td
-                        className="px-6 py-4 max-w-[240px] truncate"
+                        className="max-w-[240px] truncate px-6 py-4"
                         title={item.commentFull || item.commentPreview}
                       >
                         {item.commentPreview}
                       </td>
-                      <td className="px-6 py-4">{moderationLabel(item.moderationStatus)}</td>
+
                       <td className="px-6 py-4">
-                        <button
-                          type="button"
-                          onClick={() => openViewModal(item)}
-                          className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-200 hover:border-[#B8860B]/40"
-                        >
-                          <Eye size={14} />
-                          View
-                        </button>
+                        {moderationLabel(item.moderationStatus)}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openViewModal(item)}
+                            className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-200 hover:border-[#B8860B]/40"
+                          >
+                            <Eye size={14} />
+                            View
+                          </button>
+
+                          {item.isEditable ? (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteReview(item._id)}
+                              disabled={deletingReviewId === item._id}
+                              className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <Trash2 size={14} />
+                              {deletingReviewId === item._id ? "Deleting..." : "Delete"}
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -234,7 +309,7 @@ export default function RiderReviewsPage() {
       )}
 
       {tab === "pending" && (
-        <div className="rounded-[2rem] border border-zinc-800/50 bg-zinc-900/30 overflow-hidden">
+        <div className="overflow-hidden rounded-[2rem] border border-zinc-800/50 bg-zinc-900/30">
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-black/30">
@@ -250,6 +325,7 @@ export default function RiderReviewsPage() {
                   <th className="px-6 py-4">Action</th>
                 </tr>
               </thead>
+
               <tbody>
                 {loadingPending ? (
                   <tr>
@@ -272,19 +348,39 @@ export default function RiderReviewsPage() {
                         <td className="px-6 py-4 font-mono text-xs">
                           {item.bookingShortId || item.bookingId}
                         </td>
+
                         <td className="px-6 py-4">{formatDate(item.date)}</td>
+
                         <td className="px-6 py-4" title={item.from}>
                           {shortText(item.from)}
                         </td>
+
                         <td className="px-6 py-4" title={item.to}>
                           {shortText(item.to)}
                         </td>
-                        <td className="px-6 py-4">{item.driverName}</td>
+
+                        <td className="px-6 py-4">
+                          {item.driverId ? (
+                            <button
+                              type="button"
+                              onClick={() => openDriverProfile(item.driverId)}
+                              className="font-semibold text-zinc-100 transition hover:text-[#B8860B]"
+                              title="View driver profile"
+                            >
+                              {item.driverName}
+                            </button>
+                          ) : (
+                            <span>{item.driverName}</span>
+                          )}
+                        </td>
+
                         <td className="px-6 py-4">{formatDate(item.rideCompletedAt)}</td>
                         <td className="px-6 py-4">{formatDate(item.reviewDeadlineAt)}</td>
+
                         <td className={`px-6 py-4 font-semibold ${state.color}`}>
                           {state.label}
                         </td>
+
                         <td className="px-6 py-4">
                           <button
                             type="button"
@@ -309,7 +405,7 @@ export default function RiderReviewsPage() {
       {showPendingToast && pending.length > 0 ? (
         <div className="fixed bottom-6 right-6 z-[900] max-w-sm rounded-2xl border border-[#B8860B]/30 bg-[#0b0b0d] p-4 shadow-2xl">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 h-10 w-10 rounded-xl bg-[#B8860B]/10 flex items-center justify-center text-[#B8860B]">
+            <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-[#B8860B]/10 text-[#B8860B]">
               <BellRing size={18} />
             </div>
 
@@ -317,7 +413,8 @@ export default function RiderReviewsPage() {
               <p className="text-sm font-black text-[#B8860B]">
                 Pending reviews available
               </p>
-              <p className="mt-1 text-sm text-zinc-300 leading-relaxed">
+
+              <p className="mt-1 text-sm leading-relaxed text-zinc-300">
                 You have {pending.length} pending ride review{pending.length > 1 ? "s" : ""}. Do you want to rate now?
               </p>
 
@@ -362,6 +459,15 @@ export default function RiderReviewsPage() {
           setSelectedBooking(null);
         }}
         onSubmitted={handleReviewSubmitted}
+      />
+
+      <DriverPublicProfileModal
+        open={driverProfileOpen}
+        driverId={selectedDriverId}
+        onClose={() => {
+          setDriverProfileOpen(false);
+          setSelectedDriverId("");
+        }}
       />
     </div>
   );

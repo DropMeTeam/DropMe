@@ -58,18 +58,64 @@ function validateWeeklyTimetable(weeklyTimetable) {
     }
 
     for (const r of rows) {
-      if (!r.stationId) throw new HttpError(400, `weeklyTimetable.${d}: stationId required`);
+      if (!r.stationId) {
+        throw new HttpError(400, `weeklyTimetable.${d}: stationId required`);
+      }
       if (!Number.isFinite(Number(r.order))) {
         throw new HttpError(400, `weeklyTimetable.${d}: order must be numeric`);
       }
       if (!r.departureTime) {
-        throw new HttpError(400, `weeklyTimetable.${d}: departureTime required`);
+        throw new HttpError(
+          400,
+          `weeklyTimetable.${d}: departureTime required`
+        );
       }
     }
 
     const orders = rows.map((x) => Number(x.order));
     if (new Set(orders).size !== orders.length) {
       throw new HttpError(400, `weeklyTimetable.${d}: order must be unique`);
+    }
+  }
+}
+
+function normalizeRailPoint(point) {
+  const lat = Number(point?.lat);
+  const lng = Number(point?.lng);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new HttpError(400, "Each rail path point must have valid lat/lng");
+  }
+
+  return { lat, lng };
+}
+
+function validateSegmentRailPaths(segmentRailPaths, segmentCount) {
+  if (segmentRailPaths === undefined) return;
+
+  if (!Array.isArray(segmentRailPaths)) {
+    throw new HttpError(400, "segmentRailPaths must be an array");
+  }
+
+  if (segmentRailPaths.length !== segmentCount) {
+    throw new HttpError(
+      400,
+      `Exactly ${segmentCount} segment rail path entries are required`
+    );
+  }
+
+  for (let i = 0; i < segmentRailPaths.length; i++) {
+    const entry = segmentRailPaths[i];
+
+    if (!Array.isArray(entry)) {
+      throw new HttpError(
+        400,
+        `segmentRailPaths[${i}] must be an array of { lat, lng } points`
+      );
+    }
+
+    for (const point of entry) {
+      normalizeRailPoint(point);
     }
   }
 }
@@ -101,13 +147,15 @@ async function computeSegments(stops) {
       );
     }
 
-    const distanceKm = Math.round(haversineKm(aLat, aLng, bLat, bLng) * 1000) / 1000;
+    const distanceKm =
+      Math.round(haversineKm(aLat, aLng, bLat, bLng) * 1000) / 1000;
 
     segments.push({
       fromStationId: ordered[i].stationId,
       toStationId: ordered[i + 1].stationId,
       distanceKm,
       fareLkr: 0,
+      railPath: [],
     });
 
     total += distanceKm;
@@ -162,6 +210,7 @@ export async function createSchedule(req, res, next) {
       active,
       weeklyTimetable,
       segmentFares,
+      segmentRailPaths,
     } = req.body;
 
     if (!trainNo) throw new HttpError(400, "trainNo is required");
@@ -175,7 +224,10 @@ export async function createSchedule(req, res, next) {
     const { segments, totalDistanceKm } = await computeSegments(stops);
 
     if (!Array.isArray(segmentFares) || segmentFares.length !== segments.length) {
-      throw new HttpError(400, `Exactly ${segments.length} segment fares are required`);
+      throw new HttpError(
+        400,
+        `Exactly ${segments.length} segment fares are required`
+      );
     }
 
     for (let i = 0; i < segments.length; i++) {
@@ -184,6 +236,14 @@ export async function createSchedule(req, res, next) {
         throw new HttpError(400, `Invalid fare for segment ${i + 1}`);
       }
       segments[i].fareLkr = fare;
+    }
+
+    validateSegmentRailPaths(segmentRailPaths, segments.length);
+
+    for (let i = 0; i < segments.length; i++) {
+      segments[i].railPath = Array.isArray(segmentRailPaths?.[i])
+        ? segmentRailPaths[i].map(normalizeRailPoint)
+        : [];
     }
 
     if (weeklyTimetable !== undefined) {
@@ -221,6 +281,7 @@ export async function updateSchedule(req, res, next) {
       active,
       weeklyTimetable,
       segmentFares,
+      segmentRailPaths,
     } = req.body;
 
     if (trainNo !== undefined) doc.trainNo = String(trainNo).trim();
@@ -255,28 +316,53 @@ export async function updateSchedule(req, res, next) {
         segments[i].fareLkr = fare;
       }
 
+      validateSegmentRailPaths(segmentRailPaths, segments.length);
+
+      for (let i = 0; i < segments.length; i++) {
+        segments[i].railPath = Array.isArray(segmentRailPaths?.[i])
+          ? segmentRailPaths[i].map(normalizeRailPoint)
+          : [];
+      }
+
       doc.stops = stops;
       doc.segments = segments;
       doc.totalDistanceKm = totalDistanceKm;
       doc.markModified("stops");
       doc.markModified("segments");
-    } else if (segmentFares !== undefined) {
-      if (!Array.isArray(segmentFares) || segmentFares.length !== doc.segments.length) {
-        throw new HttpError(
-          400,
-          `Exactly ${doc.segments.length} segment fares are required`
-        );
-      }
-
-      for (let i = 0; i < doc.segments.length; i++) {
-        const fare = Number(segmentFares[i]);
-        if (!Number.isFinite(fare) || fare < 0) {
-          throw new HttpError(400, `Invalid fare for segment ${i + 1}`);
+    } else {
+      if (segmentFares !== undefined) {
+        if (
+          !Array.isArray(segmentFares) ||
+          segmentFares.length !== doc.segments.length
+        ) {
+          throw new HttpError(
+            400,
+            `Exactly ${doc.segments.length} segment fares are required`
+          );
         }
-        doc.segments[i].fareLkr = fare;
+
+        for (let i = 0; i < doc.segments.length; i++) {
+          const fare = Number(segmentFares[i]);
+          if (!Number.isFinite(fare) || fare < 0) {
+            throw new HttpError(400, `Invalid fare for segment ${i + 1}`);
+          }
+          doc.segments[i].fareLkr = fare;
+        }
+
+        doc.markModified("segments");
       }
 
-      doc.markModified("segments");
+      if (segmentRailPaths !== undefined) {
+        validateSegmentRailPaths(segmentRailPaths, doc.segments.length);
+
+        for (let i = 0; i < doc.segments.length; i++) {
+          doc.segments[i].railPath = Array.isArray(segmentRailPaths[i])
+            ? segmentRailPaths[i].map(normalizeRailPoint)
+            : [];
+        }
+
+        doc.markModified("segments");
+      }
     }
 
     if (weeklyTimetable !== undefined) {

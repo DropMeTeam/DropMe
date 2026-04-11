@@ -33,12 +33,12 @@ export default function Shell() {
             className="flex items-center gap-3 font-semibold tracking-tight text-white"
           >
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-white/10">
-  <img
-    src={logo}
-    alt="DropMe logo"
-    className="h-7 w-7 object-contain"
-  />
-</span>
+              <img
+                src={logo}
+                alt="DropMe logo"
+                className="h-7 w-7 object-contain"
+              />
+            </span>
             <span className="text-[1.65rem] font-semibold leading-none text-white">
               DropMe
             </span>

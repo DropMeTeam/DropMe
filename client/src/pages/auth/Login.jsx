@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useAuth } from "../../state/AuthContext";
 
-import authSideImage from "../../assets/auth/auth-side.jpg";
+import authSideImage from "../../assets/auth/auth-side.png";
 
 function routeByRole(role) {
   if (role === "ADMIN_TRAIN") return "/train";

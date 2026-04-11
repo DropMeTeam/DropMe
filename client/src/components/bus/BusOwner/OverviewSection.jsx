@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import overviewImage from "../../../assets/bus-owner/overview.png";
 import { api } from "../../../lib/api";
 
@@ -55,11 +56,60 @@ function getTodayScheduledBuses(buses = [], schedules = []) {
   return results.slice(0, 4);
 }
 
+function AnimatedCount({ value, duration = 1200 }) {
+  const [count, setCount] = useState(0);
+  const previousValueRef = useRef(0);
+
+  useEffect(() => {
+    const endValue = Number(value) || 0;
+    const startValue = previousValueRef.current;
+
+    let frameId;
+    let startTime = null;
+
+    function animate(timestamp) {
+      if (!startTime) startTime = timestamp;
+
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+
+      // Smooth ease-out animation
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+
+      const currentValue = Math.round(
+        startValue + (endValue - startValue) * easedProgress
+      );
+
+      setCount(currentValue);
+
+      if (progress < 1) {
+        frameId = requestAnimationFrame(animate);
+      } else {
+        previousValueRef.current = endValue;
+      }
+    }
+
+    frameId = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(frameId);
+  }, [value, duration]);
+
+  return <span>{count}</span>;
+}
+
 function StatCard({ title, value, valueClassName = "text-white" }) {
+  const numericValue = Number(value);
+
   return (
     <div className="rounded-[30px] border border-white/10 bg-[#0e1520] p-6 shadow-[0_10px_35px_rgba(0,0,0,0.28)]">
       <p className="text-lg text-zinc-300">{title}</p>
-      <h3 className={`mt-4 text-5xl font-bold ${valueClassName}`}>{value}</h3>
+
+      <h3 className={`mt-4 text-5xl font-bold ${valueClassName}`}>
+        {Number.isFinite(numericValue) ? (
+          <AnimatedCount value={numericValue} duration={1200} />
+        ) : (
+          value
+        )}
+      </h3>
     </div>
   );
 }

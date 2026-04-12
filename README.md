@@ -142,25 +142,14 @@ This project was developed by **4 team members**, each focusing on a major busin
 > Replace the names above with your actual member names and registration numbers.
 
 ---
-# 🔐 Session Management & Security
 
-DropMe includes secure session and access-control mechanisms:
-* **Protected routes** for authenticated users
-* **Role-based access control** for:
-    * riders
-    * drivers
-    * train admins
-    * bus admins
-    * private/admin roles
-* **Validation** and structured error handling
-* **Secure API communication** between frontend and backend
+## 🏗️ System Architecture
 
----
-
-# ⚙️ Local Setup Instructions
-
-### 1. Clone the Repository
-```bash
-git clone [https://github.com/DropMeTeam/DropMe.git](https://github.com/DropMeTeam/DropMe.git)
-cd DropMe
-
+```mermaid
+flowchart LR
+    A[React + Vite Frontend] --> B[Express.js REST API]
+    B --> C[(MongoDB Atlas)]
+    A --> D[Leaflet Map Services]
+    B --> E[Stripe Payment Gateway]
+    B --> F[Socket.IO Real-Time Layer]
+    B --> G[Email / Notification Services]

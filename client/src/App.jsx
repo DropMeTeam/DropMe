@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
@@ -71,11 +71,109 @@ function RequireRole({ allow, children }) {
   return children;
 }
 
+function RootEntry() {
+  const [sp] = useSearchParams();
+
+  const pm = sp.get("pm") || "";
+  const bookingId = sp.get("bookingId") || "";
+  const sessionId = sp.get("session_id") || "";
+
+  function buildQuery(params = {}) {
+    const next = new URLSearchParams();
+
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value) !== "") {
+        next.set(key, String(value));
+      }
+    });
+
+    const qs = next.toString();
+    return qs ? `?${qs}` : "";
+  }
+
+  if (!pm) {
+    return <OnboardingPage />;
+  }
+
+  if (pm === "ride-success") {
+    return (
+      <Navigate
+        to={`/checkout/success${buildQuery({
+          bookingId,
+          session_id: sessionId,
+        })}`}
+        replace
+      />
+    );
+  }
+
+  if (pm === "ride-cancel") {
+    return (
+      <Navigate
+        to={`/checkout/cancel${buildQuery({
+          bookingId,
+        })}`}
+        replace
+      />
+    );
+  }
+
+  if (pm === "bus-success") {
+    return (
+      <Navigate
+        to={`/buses/checkout/success${buildQuery({
+          bookingId,
+          session_id: sessionId,
+        })}`}
+        replace
+      />
+    );
+  }
+
+  if (pm === "bus-cancel") {
+    return (
+      <Navigate
+        to={`/buses/checkout/cancel${buildQuery({
+          bookingId,
+        })}`}
+        replace
+      />
+    );
+  }
+
+  if (pm === "train-success") {
+    return (
+      <Navigate
+        to={`/train-service/bookings${buildQuery({
+          payment: "success",
+          bookingId,
+          session_id: sessionId,
+        })}`}
+        replace
+      />
+    );
+  }
+
+  if (pm === "train-cancel") {
+    return (
+      <Navigate
+        to={`/train-service/bookings${buildQuery({
+          payment: "cancelled",
+          bookingId,
+        })}`}
+        replace
+      />
+    );
+  }
+
+  return <OnboardingPage />;
+}
+
 export default function App() {
   return (
     <Routes>
       <Route element={<Shell />}>
-        <Route index element={<OnboardingPage />} />
+        <Route index element={<RootEntry />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 

@@ -93,6 +93,22 @@ function buildDistanceText(distanceKm) {
   return `${distanceKm.toFixed(1)} km`;
 }
 
+function buildClientReturnUrl(pm, params = {}) {
+  const base = getClientBaseUrl().replace(/\/$/, "");
+  const search = new URLSearchParams();
+
+  search.set("pm", pm);
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || String(value) === "") return;
+    search.set(key, String(value));
+  });
+
+  return `${base}/?${search
+    .toString()
+    .replace(/%7BCHECKOUT_SESSION_ID%7D/g, "{CHECKOUT_SESSION_ID}")}`;
+}
+
 export async function createStripeSession(req, res, next) {
   try {
     const { offerId, seatsBooked, routeDistanceKm } = req.body || {};
@@ -200,7 +216,6 @@ export async function createStripeSession(req, res, next) {
     }
 
     const stripeClient = requireStripeClient();
-    const base = getClientBaseUrl();
 
     const session = await stripeClient.checkout.sessions.create({
       mode: "payment",
@@ -218,8 +233,13 @@ export async function createStripeSession(req, res, next) {
           quantity: seats,
         },
       ],
-      success_url: `${base}/checkout/success?bookingId=${booking._id}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${base}/checkout/cancel?bookingId=${booking._id}`,
+      success_url: buildClientReturnUrl("ride-success", {
+        bookingId: booking._id,
+        session_id: "{CHECKOUT_SESSION_ID}",
+      }),
+      cancel_url: buildClientReturnUrl("ride-cancel", {
+        bookingId: booking._id,
+      }),
       metadata: {
         bookingId: String(booking._id),
         offerId: String(offer._id),
@@ -367,7 +387,6 @@ export async function createTrainStripeSession(req, res, next) {
     }
 
     const stripeClient = requireStripeClient();
-    const base = getClientBaseUrl();
 
     const trainNo = booking.journeySnapshot?.trainNo || "";
     const trainName = booking.journeySnapshot?.trainName || "";
@@ -399,15 +418,13 @@ export async function createTrainStripeSession(req, res, next) {
             quantity: 1,
           },
         ],
-        success_url:
-          `${base}/train-service/bookings` +
-          `?payment=success` +
-          `&bookingId=${booking._id}` +
-          `&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url:
-          `${base}/train-service/bookings` +
-          `?payment=cancelled` +
-          `&bookingId=${booking._id}`,
+        success_url: buildClientReturnUrl("train-success", {
+          bookingId: booking._id,
+          session_id: "{CHECKOUT_SESSION_ID}",
+        }),
+        cancel_url: buildClientReturnUrl("train-cancel", {
+          bookingId: booking._id,
+        }),
         metadata: {
           bookingId: String(booking._id),
           module: "train",
@@ -636,7 +653,6 @@ export async function createBusStripeSession(req, res, next) {
     }
 
     const stripeClient = requireStripeClient();
-    const base = getClientBaseUrl();
 
     let session;
     try {
@@ -661,13 +677,13 @@ export async function createBusStripeSession(req, res, next) {
             quantity: 1,
           },
         ],
-        success_url:
-          `${base}/buses/checkout/success` +
-          `?bookingId=${booking._id}` +
-          `&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url:
-          `${base}/buses/checkout/cancel` +
-          `?bookingId=${booking._id}`,
+        success_url: buildClientReturnUrl("bus-success", {
+          bookingId: booking._id,
+          session_id: "{CHECKOUT_SESSION_ID}",
+        }),
+        cancel_url: buildClientReturnUrl("bus-cancel", {
+          bookingId: booking._id,
+        }),
         metadata: {
           bookingId: String(booking._id),
           module: "bus",

@@ -406,6 +406,17 @@ export async function stripeWebhook(req, res) {
 
         if (session.payment_status !== "paid") break;
 
+        const bookingId =
+          session?.metadata?.bookingId || session?.client_reference_id || "";
+
+        if (!bookingId) {
+          console.log("Stripe webhook ignored: no bookingId in session", {
+            eventType: event.type,
+            sessionId: session.id,
+          });
+          break;
+        }
+
         const moduleName = getModuleFromSession(session);
 
         if (moduleName === "bus") {

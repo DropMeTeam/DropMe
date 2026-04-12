@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   MapPin,
   Clock,
+  Loader2,
 } from "lucide-react";
 
 function getApiOrigin() {
@@ -15,6 +16,10 @@ function getApiOrigin() {
     return base.replace(/\/$/, "");
   }
   return "http://localhost:5000";
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export default function CheckoutSuccess() {
@@ -26,32 +31,81 @@ export default function CheckoutSuccess() {
   const [statusMsg, setStatusMsg] = useState("Verifying payment…");
   const [booking, setBooking] = useState(null);
   const [offer, setOffer] = useState(null);
+  const [verifyError, setVerifyError] = useState("");
 
   useEffect(() => {
     let ignore = false;
 
-    (async () => {
-      try {
-        if (!bookingId || !sessionId) {
-          throw new Error("Missing booking or session details");
+    async function verifyWithRetry() {
+      if (!bookingId || !sessionId) {
+        if (!ignore) {
+          setVerifyError("Missing booking or session details");
+          setStatusMsg("Verification failed");
+          setLoading(false);
+        }
+        return;
+      }
+
+      const maxAttempts = 6;
+      let lastMessage = "Verification failed";
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          if (!ignore) {
+            setStatusMsg(
+              attempt === 1
+                ? "Verifying payment…"
+                : `Confirming payment… (${attempt}/${maxAttempts})`
+            );
+          }
+
+          const { data } = await api.get("/api/payments/stripe/verify", {
+            params: { bookingId, session_id: sessionId },
+          });
+
+          if (ignore) return;
+
+          const nextBooking = data?.booking || null;
+          const nextOffer = data?.offer || null;
+
+          const isPaid =
+            nextBooking?.paymentStatus === "paid" &&
+            nextBooking?.status === "confirmed";
+
+          if (isPaid) {
+            setBooking(nextBooking);
+            setOffer(nextOffer);
+            setVerifyError("");
+            setStatusMsg("Payment Successful");
+            setLoading(false);
+            return;
+          }
+
+          lastMessage =
+            data?.message || "Payment is still processing. Please wait…";
+        } catch (e) {
+          if (ignore) return;
+
+          lastMessage =
+            e?.response?.data?.message ||
+            e?.response?.data?.error ||
+            e?.message ||
+            "Verification failed";
         }
 
-        const { data } = await api.get("/api/payments/stripe/verify", {
-          params: { bookingId, session_id: sessionId },
-        });
-
-        if (ignore) return;
-
-        setBooking(data?.booking || null);
-        setOffer(data?.offer || null);
-        setStatusMsg("Payment Successful");
-      } catch (e) {
-        if (ignore) return;
-        setStatusMsg(e?.response?.data?.message || e?.message || "Verification failed");
-      } finally {
-        if (!ignore) setLoading(false);
+        if (attempt < maxAttempts) {
+          await sleep(2500);
+        }
       }
-    })();
+
+      if (!ignore) {
+        setVerifyError(lastMessage);
+        setStatusMsg(lastMessage);
+        setLoading(false);
+      }
+    }
+
+    verifyWithRetry();
 
     return () => {
       ignore = true;
@@ -75,7 +129,10 @@ export default function CheckoutSuccess() {
 
   const totalPaid = Number(booking?.amount || 0);
 
-  const receiptUrl = bookingId
+  const isConfirmedAndPaid =
+    booking?.paymentStatus === "paid" && booking?.status === "confirmed";
+
+  const receiptUrl = isConfirmedAndPaid
     ? `${apiOrigin}/api/bookings/${bookingId}/receipt`
     : "";
 
@@ -83,17 +140,23 @@ export default function CheckoutSuccess() {
     <div className="min-h-screen bg-[#060812] flex items-center justify-center p-6 text-white">
       <div className="w-full max-w-xl text-center">
         <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 shadow-[0_0_50px_-10px_rgba(16,185,129,0.4)]">
-          <CheckCircle size={48} strokeWidth={2.5} />
+          {loading ? (
+            <Loader2 size={48} strokeWidth={2.5} className="animate-spin" />
+          ) : (
+            <CheckCircle size={48} strokeWidth={2.5} />
+          )}
         </div>
 
         <h1 className="mb-2 text-3xl font-bold">{statusMsg}</h1>
         <p className="mb-8 text-white/50">
-          {booking
+          {isConfirmedAndPaid
             ? "Your booking is confirmed. See you on the road!"
+            : loading
+            ? "Please wait while we confirm your payment."
             : "We could not confirm the payment yet."}
         </p>
 
-        {booking && (
+        {isConfirmedAndPaid && (
           <div className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-6 text-left backdrop-blur-md">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-[#1ABCFE]">
               Trip Details
@@ -131,8 +194,14 @@ export default function CheckoutSuccess() {
           </div>
         )}
 
+        {!loading && verifyError && !isConfirmedAndPaid ? (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {verifyError}
+          </div>
+        ) : null}
+
         <div className="flex flex-col justify-center gap-4 sm:flex-row">
-          {receiptUrl ? (
+          {isConfirmedAndPaid ? (
             <a
               className="flex items-center justify-center gap-2 rounded-2xl bg-[#1ABCFE] px-8 py-4 font-bold text-black transition-transform hover:scale-105"
               href={receiptUrl}
@@ -141,7 +210,15 @@ export default function CheckoutSuccess() {
             >
               <Download size={18} /> Download Receipt
             </a>
-          ) : null}
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="flex items-center justify-center gap-2 rounded-2xl bg-white/10 px-8 py-4 font-bold text-white/50 cursor-not-allowed"
+            >
+              <Download size={18} /> Receipt not ready
+            </button>
+          )}
 
           <Link
             className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-8 py-4 font-bold transition-colors hover:bg-white/10"

@@ -1,7 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import Landing from "./pages/Landing";
-// Added the import for the new LandingPage
-import LandingPage from "./pages/LandingPage"; 
+import LandingPage from "./pages/LandingPage";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import PlanTrip from "./pages/PlanTrip";
@@ -52,7 +50,6 @@ import TrainCheckoutPage from "./pages/train-passenger/TrainCheckoutPage";
 import OnboardingPage from "./pages/OnboardingPage";
 
 import RiderReviewsPage from "./pages/rider/RiderReviewsPage";
-import RiderLeaderboardPage from "./pages/rider/RiderLeaderboardPage";
 import EcoLeaderboardPage from "./pages/eco/EcoLeaderboardPage";
 
 function Protected({ children }) {
@@ -82,10 +79,15 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
+        {/* General */}
+        <Route path="/plan" element={<PlanTrip />} />
+        <Route path="/carpooling" element={<LandingPage />} />
+
         {/* Bus passenger flow */}
         <Route path="/buses" element={<Bus />} />
         <Route path="/buses/search" element={<BusBookingPage />} />
         <Route path="/buses/search/details" element={<BusBookingDetailsPage />} />
+
         <Route
           path="/buses/checkout/success"
           element={
@@ -120,60 +122,8 @@ export default function App() {
         />
 
         {/* Legacy bus routes kept for safe compatibility */}
-        <Route 
-          path="/bus-booking" 
-          element={
-            <BusBookingPage />
-          } 
-        />
-        <Route
-          path="/buses/search/details"
-          element={
-            <RequireRole allow={["rider"]}>
-              <BusBookingDetailsPage />
-            </RequireRole>
-          }
-        />
-        <Route path="/plan" element={<PlanTrip />} />
-        
-        {/* Added route for the Carpooling Landing Page */}
-        <Route path="/carpooling" element={<LandingPage />} />
-
         <Route path="/bus-booking" element={<BusBookingPage />} />
         <Route path="/bus-booking/details" element={<BusBookingDetailsPage />} />
-
-        <Route
-          path="/buses/checkout/success"
-          element={
-            <RequireRole allow={["rider"]}>
-              <BusCheckoutSuccess />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/buses/checkout/cancel"
-          element={
-            <RequireRole allow={["rider"]}>
-              <BusCheckoutCancel />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/buses/tickets"
-          element={
-            <RequireRole allow={["rider"]}>
-              <MyBusTicketsPage />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/buses/tickets/:bookingId"
-          element={
-            <RequireRole allow={["rider"]}>
-              <BusTicketPage />
-            </RequireRole>
-          }
-        />
 
         {/* Train passenger flow */}
         <Route path="/trains" element={<Train />} />
@@ -198,6 +148,7 @@ export default function App() {
           }
         />
 
+        {/* Rider */}
         <Route
           path="/rider"
           element={
@@ -206,9 +157,7 @@ export default function App() {
             </Protected>
           }
         >
-            <Route path="reviews" element={<RiderReviewsPage />} />
-{/*             <Route path="leaderboard" element={<RiderLeaderboardPage />} /> */}
-
+          <Route path="reviews" element={<RiderReviewsPage />} />
         </Route>
 
         <Route
@@ -222,6 +171,7 @@ export default function App() {
 
         <Route path="/rider/leaderboard" element={<Navigate to="/eco" replace />} />
 
+        {/* Ride checkout */}
         <Route
           path="/checkout/:offerId"
           element={
@@ -249,6 +199,7 @@ export default function App() {
           }
         />
 
+        {/* Driver */}
         <Route
           path="/driver"
           element={
@@ -285,6 +236,7 @@ export default function App() {
           }
         />
 
+        {/* Train admin */}
         <Route
           path="/train"
           element={
@@ -300,6 +252,7 @@ export default function App() {
           <Route path="ticket-verify" element={<TrainTicketVerifyPage />} />
         </Route>
 
+        {/* Bus admin */}
         <Route
           path="/bus"
           element={
@@ -354,6 +307,7 @@ export default function App() {
           }
         />
 
+        {/* Private admin */}
         <Route
           path="/private"
           element={
@@ -372,6 +326,7 @@ export default function App() {
           }
         />
 
+        {/* Bus owner */}
         <Route
           path="/owner"
           element={

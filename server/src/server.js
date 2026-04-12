@@ -4,42 +4,61 @@ import { Server as SocketIOServer } from "socket.io";
 import { connectDB } from "./config/db.js";
 import { buildApp } from "./app.js";
 
-
 const PORT = Number(process.env.PORT || 5000);
+
+function getAllowedOrigins() {
+  return [
+    process.env.CLIENT_ORIGIN,
+    process.env.ADMIN_ORIGIN,
+    process.env.VERCEL_CLIENT_ORIGIN,
+    "http://localhost:5173",
+    "http://localhost:5174",
+  ].filter(Boolean);
+}
 
 async function main() {
   await connectDB(process.env.MONGODB_URI);
 
-  // IMPORTANT: create the HTTP server with a single request handler that delegates to Express
-  let app; // will be assigned after io is created
+  let app;
+
   const httpServer = http.createServer((req, res) => {
     if (!app) {
       res.statusCode = 503;
       res.end("Server is starting...");
       return;
     }
+
     return app(req, res);
   });
 
+  const allowedOrigins = getAllowedOrigins();
+
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
-      credentials: true
-    }
+      origin(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error("Not allowed by Socket.IO CORS"));
+      },
+      credentials: true,
+    },
   });
 
   io.on("connection", (socket) => {
     socket.on("auth:identify", ({ role, userId }) => {
       if (!userId) return;
+
       if (role === "driver") socket.join(`driver:${userId}`);
       socket.join(`rider:${userId}`);
     });
   });
 
-  // now build express app (single handler)
   app = buildApp({ io });
 
-  httpServer.listen(PORT, () => console.log(`[server] http://localhost:${PORT}`));
+  httpServer.listen(PORT, () => {
+    console.log(`[server] http://localhost:${PORT}`);
+  });
 }
 
 main().catch((err) => {

@@ -17,10 +17,16 @@ import {
 import { BusBooking } from "../modules/bus/models/BusBooking.js";
 import { TrainInventory } from "../modules/train/models/TrainInventory.js";
 
+// for carbon
+import { TrainSchedule } from "../modules/train/models/TrainSchedule.js";
+import {
+  createCarbonImpactForBusBooking,
+  createCarbonImpactForTrainBooking,
+} from "../services/carbonImpact.service.js";
+// -----carbon
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const MIN_TRAIN_PAYMENT_LKR = Number(process.env.MIN_TRAIN_PAYMENT_LKR || 200);
-
 
 const BUS_PAYMENT_HOLD_MINUTES = 10;
 
@@ -91,6 +97,11 @@ export async function createStripeSession(req, res, next) {
   try {
     const { offerId, seatsBooked, routeDistanceKm } = req.body || {};
     const seats = Number(seatsBooked || 1);
+    const userId = getUserId(req);
+
+    if (!userId) {
+      throw new HttpError(401, "Unauthorized");
+    }
 
     if (!offerId) {
       throw new HttpError(400, "offerId is required");
@@ -151,7 +162,7 @@ export async function createStripeSession(req, res, next) {
     try {
       booking = await RideBooking.create({
         offerId: offer._id,
-        riderId: req.user.sub,
+        riderId: userId,
         driverId: offer.driverId,
         seatsBooked: seats,
         status: "pending",
@@ -188,9 +199,10 @@ export async function createStripeSession(req, res, next) {
       throw e;
     }
 
-    const base = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+    const stripeClient = requireStripeClient();
+    const base = getClientBaseUrl();
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await stripeClient.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
       line_items: [
@@ -240,6 +252,7 @@ export async function verifyStripePayment(req, res, next) {
   try {
     const bookingId = String(req.query.bookingId || "");
     const sessionId = String(req.query.session_id || "");
+    const userId = getUserId(req);
 
     if (!bookingId || !sessionId) {
       throw new HttpError(400, "bookingId and session_id are required");
@@ -251,7 +264,7 @@ export async function verifyStripePayment(req, res, next) {
       throw new HttpError(404, "Booking not found");
     }
 
-    const isOwner = String(booking.riderId) === String(req.user.sub);
+    const isOwner = String(booking.riderId) === userId;
     const isAdmin = req.user?.role === "admin";
 
     if (!isOwner && !isAdmin) {
@@ -262,7 +275,8 @@ export async function verifyStripePayment(req, res, next) {
       throw new HttpError(400, "Session mismatch");
     }
 
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const stripeClient = requireStripeClient();
+    const session = await stripeClient.checkout.sessions.retrieve(sessionId);
 
     if (session.payment_status !== "paid") {
       throw new HttpError(402, "Payment not completed");
@@ -451,8 +465,6 @@ export async function verifyTrainStripePayment(req, res, next) {
       throw new HttpError(400, "Session mismatch");
     }
 
-    // Idempotent safety:
-    // if already confirmed earlier, do not reserve seats again.
     if (booking.paymentStatus === "paid" && booking.bookingStatus === "booked") {
       return res.json({ ok: true, booking });
     }
@@ -464,7 +476,6 @@ export async function verifyTrainStripePayment(req, res, next) {
       throw new HttpError(402, "Payment not completed");
     }
 
-    // Ensure train inventory row exists for this schedule + date.
     let inventory = await TrainInventory.findOne({
       scheduleId: booking.scheduleId,
       travelDate: booking.travelDate,
@@ -500,8 +511,6 @@ export async function verifyTrainStripePayment(req, res, next) {
       }
     }
 
-    // Final atomic reservation.
-    // This is the real overbooking protection point.
     const reservedInventory = await TrainInventory.findOneAndUpdate(
       {
         scheduleId: booking.scheduleId,
@@ -540,6 +549,12 @@ export async function verifyTrainStripePayment(req, res, next) {
     booking.ticketNumber = booking.ticketNumber || getTrainTicketNumber(booking);
 
     await booking.save();
+
+    try {
+      await createCarbonImpactForTrainBooking(booking);
+    } catch (ecoErr) {
+      console.error("Train carbon impact creation failed:", ecoErr);
+    }
 
     try {
       const pdfBuffer = await generateTrainTicketPdfBuffer(
@@ -756,6 +771,12 @@ export async function verifyBusStripePayment(req, res, next) {
     booking.paidAt = booking.paidAt || new Date();
 
     await booking.save();
+
+    try {
+      await createCarbonImpactForBusBooking(booking);
+    } catch (ecoErr) {
+      console.error("Bus carbon impact creation failed:", ecoErr);
+    }
 
     try {
       const pdfBuffer = await generateBusTicketPdfBuffer(

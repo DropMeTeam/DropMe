@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import {
   createStripeSession,
@@ -7,11 +7,23 @@ import {
   verifyTrainStripePayment,
   createBusStripeSession,
   verifyBusStripePayment,
+  stripeWebhook,
 } from "../controllers/payments.controller.js";
 
 export const paymentsRouter = Router();
 
-// Existing private vehicle payment routes
+/**
+ * IMPORTANT:
+ * Stripe webhook must be public and must use raw body.
+ * Do NOT protect this route with requireAuth.
+ */
+paymentsRouter.post(
+  "/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  stripeWebhook
+);
+
+// Private ride payment routes
 paymentsRouter.post(
   "/stripe/session",
   requireAuth,

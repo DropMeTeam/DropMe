@@ -1,4 +1,3 @@
-// server/src/app.js
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -16,8 +15,8 @@ import { usersRouter } from "./routes/users.routes.js";
 import { offersRouter } from "./routes/offers.routes.js";
 import { requestsRouter } from "./routes/requests.routes.js";
 import { matchesRouter } from "./routes/matches.routes.js";
-import { bookingsRouter } from "./routes/bookings.routes.js";     // ✅ added
-import { paymentsRouter } from "./routes/payments.routes.js";     // ✅ added
+import { bookingsRouter } from "./routes/bookings.routes.js";
+import { paymentsRouter } from "./routes/payments.routes.js";
 
 // train modules
 import { trainRouter } from "./modules/train/train.routes.js";
@@ -38,23 +37,34 @@ import { busApprovalsRouter } from "./routes/busApprovals.routes.js";
 // private/system admin router
 import { adminRouter } from "./routes/admin.routes.js";
 
-//reviews for private rides
+// reviews for private rides
 import reviewRouter from "./routes/review.routes.js";
 
-//carbon impact
+// carbon impact
 import ecoRoutes from "./routes/eco.routes.js";
+
 export function buildApp({ io }) {
   const app = express();
 
   // security + parsing
   app.use(
     helmet({
-      // ✅ allow frontend on different origin/port to load uploaded images
+      // allow frontend on different origin/port to load uploaded images
       crossOriginResourcePolicy: { policy: "cross-origin" },
     })
   );
 
-  app.use(express.json({ limit: "1mb" }));
+  // IMPORTANT:
+  // Stripe webhook needs raw body, so skip normal JSON parsing for that route.
+  const jsonParser = express.json({ limit: "1mb" });
+
+  app.use((req, res, next) => {
+    if (req.originalUrl.startsWith("/api/payments/stripe/webhook")) {
+      return next();
+    }
+    return jsonParser(req, res, next);
+  });
+
   app.use(cookieParser());
   app.use(morgan("dev"));
 
@@ -100,10 +110,10 @@ export function buildApp({ io }) {
   app.use("/api/offers", offersRouter);
   app.use("/api/requests", requestsRouter);
   app.use("/api/matches", matchesRouter);
-  app.use("/api/bookings", bookingsRouter);   // ✅ added
-  app.use("/api/payments", paymentsRouter);   // ✅ added
+  app.use("/api/bookings", bookingsRouter);
+  app.use("/api/payments", paymentsRouter);
 
-  //reviews
+  // reviews
   app.use("/api/reviews", reviewRouter);
 
   // TRAIN
@@ -122,7 +132,7 @@ export function buildApp({ io }) {
   app.use("/api/admin", driverApprovalsRouter);
   app.use("/api/admin", adminRouter);
 
-  //   CARBON IMPACT
+  // CARBON IMPACT
   app.use("/api/eco", ecoRoutes);
 
   // error handler last

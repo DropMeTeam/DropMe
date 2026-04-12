@@ -109,6 +109,327 @@ function buildClientReturnUrl(pm, params = {}) {
     .replace(/%7BCHECKOUT_SESSION_ID%7D/g, "{CHECKOUT_SESSION_ID}")}`;
 }
 
+function getModuleFromSession(session) {
+  const value = String(session?.metadata?.module || "").toLowerCase();
+  if (value === "ride" || value === "train" || value === "bus") return value;
+  return "ride";
+}
+
+async function finalizeRideBookingFromSession(session) {
+  const bookingId = String(
+    session?.metadata?.bookingId || session?.client_reference_id || ""
+  );
+
+  if (!bookingId) {
+    throw new Error("Missing ride bookingId in Stripe session");
+  }
+
+  const booking = await RideBooking.findById(bookingId);
+  if (!booking) {
+    throw new Error("Ride booking not found");
+  }
+
+  if (booking.stripeSessionId && booking.stripeSessionId !== session.id) {
+    throw new Error("Ride session mismatch");
+  }
+
+  if (booking.paymentStatus === "paid" && booking.status === "confirmed") {
+    return { booking };
+  }
+
+  const offer = await RideOffer.findOneAndUpdate(
+    {
+      _id: booking.offerId,
+      status: "open",
+      seatsAvailable: { $gte: booking.seatsBooked },
+    },
+    {
+      $inc: { seatsAvailable: -booking.seatsBooked },
+    },
+    { new: true }
+  );
+
+  if (!offer) {
+    booking.status = "rejected";
+    booking.paymentStatus = "failed";
+    await booking.save();
+    throw new Error("Ride sold out while payment was processing");
+  }
+
+  booking.status = "confirmed";
+  booking.paymentStatus = "paid";
+  booking.paidAt = booking.paidAt || new Date();
+  booking.stripeSessionId = session.id;
+  await booking.save();
+
+  return { booking, offer };
+}
+
+async function finalizeTrainBookingFromSession(session) {
+  const bookingId = String(
+    session?.metadata?.bookingId || session?.client_reference_id || ""
+  );
+
+  if (!bookingId) {
+    throw new Error("Missing train bookingId in Stripe session");
+  }
+
+  const booking = await TrainBooking.findById(bookingId);
+  if (!booking) {
+    throw new Error("Train booking not found");
+  }
+
+  if (booking.stripeSessionId && booking.stripeSessionId !== session.id) {
+    throw new Error("Train session mismatch");
+  }
+
+  if (booking.paymentStatus === "paid" && booking.bookingStatus === "booked") {
+    return { booking };
+  }
+
+  let inventory = await TrainInventory.findOne({
+    scheduleId: booking.scheduleId,
+    travelDate: booking.travelDate,
+  });
+
+  if (!inventory) {
+    const schedule = await TrainSchedule.findById(booking.scheduleId).lean();
+
+    if (!schedule) {
+      booking.bookingStatus = "failed";
+      booking.paymentStatus = "failed";
+      await booking.save();
+      throw new Error("Train schedule not found while verifying payment");
+    }
+
+    try {
+      inventory = await TrainInventory.create({
+        scheduleId: booking.scheduleId,
+        travelDate: booking.travelDate,
+        capacity: Number(schedule.seatCapacity || 0),
+        bookedSeats: 0,
+      });
+    } catch (err) {
+      if (err?.code === 11000) {
+        inventory = await TrainInventory.findOne({
+          scheduleId: booking.scheduleId,
+          travelDate: booking.travelDate,
+        });
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  const reservedInventory = await TrainInventory.findOneAndUpdate(
+    {
+      scheduleId: booking.scheduleId,
+      travelDate: booking.travelDate,
+      $expr: {
+        $gte: [
+          { $subtract: ["$capacity", "$bookedSeats"] },
+          Number(booking.seats || 0),
+        ],
+      },
+    },
+    {
+      $inc: { bookedSeats: Number(booking.seats || 0) },
+    },
+    { new: true }
+  );
+
+  if (!reservedInventory) {
+    booking.bookingStatus = "failed";
+    booking.paymentStatus = "failed";
+    await booking.save();
+    throw new Error("Train seats sold out while payment was processing");
+  }
+
+  booking.bookingStatus = "booked";
+  booking.paymentStatus = "paid";
+  booking.paymentReference = String(
+    session.payment_intent || booking.paymentReference || ""
+  );
+  booking.stripeSessionId = session.id;
+  booking.paidAt = booking.paidAt || new Date();
+  booking.ticketNumber = booking.ticketNumber || getTrainTicketNumber(booking);
+
+  await booking.save();
+
+  try {
+    await createCarbonImpactForTrainBooking(booking);
+  } catch (ecoErr) {
+    console.error("Train carbon impact creation failed:", ecoErr);
+  }
+
+  try {
+    const pdfBuffer = await generateTrainTicketPdfBuffer(
+      booking.toObject ? booking.toObject() : booking
+    );
+
+    const emailed = await sendTrainTicketEmail({
+      to: booking.passengerSnapshot?.email || "",
+      name: booking.passengerSnapshot?.name || "",
+      booking: booking.toObject ? booking.toObject() : booking,
+      pdfBuffer,
+    });
+
+    if (emailed) {
+      booking.ticketEmailSentAt = new Date();
+      await booking.save();
+    }
+  } catch (mailErr) {
+    console.error("Train ticket email send failed:", mailErr);
+  }
+
+  return {
+    booking,
+    inventory: {
+      capacity: reservedInventory.capacity,
+      bookedSeats: reservedInventory.bookedSeats,
+      remainingSeats:
+        Number(reservedInventory.capacity || 0) -
+        Number(reservedInventory.bookedSeats || 0),
+    },
+  };
+}
+
+async function finalizeBusBookingFromSession(session) {
+  const bookingId = String(
+    session?.metadata?.bookingId || session?.client_reference_id || ""
+  );
+
+  if (!bookingId) {
+    throw new Error("Missing bus bookingId in Stripe session");
+  }
+
+  const booking = await BusBooking.findById(bookingId);
+  if (!booking) {
+    throw new Error("Bus booking not found");
+  }
+
+  if (booking.stripeSessionId && booking.stripeSessionId !== session.id) {
+    throw new Error("Bus session mismatch");
+  }
+
+  if (booking.paymentStatus === "paid" && booking.bookingStatus === "booked") {
+    return { booking };
+  }
+
+  const otherBookings = await BusBooking.find({
+    _id: { $ne: booking._id },
+    scheduleId: booking.scheduleId,
+    travelDate: booking.travelDate,
+  }).lean();
+
+  const hasConflict = otherBookings.some((otherBooking) => {
+    if (!isBusBlockingBooking(otherBooking)) return false;
+    if (!hasBusSegmentOverlap(otherBooking.segmentKeys, booking.segmentKeys)) {
+      return false;
+    }
+
+    return otherBooking.seatNumbers.some((seat) =>
+      booking.seatNumbers.includes(String(seat).trim().toUpperCase())
+    );
+  });
+
+  if (hasConflict) {
+    booking.bookingStatus = "failed";
+    booking.paymentStatus = "failed";
+    await booking.save();
+    throw new Error(
+      "Selected seat was already sold for this journey segment while payment was processing"
+    );
+  }
+
+  booking.bookingStatus = "booked";
+  booking.paymentStatus = "paid";
+  booking.paymentReference = String(
+    session.payment_intent || booking.paymentReference || ""
+  );
+  booking.stripeSessionId = session.id;
+  booking.paidAt = booking.paidAt || new Date();
+
+  await booking.save();
+
+  try {
+    await createCarbonImpactForBusBooking(booking);
+  } catch (ecoErr) {
+    console.error("Bus carbon impact creation failed:", ecoErr);
+  }
+
+  try {
+    const pdfBuffer = await generateBusTicketPdfBuffer(
+      booking.toObject ? booking.toObject() : booking
+    );
+
+    const emailed = await sendBusTicketEmail({
+      to: booking.passengerSnapshot?.email || "",
+      name: booking.passengerSnapshot?.name || "",
+      booking: booking.toObject ? booking.toObject() : booking,
+      pdfBuffer,
+    });
+
+    if (emailed) {
+      booking.ticketEmailSentAt = new Date();
+      await booking.save();
+    }
+  } catch (mailErr) {
+    console.error("Bus ticket email send failed:", mailErr);
+  }
+
+  return { booking };
+}
+
+export async function stripeWebhook(req, res) {
+  const signature = req.headers["stripe-signature"];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    return res.status(500).json({ message: "Stripe webhook not configured" });
+  }
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
+  } catch (err) {
+    console.error("Stripe webhook signature error:", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  try {
+    switch (event.type) {
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded": {
+        const session = event.data.object;
+
+        if (session.payment_status !== "paid") break;
+
+        const moduleName = getModuleFromSession(session);
+
+        if (moduleName === "bus") {
+          await finalizeBusBookingFromSession(session);
+        } else if (moduleName === "train") {
+          await finalizeTrainBookingFromSession(session);
+        } else {
+          await finalizeRideBookingFromSession(session);
+        }
+
+        break;
+      }
+
+      default:
+        break;
+    }
+
+    return res.json({ received: true });
+  } catch (err) {
+    console.error("Stripe webhook processing failed:", err);
+    return res.status(500).json({ message: "Webhook processing failed" });
+  }
+}
+
 export async function createStripeSession(req, res, next) {
   try {
     const { offerId, seatsBooked, routeDistanceKm } = req.body || {};
@@ -247,6 +568,7 @@ export async function createStripeSession(req, res, next) {
         unitPrice: String(unitPrice),
         totalAmount: String(totalAmount),
         routeDistanceKm: String(normalizedDistanceKm),
+        module: "ride",
       },
     });
 
@@ -302,35 +624,8 @@ export async function verifyStripePayment(req, res, next) {
       throw new HttpError(402, "Payment not completed");
     }
 
-    if (booking.paymentStatus === "paid" && booking.status === "confirmed") {
-      return res.json({ ok: true, booking });
-    }
-
-    const offer = await RideOffer.findOneAndUpdate(
-      {
-        _id: booking.offerId,
-        status: "open",
-        seatsAvailable: { $gte: booking.seatsBooked },
-      },
-      {
-        $inc: { seatsAvailable: -booking.seatsBooked },
-      },
-      { new: true }
-    );
-
-    if (!offer) {
-      booking.status = "rejected";
-      booking.paymentStatus = "failed";
-      await booking.save();
-      throw new HttpError(409, "Ride sold out while paying. Booking rejected.");
-    }
-
-    booking.status = "confirmed";
-    booking.paymentStatus = "paid";
-    booking.paidAt = new Date();
-    await booking.save();
-
-    return res.json({ ok: true, booking, offer });
+    const result = await finalizeRideBookingFromSession(session);
+    return res.json({ ok: true, ...result });
   } catch (err) {
     next(err);
   }
@@ -377,7 +672,9 @@ export async function createTrainStripeSession(req, res, next) {
     if (amount < MIN_TRAIN_PAYMENT_LKR) {
       throw new HttpError(
         400,
-        `Minimum train payment is LKR ${MIN_TRAIN_PAYMENT_LKR}. Current total is LKR ${amount.toFixed(2)}. Increase seats or fare before checkout.`
+        `Minimum train payment is LKR ${MIN_TRAIN_PAYMENT_LKR}. Current total is LKR ${amount.toFixed(
+          2
+        )}. Increase seats or fare before checkout.`
       );
     }
 
@@ -482,10 +779,6 @@ export async function verifyTrainStripePayment(req, res, next) {
       throw new HttpError(400, "Session mismatch");
     }
 
-    if (booking.paymentStatus === "paid" && booking.bookingStatus === "booked") {
-      return res.json({ ok: true, booking });
-    }
-
     const stripeClient = requireStripeClient();
     const session = await stripeClient.checkout.sessions.retrieve(sessionId);
 
@@ -493,117 +786,8 @@ export async function verifyTrainStripePayment(req, res, next) {
       throw new HttpError(402, "Payment not completed");
     }
 
-    let inventory = await TrainInventory.findOne({
-      scheduleId: booking.scheduleId,
-      travelDate: booking.travelDate,
-    });
-
-    if (!inventory) {
-      const schedule = await TrainSchedule.findById(booking.scheduleId).lean();
-
-      if (!schedule) {
-        booking.bookingStatus = "failed";
-        booking.paymentStatus = "failed";
-        await booking.save();
-
-        throw new HttpError(404, "Train schedule not found while verifying payment");
-      }
-
-      try {
-        inventory = await TrainInventory.create({
-          scheduleId: booking.scheduleId,
-          travelDate: booking.travelDate,
-          capacity: Number(schedule.seatCapacity || 0),
-          bookedSeats: 0,
-        });
-      } catch (err) {
-        if (err?.code === 11000) {
-          inventory = await TrainInventory.findOne({
-            scheduleId: booking.scheduleId,
-            travelDate: booking.travelDate,
-          });
-        } else {
-          throw err;
-        }
-      }
-    }
-
-    const reservedInventory = await TrainInventory.findOneAndUpdate(
-      {
-        scheduleId: booking.scheduleId,
-        travelDate: booking.travelDate,
-        $expr: {
-          $gte: [
-            { $subtract: ["$capacity", "$bookedSeats"] },
-            Number(booking.seats || 0),
-          ],
-        },
-      },
-      {
-        $inc: { bookedSeats: Number(booking.seats || 0) },
-      },
-      { new: true }
-    );
-
-    if (!reservedInventory) {
-      booking.bookingStatus = "failed";
-      booking.paymentStatus = "failed";
-      await booking.save();
-
-      throw new HttpError(
-        409,
-        "Train seats sold out while payment was processing"
-      );
-    }
-
-    booking.bookingStatus = "booked";
-    booking.paymentStatus = "paid";
-    booking.paymentReference = String(
-      session.payment_intent || booking.paymentReference || ""
-    );
-    booking.stripeSessionId = session.id;
-    booking.paidAt = booking.paidAt || new Date();
-    booking.ticketNumber = booking.ticketNumber || getTrainTicketNumber(booking);
-
-    await booking.save();
-
-    try {
-      await createCarbonImpactForTrainBooking(booking);
-    } catch (ecoErr) {
-      console.error("Train carbon impact creation failed:", ecoErr);
-    }
-
-    try {
-      const pdfBuffer = await generateTrainTicketPdfBuffer(
-        booking.toObject ? booking.toObject() : booking
-      );
-
-      const emailed = await sendTrainTicketEmail({
-        to: booking.passengerSnapshot?.email || "",
-        name: booking.passengerSnapshot?.name || "",
-        booking: booking.toObject ? booking.toObject() : booking,
-        pdfBuffer,
-      });
-
-      if (emailed) {
-        booking.ticketEmailSentAt = new Date();
-        await booking.save();
-      }
-    } catch (mailErr) {
-      console.error("Train ticket email send failed:", mailErr);
-    }
-
-    return res.json({
-      ok: true,
-      booking,
-      inventory: {
-        capacity: reservedInventory.capacity,
-        bookedSeats: reservedInventory.bookedSeats,
-        remainingSeats:
-          Number(reservedInventory.capacity || 0) -
-          Number(reservedInventory.bookedSeats || 0),
-      },
-    });
+    const result = await finalizeTrainBookingFromSession(session);
+    return res.json({ ok: true, ...result });
   } catch (err) {
     next(err);
   }
@@ -741,10 +925,6 @@ export async function verifyBusStripePayment(req, res, next) {
       throw new HttpError(400, "Session mismatch");
     }
 
-    if (booking.paymentStatus === "paid" && booking.bookingStatus === "booked") {
-      return res.json({ ok: true, booking });
-    }
-
     const stripeClient = requireStripeClient();
     const session = await stripeClient.checkout.sessions.retrieve(sessionId);
 
@@ -752,69 +932,8 @@ export async function verifyBusStripePayment(req, res, next) {
       throw new HttpError(402, "Payment not completed");
     }
 
-    const otherBookings = await BusBooking.find({
-      _id: { $ne: booking._id },
-      scheduleId: booking.scheduleId,
-      travelDate: booking.travelDate,
-    }).lean();
-
-    const hasConflict = otherBookings.some((otherBooking) => {
-      if (!isBusBlockingBooking(otherBooking)) return false;
-      if (!hasBusSegmentOverlap(otherBooking.segmentKeys, booking.segmentKeys)) return false;
-
-      return otherBooking.seatNumbers.some((seat) =>
-        booking.seatNumbers.includes(String(seat).trim().toUpperCase())
-      );
-    });
-
-    if (hasConflict) {
-      booking.bookingStatus = "failed";
-      booking.paymentStatus = "failed";
-      await booking.save();
-
-      throw new HttpError(
-        409,
-        "Selected seat was already sold for this journey segment while payment was processing"
-      );
-    }
-
-    booking.bookingStatus = "booked";
-    booking.paymentStatus = "paid";
-    booking.paymentReference = String(
-      session.payment_intent || booking.paymentReference || ""
-    );
-    booking.stripeSessionId = session.id;
-    booking.paidAt = booking.paidAt || new Date();
-
-    await booking.save();
-
-    try {
-      await createCarbonImpactForBusBooking(booking);
-    } catch (ecoErr) {
-      console.error("Bus carbon impact creation failed:", ecoErr);
-    }
-
-    try {
-      const pdfBuffer = await generateBusTicketPdfBuffer(
-        booking.toObject ? booking.toObject() : booking
-      );
-
-      const emailed = await sendBusTicketEmail({
-        to: booking.passengerSnapshot?.email || "",
-        name: booking.passengerSnapshot?.name || "",
-        booking: booking.toObject ? booking.toObject() : booking,
-        pdfBuffer,
-      });
-
-      if (emailed) {
-        booking.ticketEmailSentAt = new Date();
-        await booking.save();
-      }
-    } catch (mailErr) {
-      console.error("Bus ticket email send failed:", mailErr);
-    }
-
-    return res.json({ ok: true, booking });
+    const result = await finalizeBusBookingFromSession(session);
+    return res.json({ ok: true, ...result });
   } catch (err) {
     next(err);
   }

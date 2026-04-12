@@ -153,6 +153,10 @@ flowchart LR
     B --> E[Stripe Payment Gateway]
     B --> F[Socket.IO Real-Time Layer]
     B --> G[Email / Notification Services]
+```
+
+---
+
 ## 🧰 Tech Stack
 
 ### Frontend
@@ -578,8 +582,3 @@ You said you will add testing images, so place them here:
 | Member 2 | ITxxxxxxx | Train Ticket Booking Module |
 | Member 3 | ITxxxxxxx | Bus Scheduling & Bus Ticket Booking |
 | Member 4 | ITxxxxxxx | Reviews, Ratings & Eco Leaderboard |
-    
-
- 
-
-

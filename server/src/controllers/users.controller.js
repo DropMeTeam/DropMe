@@ -2,10 +2,11 @@ import { User } from "../models/User.js";
 import { RideBooking } from "../models/RideBooking.js";
 import { RideRequest } from "../models/RideRequest.js";
 import { HttpError } from "../utils/httpError.js";
-import { publicBaseUrl } from "../utils/publicBaseUrl.js";
 
+// helper to build a public URL for uploaded file
 function fileUrl(req, filename) {
-  return `${publicBaseUrl(req)}/uploads/${filename}`;
+  const base = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+  return `${base}/uploads/${filename}`;
 }
 
 export async function getMe(req, res, next) {

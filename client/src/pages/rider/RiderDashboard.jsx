@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
-import { resolveMediaUrl } from "../../lib/mediaUrl";
 import { Link, useNavigate } from "react-router-dom";
 import {
   User,
@@ -189,7 +188,7 @@ export default function RiderDashboard() {
                   <div className="relative group cursor-pointer mb-6">
                     <div className="absolute -inset-1 bg-gradient-to-r from-[#B8860B] to-[#D4AF37] rounded-[2.2rem] blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
                     {me?.avatarUrl ? (
-                      <img src={resolveMediaUrl(me.avatarUrl)} className="relative h-28 w-28 rounded-[2rem] object-cover border-2 border-zinc-800" alt="Profile" />
+                      <img src={me.avatarUrl} className="relative h-28 w-28 rounded-[2rem] object-cover border-2 border-zinc-800" alt="Profile" />
                     ) : (
                       <div className="relative h-28 w-28 rounded-[2rem] bg-zinc-800 flex items-center justify-center text-3xl font-black text-[#B8860B] border border-zinc-700">{initials}</div>
                     )}

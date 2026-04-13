@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import api from "../../lib/api";
-import { resolveMediaUrl } from "../../lib/mediaUrl";
 
 // 1. Import your image from the assets folder
 import planRideBg from "../../assets/driver.png"; 
@@ -58,7 +57,7 @@ function PassengerCard({ booking, onComplete, marking }) {
         <div className="flex items-center gap-4">
           <div className="relative h-14 w-14 overflow-hidden rounded-2xl border-2 border-zinc-800 bg-zinc-950 shadow-inner">
             {rider?.avatarUrl ? (
-              <img src={resolveMediaUrl(rider.avatarUrl)} alt={riderName} className="h-full w-full object-cover" />
+              <img src={rider.avatarUrl} alt={riderName} className="h-full w-full object-cover" />
             ) : (
               <div className="grid h-full w-full place-items-center text-lg font-bold text-zinc-600">
                 {riderInitial}
@@ -287,7 +286,7 @@ export default function DriverDashboard() {
               <div className="relative mb-4">
                 <div className="h-24 w-24 overflow-hidden rounded-[2rem] border-4 border-zinc-800 shadow-2xl">
                   {user?.avatarUrl ? (
-                    <img src={resolveMediaUrl(user.avatarUrl)} alt="avatar" className="h-full w-full object-cover" />
+                    <img src={user.avatarUrl} alt="avatar" className="h-full w-full object-cover" />
                   ) : (
                     <div className="grid h-full w-full place-items-center bg-zinc-800 text-2xl font-bold text-zinc-500">{user?.name?.charAt(0)}</div>
                   )}
@@ -328,7 +327,7 @@ export default function DriverDashboard() {
               <div className="space-y-4">
                 <div className="relative group aspect-[16/10] w-full overflow-hidden rounded-2xl border border-zinc-800 bg-black/40">
                   {vehicle.photoUrl ? (
-                    <img src={resolveMediaUrl(vehicle.photoUrl)} alt="Vehicle" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                    <img src={vehicle.photoUrl} alt="Vehicle" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
                   ) : (
                     <div className="grid h-full w-full place-items-center text-[10px] font-bold text-zinc-600 uppercase tracking-widest">No Vehicle Photo</div>
                   )}
@@ -356,7 +355,7 @@ export default function DriverDashboard() {
                     {showLicense && reg?.licenseImageUrl && (
                       <div className="mt-3 animate-in fade-in slide-in-from-top-2">
                          <div className="relative aspect-video rounded-lg overflow-hidden border border-zinc-800 bg-zinc-950">
-                            <img src={resolveMediaUrl(reg.licenseImageUrl)} alt="License" className="h-full w-full object-contain" />
+                            <img src={reg.licenseImageUrl} alt="License" className="h-full w-full object-contain" />
                          </div>
                       </div>
                     )}

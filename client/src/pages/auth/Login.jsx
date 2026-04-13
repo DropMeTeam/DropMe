@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useAuth } from "../../state/AuthContext";
 
@@ -17,8 +17,6 @@ function routeByRole(role) {
 export default function Login() {
   const { setUser } = useAuth();
   const nav = useNavigate();
-  const location = useLocation();
-  const from = location.state?.from;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,12 +29,7 @@ export default function Login() {
     try {
       const { data } = await api.post("/api/auth/login", { email, password });
       setUser(data.user);
-      if (from?.pathname) {
-        const dest = `${from.pathname}${from.search || ""}${from.hash || ""}`;
-        nav(dest, { replace: true });
-      } else {
-        nav(routeByRole(data.user?.role), { replace: true });
-      }
+      nav(routeByRole(data.user?.role), { replace: true });
     } catch (e2) {
       setErr(
         e2?.response?.data?.error ||
@@ -154,7 +147,6 @@ export default function Login() {
                 No account?{" "}
                 <Link
                   to="/register"
-                  state={location.state}
                   className="font-semibold text-cyan-400 transition hover:text-cyan-300"
                 >
                   Create one

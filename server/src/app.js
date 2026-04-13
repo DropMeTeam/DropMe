@@ -8,7 +8,6 @@ import path from "path";
 
 // core
 import { errorHandler } from "./middleware/errorHandler.js";
-import { getAllowedCorsOrigins } from "./utils/corsOrigins.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { usersRouter } from "./routes/users.routes.js";
 
@@ -69,16 +68,18 @@ export function buildApp({ io }) {
   app.use(cookieParser());
   app.use(morgan("dev"));
 
-  // CORS (comma-separated CLIENT_ORIGIN; optional ADDITIONAL_CORS_ORIGINS)
-  const allowedOrigins = getAllowedCorsOrigins();
+  // CORS
+  const allowedOrigins = [
+    process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    process.env.ADMIN_ORIGIN || "http://localhost:5174",
+  ].filter(Boolean);
 
   app.use(
     cors({
       origin: (origin, cb) => {
         if (!origin) return cb(null, true); // Postman / server-to-server
         if (allowedOrigins.includes(origin)) return cb(null, true);
-        console.warn(`CORS blocked origin: ${origin}`);
-        return cb(null, false);
+        return cb(new Error(`CORS blocked origin: ${origin}`));
       },
       credentials: true,
     })

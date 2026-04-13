@@ -16,6 +16,7 @@ import {
 } from "../utils/mailer.js";
 import { BusBooking } from "../modules/bus/models/BusBooking.js";
 import { TrainInventory } from "../modules/train/models/TrainInventory.js";
+import { agentDebugLog } from "../utils/agentDebugLog.js";
 
 // for carbon
 import { TrainSchedule } from "../modules/train/models/TrainSchedule.js";
@@ -81,9 +82,19 @@ function requireStripeClient() {
 }
 
 function getClientBaseUrl() {
-  const raw = process.env.CLIENT_ORIGIN || "http://localhost:5173";
-  const first = raw.split(",")[0].trim();
-  return first || "http://localhost:5173";
+  const raw =
+    process.env.CLIENT_ORIGIN ||
+    process.env.FRONTEND_URL ||
+    process.env.VERCEL_CLIENT_ORIGIN ||
+    process.env.VITE_CLIENT_URL ||
+    "http://localhost:5173";
+  let first = raw.split(",")[0].trim();
+  if (!first) first = "http://localhost:5173";
+  if (first.startsWith("http://") || first.startsWith("https://")) return first;
+  if (/^localhost(?::|$)/i.test(first) || /^127\.\d+\.\d+\.\d+/.test(first)) {
+    return first.includes("://") ? first : `http://${first}`;
+  }
+  return `https://${first.replace(/^\/\//, "")}`;
 }
 
 function getSafeStripeMessage(err) {
@@ -385,9 +396,52 @@ async function finalizeBusBookingFromSession(session) {
   return { booking };
 }
 
+async function finalizeCheckoutFromWebhookSession(session) {
+  const moduleName = getModuleFromSession(session);
+  try {
+    if (moduleName === "bus") {
+      await finalizeBusBookingFromSession(session);
+    } else if (moduleName === "train") {
+      await finalizeTrainBookingFromSession(session);
+    } else {
+      await finalizeRideBookingFromSession(session);
+    }
+    // #region agent log
+    agentDebugLog(
+      "payments.controller.js:finalizeCheckoutFromWebhookSession",
+      "finalize_ok",
+      { module: moduleName, sessionIdTail: String(session?.id || "").slice(-8) },
+      "H1"
+    );
+    // #endregion
+  } catch (err) {
+    // #region agent log
+    agentDebugLog(
+      "payments.controller.js:finalizeCheckoutFromWebhookSession",
+      "finalize_throw",
+      {
+        module: moduleName,
+        message: String(err?.message || err).slice(0, 200),
+      },
+      "H1"
+    );
+    // #endregion
+    throw err;
+  }
+}
+
 export async function stripeWebhook(req, res) {
   const signature = req.headers["stripe-signature"];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  // #region agent log
+  agentDebugLog(
+    "payments.controller.js:stripeWebhook",
+    "webhook_hit",
+    { hasSignature: Boolean(signature), hasSecret: Boolean(webhookSecret) },
+    "H5"
+  );
+  // #endregion
 
   if (!webhookSecret) {
     return res.status(500).json({ message: "Stripe webhook not configured" });
@@ -397,52 +451,81 @@ export async function stripeWebhook(req, res) {
 
   try {
     event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
+    // #region agent log
+    agentDebugLog(
+      "payments.controller.js:stripeWebhook",
+      "webhook_signature_ok",
+      { eventType: event.type },
+      "H5"
+    );
+    // #endregion
   } catch (err) {
     console.error("Stripe webhook signature error:", err.message);
+    // #region agent log
+    agentDebugLog(
+      "payments.controller.js:stripeWebhook",
+      "webhook_signature_fail",
+      { message: String(err?.message || err).slice(0, 120) },
+      "H5"
+    );
+    // #endregion
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  try {
-    switch (event.type) {
-      case "checkout.session.completed":
-      case "checkout.session.async_payment_succeeded": {
-        const session = event.data.object;
+  if (
+    event.type === "checkout.session.completed" ||
+    event.type === "checkout.session.async_payment_succeeded"
+  ) {
+    const session = event.data.object;
 
-        if (session.payment_status !== "paid") break;
+    // #region agent log
+    agentDebugLog(
+      "payments.controller.js:stripeWebhook",
+      "webhook_checkout_branch",
+      {
+        paymentStatus: session.payment_status,
+        hasMetadataBookingId: Boolean(session?.metadata?.bookingId),
+        hasClientRef: Boolean(session?.client_reference_id),
+        module: getModuleFromSession(session),
+      },
+      "H1"
+    );
+    // #endregion
 
-        const bookingId =
-          session?.metadata?.bookingId || session?.client_reference_id || "";
+    if (session.payment_status === "paid") {
+      const bookingId =
+        session?.metadata?.bookingId || session?.client_reference_id || "";
 
-        if (!bookingId) {
-          console.log("Stripe webhook ignored: no bookingId in session", {
-            eventType: event.type,
-            sessionId: session.id,
-          });
-          break;
-        }
-
-        const moduleName = getModuleFromSession(session);
-
-        if (moduleName === "bus") {
-          await finalizeBusBookingFromSession(session);
-        } else if (moduleName === "train") {
-          await finalizeTrainBookingFromSession(session);
-        } else {
-          await finalizeRideBookingFromSession(session);
-        }
-
-        break;
+      if (bookingId) {
+        void finalizeCheckoutFromWebhookSession(session).catch((err) => {
+          console.error("Stripe webhook async finalize failed:", err?.message || err);
+          // #region agent log
+          agentDebugLog(
+            "payments.controller.js:stripeWebhook",
+            "webhook_async_finalize_reject",
+            { message: String(err?.message || err).slice(0, 200) },
+            "H1"
+          );
+          // #endregion
+        });
+      } else {
+        console.warn("Stripe webhook ignored: no bookingId in session", {
+          eventType: event.type,
+          sessionId: session.id,
+        });
+        // #region agent log
+        agentDebugLog(
+          "payments.controller.js:stripeWebhook",
+          "webhook_no_booking_id",
+          { eventType: event.type },
+          "H4"
+        );
+        // #endregion
       }
-
-      default:
-        break;
     }
-
-    return res.json({ received: true });
-  } catch (err) {
-    console.error("Stripe webhook processing failed:", err);
-    return res.status(500).json({ message: "Webhook processing failed" });
   }
+
+  return res.json({ received: true });
 }
 
 export async function createStripeSession(req, res, next) {
@@ -611,6 +694,19 @@ export async function verifyStripePayment(req, res, next) {
     const sessionId = String(req.query.session_id || "");
     const userId = getUserId(req);
 
+    // #region agent log
+    agentDebugLog(
+      "payments.controller.js:verifyStripePayment",
+      "verify_start",
+      {
+        hasBookingId: Boolean(bookingId),
+        hasSessionId: Boolean(sessionId),
+        userIdPresent: Boolean(userId),
+      },
+      "H2"
+    );
+    // #endregion
+
     if (!bookingId || !sessionId) {
       throw new HttpError(400, "bookingId and session_id are required");
     }
@@ -625,6 +721,14 @@ export async function verifyStripePayment(req, res, next) {
     const isAdmin = req.user?.role === "admin";
 
     if (!isOwner && !isAdmin) {
+      // #region agent log
+      agentDebugLog(
+        "payments.controller.js:verifyStripePayment",
+        "verify_forbidden",
+        { isOwner, role: String(req.user?.role || "") },
+        "H2"
+      );
+      // #endregion
       throw new HttpError(403, "Not allowed");
     }
 
@@ -635,10 +739,26 @@ export async function verifyStripePayment(req, res, next) {
       session?.metadata?.bookingId || session?.client_reference_id || ""
     );
     if (!sessionBookingId || sessionBookingId !== String(booking._id)) {
+      // #region agent log
+      agentDebugLog(
+        "payments.controller.js:verifyStripePayment",
+        "verify_session_booking_mismatch",
+        { sessionBookingIdLen: sessionBookingId.length },
+        "H3"
+      );
+      // #endregion
       throw new HttpError(400, "Session does not match this booking");
     }
 
     if (booking.stripeSessionId && booking.stripeSessionId !== sessionId) {
+      // #region agent log
+      agentDebugLog(
+        "payments.controller.js:verifyStripePayment",
+        "verify_stripe_session_id_mismatch",
+        {},
+        "H3"
+      );
+      // #endregion
       throw new HttpError(400, "Session mismatch");
     }
 
@@ -648,12 +768,48 @@ export async function verifyStripePayment(req, res, next) {
     }
 
     if (session.payment_status !== "paid") {
+      // #region agent log
+      agentDebugLog(
+        "payments.controller.js:verifyStripePayment",
+        "verify_payment_not_paid",
+        { payment_status: session.payment_status },
+        "H3"
+      );
+      // #endregion
       throw new HttpError(402, "Payment not completed");
     }
 
     const result = await finalizeRideBookingFromSession(session);
+    // #region agent log
+    agentDebugLog(
+      "payments.controller.js:verifyStripePayment",
+      "verify_success",
+      {
+        bookingStatus: result?.booking?.status,
+        paymentStatus: result?.booking?.paymentStatus,
+      },
+      "H2"
+    );
+    // #endregion
     return res.json({ ok: true, ...result });
   } catch (err) {
+    // #region agent log
+    if (err instanceof HttpError) {
+      agentDebugLog(
+        "payments.controller.js:verifyStripePayment",
+        "verify_http_error",
+        { status: err.status, message: String(err.message || "").slice(0, 120) },
+        "H2"
+      );
+    } else {
+      agentDebugLog(
+        "payments.controller.js:verifyStripePayment",
+        "verify_unexpected_error",
+        { message: String(err?.message || err).slice(0, 120) },
+        "H3"
+      );
+    }
+    // #endregion
     next(err);
   }
 }

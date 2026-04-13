@@ -47,8 +47,6 @@ import ecoRoutes from "./routes/eco.routes.js";
 export function buildApp({ io }) {
   const app = express();
 
-  app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS || 1));
-
   // security + parsing
   app.use(
     helmet({

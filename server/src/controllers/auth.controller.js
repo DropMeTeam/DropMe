@@ -67,9 +67,7 @@ export async function register(req, res, next) {
     setAuthCookie(res, token);
 
     res.status(201).json({
-      token,
       user: {
-        sub: String(user._id),
         id: user._id,
         name: user.name,
         email: user.email,
@@ -106,9 +104,7 @@ export async function login(req, res, next) {
     setAuthCookie(res, token);
 
     res.json({
-      token,
       user: {
-        sub: String(user._id),
         id: user._id,
         name: user.name,
         email: user.email,

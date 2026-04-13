@@ -15,11 +15,6 @@ export function AuthProvider({ children }) {
       return data.user;
     } catch {
       setUser(null);
-      try {
-        localStorage.removeItem("token");
-      } catch {
-        /* ignore */
-      }
       return null;
     } finally {
       setLoading(false);
@@ -47,11 +42,6 @@ export function AuthProvider({ children }) {
       refresh,
       async logout() {
         await api.post("/api/auth/logout");
-        try {
-          localStorage.removeItem("token");
-        } catch {
-          /* ignore */
-        }
         setUser(null);
       },
     }),

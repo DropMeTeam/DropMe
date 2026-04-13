@@ -81,7 +81,9 @@ function requireStripeClient() {
 }
 
 function getClientBaseUrl() {
-  return process.env.CLIENT_ORIGIN || "http://localhost:5173";
+  const raw = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+  const first = raw.split(",")[0].trim();
+  return first || "http://localhost:5173";
 }
 
 function getSafeStripeMessage(err) {
@@ -95,18 +97,20 @@ function buildDistanceText(distanceKm) {
 
 function buildClientReturnUrl(pm, params = {}) {
   const base = getClientBaseUrl().replace(/\/$/, "");
-  const search = new URLSearchParams();
-
-  search.set("pm", pm);
+  const parts = [`pm=${encodeURIComponent(pm)}`];
 
   Object.entries(params).forEach(([key, value]) => {
     if (value === undefined || value === null || String(value) === "") return;
-    search.set(key, String(value));
+    if (String(value) === "{CHECKOUT_SESSION_ID}") {
+      parts.push(`${encodeURIComponent(key)}={CHECKOUT_SESSION_ID}`);
+    } else {
+      parts.push(
+        `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`
+      );
+    }
   });
 
-  return `${base}/?${search
-    .toString()
-    .replace(/%7BCHECKOUT_SESSION_ID%7D/g, "{CHECKOUT_SESSION_ID}")}`;
+  return `${base}/?${parts.join("&")}`;
 }
 
 function getModuleFromSession(session) {
@@ -624,12 +628,24 @@ export async function verifyStripePayment(req, res, next) {
       throw new HttpError(403, "Not allowed");
     }
 
+    const stripeClient = requireStripeClient();
+    const session = await stripeClient.checkout.sessions.retrieve(sessionId);
+
+    const sessionBookingId = String(
+      session?.metadata?.bookingId || session?.client_reference_id || ""
+    );
+    if (!sessionBookingId || sessionBookingId !== String(booking._id)) {
+      throw new HttpError(400, "Session does not match this booking");
+    }
+
     if (booking.stripeSessionId && booking.stripeSessionId !== sessionId) {
       throw new HttpError(400, "Session mismatch");
     }
 
-    const stripeClient = requireStripeClient();
-    const session = await stripeClient.checkout.sessions.retrieve(sessionId);
+    if (!booking.stripeSessionId) {
+      booking.stripeSessionId = sessionId;
+      await booking.save();
+    }
 
     if (session.payment_status !== "paid") {
       throw new HttpError(402, "Payment not completed");
@@ -786,12 +802,24 @@ export async function verifyTrainStripePayment(req, res, next) {
       throw new HttpError(403, "Only the booking rider can verify this payment");
     }
 
+    const stripeClient = requireStripeClient();
+    const session = await stripeClient.checkout.sessions.retrieve(sessionId);
+
+    const sessionBookingId = String(
+      session?.metadata?.bookingId || session?.client_reference_id || ""
+    );
+    if (!sessionBookingId || sessionBookingId !== String(booking._id)) {
+      throw new HttpError(400, "Session does not match this booking");
+    }
+
     if (booking.stripeSessionId && booking.stripeSessionId !== sessionId) {
       throw new HttpError(400, "Session mismatch");
     }
 
-    const stripeClient = requireStripeClient();
-    const session = await stripeClient.checkout.sessions.retrieve(sessionId);
+    if (!booking.stripeSessionId) {
+      booking.stripeSessionId = sessionId;
+      await booking.save();
+    }
 
     if (session.payment_status !== "paid") {
       throw new HttpError(402, "Payment not completed");
@@ -932,12 +960,24 @@ export async function verifyBusStripePayment(req, res, next) {
       throw new HttpError(403, "Only the booking rider can verify this payment");
     }
 
+    const stripeClient = requireStripeClient();
+    const session = await stripeClient.checkout.sessions.retrieve(sessionId);
+
+    const sessionBookingId = String(
+      session?.metadata?.bookingId || session?.client_reference_id || ""
+    );
+    if (!sessionBookingId || sessionBookingId !== String(booking._id)) {
+      throw new HttpError(400, "Session does not match this booking");
+    }
+
     if (booking.stripeSessionId && booking.stripeSessionId !== sessionId) {
       throw new HttpError(400, "Session mismatch");
     }
 
-    const stripeClient = requireStripeClient();
-    const session = await stripeClient.checkout.sessions.retrieve(sessionId);
+    if (!booking.stripeSessionId) {
+      booking.stripeSessionId = sessionId;
+      await booking.save();
+    }
 
     if (session.payment_status !== "paid") {
       throw new HttpError(402, "Payment not completed");

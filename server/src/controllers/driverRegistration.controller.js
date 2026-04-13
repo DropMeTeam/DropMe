@@ -1,10 +1,9 @@
 import { User } from "../models/User.js";
 import { HttpError } from "../utils/httpError.js";
+import { publicBaseUrl } from "../utils/publicBaseUrl.js";
 
 function fileUrl(req, filename) {
-  // serve /uploads as static
-  const base = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
-  return `${base}/uploads/${filename}`;
+  return `${publicBaseUrl(req)}/uploads/${filename}`;
 }
 
 export async function getMyDriverRegistration(req, res, next) {

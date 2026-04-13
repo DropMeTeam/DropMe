@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
+import { Navigate, Route, Routes, useSearchParams, useLocation } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
@@ -54,18 +54,24 @@ import EcoLeaderboardPage from "./pages/eco/EcoLeaderboardPage";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) return <div className="p-8">Loading…</div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
 
   return children;
 }
 
 function RequireRole({ allow, children }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) return <div className="p-8">Loading…</div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
   if (!allow.includes(user.role)) return <Navigate to="/" replace />;
 
   return children;

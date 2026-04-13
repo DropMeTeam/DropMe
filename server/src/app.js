@@ -86,15 +86,8 @@ export function buildApp({ io }) {
     })
   );
 
-  // rate limit (Stripe webhook must never be throttled — retries share IPs and burst quickly)
-  app.use(
-    rateLimit({
-      windowMs: 60 * 1000,
-      limit: 120,
-      skip: (req) =>
-        String(req.originalUrl || "").startsWith("/api/payments/stripe/webhook"),
-    })
-  );
+  // rate limit
+  app.use(rateLimit({ windowMs: 60 * 1000, limit: 120 }));
 
   // attach socket.io
   app.use((req, _res, next) => {

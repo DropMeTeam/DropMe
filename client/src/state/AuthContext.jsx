@@ -12,44 +12,8 @@ export function AuthProvider({ children }) {
     try {
       const { data } = await api.get("/api/auth/me");
       setUser(data.user);
-      // #region agent log
-      fetch("http://127.0.0.1:7676/ingest/d2d9894a-c4b8-455f-81ec-2cb81c2d7279", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Debug-Session-Id": "a7216d",
-        },
-        body: JSON.stringify({
-          sessionId: "a7216d",
-          location: "AuthContext.jsx:refresh",
-          message: "me_ok",
-          data: { hasSub: Boolean(data?.user?.sub || data?.user?.id) },
-          timestamp: Date.now(),
-          hypothesisId: "H2",
-          runId: "pre-fix",
-        }),
-      }).catch(() => {});
-      // #endregion
       return data.user;
-    } catch (e) {
-      // #region agent log
-      fetch("http://127.0.0.1:7676/ingest/d2d9894a-c4b8-455f-81ec-2cb81c2d7279", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Debug-Session-Id": "a7216d",
-        },
-        body: JSON.stringify({
-          sessionId: "a7216d",
-          location: "AuthContext.jsx:refresh",
-          message: "me_fail",
-          data: { status: e?.response?.status ?? null },
-          timestamp: Date.now(),
-          hypothesisId: "H2",
-          runId: "pre-fix",
-        }),
-      }).catch(() => {});
-      // #endregion
+    } catch {
       setUser(null);
       try {
         localStorage.removeItem("token");

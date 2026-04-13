@@ -31,28 +31,6 @@ export default function CheckoutSuccess() {
     let ignore = false;
 
     async function verifyWithRetry() {
-      // #region agent log
-      fetch("http://127.0.0.1:7676/ingest/d2d9894a-c4b8-455f-81ec-2cb81c2d7279", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Debug-Session-Id": "a7216d",
-        },
-        body: JSON.stringify({
-          sessionId: "a7216d",
-          location: "CheckoutSuccess.jsx:verifyWithRetry",
-          message: "params",
-          data: {
-            hasBookingId: Boolean(bookingId),
-            hasSessionId: Boolean(sessionId),
-          },
-          timestamp: Date.now(),
-          hypothesisId: "H4",
-          runId: "pre-fix",
-        }),
-      }).catch(() => {});
-      // #endregion
-
       if (!bookingId || !sessionId) {
         if (!ignore) {
           setVerifyError("Missing booking or session details");
@@ -101,34 +79,6 @@ export default function CheckoutSuccess() {
             data?.message || "Payment is still processing. Please wait…";
         } catch (e) {
           if (ignore) return;
-
-          // #region agent log
-          fetch("http://127.0.0.1:7676/ingest/d2d9894a-c4b8-455f-81ec-2cb81c2d7279", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Debug-Session-Id": "a7216d",
-            },
-            body: JSON.stringify({
-              sessionId: "a7216d",
-              location: "CheckoutSuccess.jsx:verify",
-              message: "verify_request_error",
-              data: {
-                attempt,
-                status: e?.response?.status ?? null,
-                errMsg: String(
-                  e?.response?.data?.message ||
-                    e?.response?.data?.error ||
-                    e?.message ||
-                    ""
-                ).slice(0, 120),
-              },
-              timestamp: Date.now(),
-              hypothesisId: "H2",
-              runId: "pre-fix",
-            }),
-          }).catch(() => {});
-          // #endregion
 
           lastMessage =
             e?.response?.data?.message ||

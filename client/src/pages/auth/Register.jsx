@@ -36,6 +36,13 @@ export default function Register() {
         password,
         role,
       });
+      if (data?.token) {
+        try {
+          localStorage.setItem("token", data.token);
+        } catch {
+          /* ignore */
+        }
+      }
       setUser(data.user);
       if (from?.pathname) {
         const dest = `${from.pathname}${from.search || ""}${from.hash || ""}`;

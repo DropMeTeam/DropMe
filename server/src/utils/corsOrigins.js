@@ -15,6 +15,7 @@ export function getAllowedCorsOrigins() {
 
   push(process.env.CLIENT_ORIGIN);
   push(process.env.ADMIN_ORIGIN);
+  push(process.env.VERCEL_CLIENT_ORIGIN);
   push(process.env.ADDITIONAL_CORS_ORIGINS);
 
   if (process.env.VERCEL_URL) {

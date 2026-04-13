@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { api } from "../../lib/api";
+import { downloadRideReceiptPdf } from "../../lib/rideReceipt";
 import {
   CheckCircle,
   Download,
@@ -9,14 +10,6 @@ import {
   Clock,
   Loader2,
 } from "lucide-react";
-
-function getApiOrigin() {
-  const base = api?.defaults?.baseURL || "";
-  if (typeof base === "string" && base.startsWith("http")) {
-    return base.replace(/\/$/, "");
-  }
-  return "http://localhost:5000";
-}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -32,6 +25,7 @@ export default function CheckoutSuccess() {
   const [booking, setBooking] = useState(null);
   const [offer, setOffer] = useState(null);
   const [verifyError, setVerifyError] = useState("");
+  const [receiptBusy, setReceiptBusy] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -112,8 +106,6 @@ export default function CheckoutSuccess() {
     };
   }, [bookingId, sessionId]);
 
-  const apiOrigin = useMemo(() => getApiOrigin(), []);
-
   const originAddress =
     offer?.origin?.address || booking?.offerSnapshot?.originAddress || "—";
 
@@ -132,9 +124,21 @@ export default function CheckoutSuccess() {
   const isConfirmedAndPaid =
     booking?.paymentStatus === "paid" && booking?.status === "confirmed";
 
-  const receiptUrl = isConfirmedAndPaid
-    ? `${apiOrigin}/api/bookings/${bookingId}/receipt`
-    : "";
+  async function handleReceiptClick() {
+    if (!bookingId || receiptBusy) return;
+    try {
+      setReceiptBusy(true);
+      await downloadRideReceiptPdf(bookingId);
+    } catch (e) {
+      setVerifyError(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Could not download receipt"
+      );
+    } finally {
+      setReceiptBusy(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#060812] flex items-center justify-center p-6 text-white">
@@ -202,14 +206,15 @@ export default function CheckoutSuccess() {
 
         <div className="flex flex-col justify-center gap-4 sm:flex-row">
           {isConfirmedAndPaid ? (
-            <a
-              className="flex items-center justify-center gap-2 rounded-2xl bg-[#1ABCFE] px-8 py-4 font-bold text-black transition-transform hover:scale-105"
-              href={receiptUrl}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
+              disabled={receiptBusy}
+              onClick={handleReceiptClick}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-[#1ABCFE] px-8 py-4 font-bold text-black transition-transform hover:scale-105 disabled:opacity-60"
             >
-              <Download size={18} /> Download Receipt
-            </a>
+              <Download size={18} />{" "}
+              {receiptBusy ? "Preparing…" : "Download Receipt"}
+            </button>
           ) : (
             <button
               type="button"

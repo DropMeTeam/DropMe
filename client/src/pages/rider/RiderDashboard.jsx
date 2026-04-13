@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import { resolveMediaUrl } from "../../lib/mediaUrl";
+import { downloadRideReceiptPdf } from "../../lib/rideReceipt";
 import { Link, useNavigate } from "react-router-dom";
 import {
   User,
@@ -41,6 +42,7 @@ export default function RiderDashboard() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [activeTab, setActiveTab] = useState("profile");
+  const [receiptBusyId, setReceiptBusyId] = useState("");
 
   const { data: meData } = useQuery({
     queryKey: ["me"],
@@ -54,12 +56,6 @@ export default function RiderDashboard() {
 
   const me = meData?.user || {};
   const bookings = bData?.bookings || [];
-
-  const apiOrigin = useMemo(() => {
-    const base = api?.defaults?.baseURL;
-    if (typeof base === "string" && base.startsWith("http")) return base.replace(/\/$/, "");
-    return import.meta.env.VITE_API_ORIGIN || "http://localhost:5000";
-  }, []);
 
   const initials = useMemo(() => {
     const raw = String(me?.name || "Rider").trim();
@@ -349,16 +345,31 @@ export default function RiderDashboard() {
               </div>
             </div>
 
-            <a
-              href={`${apiOrigin}/api/bookings/${b._id}/receipt`}
-              target="_blank" rel="noreferrer"
+            <button
+              type="button"
+              disabled={!canReceipt || receiptBusyId === String(b._id)}
+              onClick={async () => {
+                if (!canReceipt) return;
+                try {
+                  setReceiptBusyId(String(b._id));
+                  await downloadRideReceiptPdf(b._id);
+                } catch (e) {
+                  setErr(
+                    e?.response?.data?.message ||
+                      e?.message ||
+                      "Could not download ticket"
+                  );
+                } finally {
+                  setReceiptBusyId("");
+                }
+              }}
               className={`relative overflow-hidden group/btn px-10 py-4 rounded-2xl font-black text-[10px] tracking-[0.2em] border border-[#B8860B]/40 bg-[#B8860B]/5 text-[#B8860B] hover:text-black transition-all duration-300 uppercase shadow-lg shadow-black/40 ${!canReceipt ? "opacity-20 cursor-not-allowed" : "hover:bg-[#B8860B] active:scale-95"}`}
             >
               <span className="relative z-10 flex items-center gap-2">
                 <CreditCard size={14} />
-                Ticket
+                {receiptBusyId === String(b._id) ? "…" : "Ticket"}
               </span>
-            </a>
+            </button>
           </div>
         </div>
       </div>

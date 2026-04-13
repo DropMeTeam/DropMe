@@ -3,13 +3,12 @@ import { HttpError } from "../utils/httpError.js";
 import { verifyToken } from "../utils/jwt.js";
 
 function getToken(req) {
-  // 1) Cookie token (preferred)
-  const cookieToken = req.cookies?.client_token || req.cookies?.token;
-  if (cookieToken) return cookieToken;
-
-  // 2) Bearer token fallback
+  // Prefer Authorization header so cross-origin SPAs work when cookies are partitioned/missing.
   const header = req.headers.authorization || "";
   if (header.startsWith("Bearer ")) return header.slice(7);
+
+  const cookieToken = req.cookies?.client_token || req.cookies?.token;
+  if (cookieToken) return cookieToken;
 
   return null;
 }

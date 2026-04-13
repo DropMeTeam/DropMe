@@ -30,6 +30,13 @@ export default function Login() {
 
     try {
       const { data } = await api.post("/api/auth/login", { email, password });
+      if (data?.token) {
+        try {
+          localStorage.setItem("token", data.token);
+        } catch {
+          /* ignore */
+        }
+      }
       setUser(data.user);
       if (from?.pathname) {
         const dest = `${from.pathname}${from.search || ""}${from.hash || ""}`;

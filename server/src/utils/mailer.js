@@ -18,9 +18,16 @@ export function getMailer() {
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
+  console.log("[mailer] config check", {
+    hasHost: Boolean(host),
+    port,
+    hasUser: Boolean(user),
+    hasPass: Boolean(pass),
+  });
+
   if (!host || !user || !pass) {
-    console.warn(
-      "[mailer] SMTP not configured. Missing one of SMTP_HOST / SMTP_USER / SMTP_PASS"
+    console.error(
+      "[mailer] SMTP config missing. Required: SMTP_HOST, SMTP_USER, SMTP_PASS"
     );
     return null;
   }
@@ -46,6 +53,12 @@ export function getMailer() {
 export async function sendDriverApprovedEmail({ to, name, driverId }) {
   try {
     const transporter = getMailer();
+
+    console.log("[mailer] sendDriverApprovedEmail", {
+      to,
+      hasTransporter: Boolean(transporter),
+    });
+
     if (!transporter || !to) return false;
 
     const from = process.env.SMTP_FROM || process.env.SMTP_USER;
@@ -54,9 +67,14 @@ export async function sendDriverApprovedEmail({ to, name, driverId }) {
       from,
       to,
       subject: "Driver Registration Approved",
-      text: `Hi ${name || ""},\n\nYour driver registration is approved.\nYour Driver ID: ${driverId}\n\nThank you.`,
+      text:
+        `Hi ${name || ""},\n\n` +
+        `Your driver registration is approved.\n` +
+        `Your Driver ID: ${driverId}\n\n` +
+        `Thank you.`,
     });
 
+    console.log("[mailer] Driver approved email sent successfully", { to });
     return true;
   } catch (err) {
     console.error("sendDriverApprovedEmail failed:", err);
@@ -67,7 +85,24 @@ export async function sendDriverApprovedEmail({ to, name, driverId }) {
 export async function sendTrainTicketEmail({ to, name, booking, pdfBuffer }) {
   try {
     const transporter = getMailer();
-    if (!transporter || !to || !pdfBuffer) return false;
+
+    console.log("[mailer] sendTrainTicketEmail", {
+      to,
+      hasTransporter: Boolean(transporter),
+      hasPdfBuffer: Boolean(pdfBuffer),
+      bookingId: booking?._id ? String(booking._id) : "",
+    });
+
+    if (!transporter || !to || !pdfBuffer) {
+      console.error("[mailer] Train email skipped", {
+        reason: !transporter
+          ? "missing_transporter"
+          : !to
+            ? "missing_recipient"
+            : "missing_pdf",
+      });
+      return false;
+    }
 
     const from = process.env.SMTP_FROM || process.env.SMTP_USER;
     const ticketNumber = getTrainTicketNumber(booking);
@@ -96,6 +131,11 @@ export async function sendTrainTicketEmail({ to, name, booking, pdfBuffer }) {
       ],
     });
 
+    console.log("[mailer] Train ticket email sent successfully", {
+      to,
+      bookingId: booking?._id ? String(booking._id) : "",
+    });
+
     return true;
   } catch (err) {
     console.error("sendTrainTicketEmail failed:", err);
@@ -106,7 +146,24 @@ export async function sendTrainTicketEmail({ to, name, booking, pdfBuffer }) {
 export async function sendBusTicketEmail({ to, name, booking, pdfBuffer }) {
   try {
     const transporter = getMailer();
-    if (!transporter || !to || !pdfBuffer) return false;
+
+    console.log("[mailer] sendBusTicketEmail", {
+      to,
+      hasTransporter: Boolean(transporter),
+      hasPdfBuffer: Boolean(pdfBuffer),
+      bookingId: booking?._id ? String(booking._id) : "",
+    });
+
+    if (!transporter || !to || !pdfBuffer) {
+      console.error("[mailer] Bus email skipped", {
+        reason: !transporter
+          ? "missing_transporter"
+          : !to
+            ? "missing_recipient"
+            : "missing_pdf",
+      });
+      return false;
+    }
 
     const from = process.env.SMTP_FROM || process.env.SMTP_USER;
 
@@ -172,6 +229,11 @@ export async function sendBusTicketEmail({ to, name, booking, pdfBuffer }) {
           contentType: "application/pdf",
         },
       ],
+    });
+
+    console.log("[mailer] Bus ticket email sent successfully", {
+      to,
+      bookingId: booking?._id ? String(booking._id) : "",
     });
 
     return true;

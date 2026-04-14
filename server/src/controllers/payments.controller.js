@@ -1,4 +1,4 @@
-import Stripe from "stripe";
+﻿import Stripe from "stripe";
 import { RideOffer } from "../models/RideOffer.js";
 import { RideBooking } from "../models/RideBooking.js";
 import { User } from "../models/User.js";
@@ -130,6 +130,7 @@ function getModuleFromSession(session) {
   return "ride";
 }
 
+
 async function finalizeRideBookingFromSession(session) {
   const bookingId = String(
     session?.metadata?.bookingId || session?.client_reference_id || ""
@@ -180,6 +181,74 @@ async function finalizeRideBookingFromSession(session) {
   return { booking, offer };
 }
 
+function queueTrainTicketEmail(bookingDoc) {
+  const booking = bookingDoc?.toObject ? bookingDoc.toObject() : bookingDoc;
+
+  if (!booking?._id) return;
+  if (booking.ticketEmailSentAt) return;
+  if (!booking.passengerSnapshot?.email) return;
+
+  setImmediate(async () => {
+    try {
+      const freshBooking = await TrainBooking.findById(booking._id);
+      if (!freshBooking) return;
+      if (freshBooking.ticketEmailSentAt) return;
+
+      const pdfBuffer = await generateTrainTicketPdfBuffer(
+        freshBooking.toObject ? freshBooking.toObject() : freshBooking
+      );
+
+      const emailed = await sendTrainTicketEmail({
+        to: freshBooking.passengerSnapshot?.email || "",
+        name: freshBooking.passengerSnapshot?.name || "",
+        booking: freshBooking.toObject ? freshBooking.toObject() : freshBooking,
+        pdfBuffer,
+      });
+
+      if (emailed) {
+        freshBooking.ticketEmailSentAt = new Date();
+        await freshBooking.save();
+      }
+    } catch (err) {
+      console.error("Async train ticket email send failed:", err);
+    }
+  });
+}
+
+function queueBusTicketEmail(bookingDoc) {
+  const booking = bookingDoc?.toObject ? bookingDoc.toObject() : bookingDoc;
+
+  if (!booking?._id) return;
+  if (booking.ticketEmailSentAt) return;
+  if (!booking.passengerSnapshot?.email) return;
+
+  setImmediate(async () => {
+    try {
+      const freshBooking = await BusBooking.findById(booking._id);
+      if (!freshBooking) return;
+      if (freshBooking.ticketEmailSentAt) return;
+
+      const pdfBuffer = await generateBusTicketPdfBuffer(
+        freshBooking.toObject ? freshBooking.toObject() : freshBooking
+      );
+
+      const emailed = await sendBusTicketEmail({
+        to: freshBooking.passengerSnapshot?.email || "",
+        name: freshBooking.passengerSnapshot?.name || "",
+        booking: freshBooking.toObject ? freshBooking.toObject() : freshBooking,
+        pdfBuffer,
+      });
+
+      if (emailed) {
+        freshBooking.ticketEmailSentAt = new Date();
+        await freshBooking.save();
+      }
+    } catch (err) {
+      console.error("Async bus ticket email send failed:", err);
+    }
+  });
+}
+
 async function finalizeTrainBookingFromSession(session) {
   const bookingId = String(
     session?.metadata?.bookingId || session?.client_reference_id || ""
@@ -199,6 +268,9 @@ async function finalizeTrainBookingFromSession(session) {
   }
 
   if (booking.paymentStatus === "paid" && booking.bookingStatus === "booked") {
+    if (!booking.ticketEmailSentAt) {
+      queueTrainTicketEmail(booking);
+    }
     return { booking };
   }
 
@@ -277,25 +349,7 @@ async function finalizeTrainBookingFromSession(session) {
     console.error("Train carbon impact creation failed:", ecoErr);
   }
 
-  try {
-    const pdfBuffer = await generateTrainTicketPdfBuffer(
-      booking.toObject ? booking.toObject() : booking
-    );
-
-    const emailed = await sendTrainTicketEmail({
-      to: booking.passengerSnapshot?.email || "",
-      name: booking.passengerSnapshot?.name || "",
-      booking: booking.toObject ? booking.toObject() : booking,
-      pdfBuffer,
-    });
-
-    if (emailed) {
-      booking.ticketEmailSentAt = new Date();
-      await booking.save();
-    }
-  } catch (mailErr) {
-    console.error("Train ticket email send failed:", mailErr);
-  }
+  queueTrainTicketEmail(booking);
 
   return {
     booking,
@@ -328,6 +382,9 @@ async function finalizeBusBookingFromSession(session) {
   }
 
   if (booking.paymentStatus === "paid" && booking.bookingStatus === "booked") {
+    if (!booking.ticketEmailSentAt) {
+      queueBusTicketEmail(booking);
+    }
     return { booking };
   }
 
@@ -373,25 +430,7 @@ async function finalizeBusBookingFromSession(session) {
     console.error("Bus carbon impact creation failed:", ecoErr);
   }
 
-  try {
-    const pdfBuffer = await generateBusTicketPdfBuffer(
-      booking.toObject ? booking.toObject() : booking
-    );
-
-    const emailed = await sendBusTicketEmail({
-      to: booking.passengerSnapshot?.email || "",
-      name: booking.passengerSnapshot?.name || "",
-      booking: booking.toObject ? booking.toObject() : booking,
-      pdfBuffer,
-    });
-
-    if (emailed) {
-      booking.ticketEmailSentAt = new Date();
-      await booking.save();
-    }
-  } catch (mailErr) {
-    console.error("Bus ticket email send failed:", mailErr);
-  }
+  queueBusTicketEmail(booking);
 
   return { booking };
 }
@@ -958,6 +997,13 @@ export async function verifyTrainStripePayment(req, res, next) {
       throw new HttpError(403, "Only the booking rider can verify this payment");
     }
 
+    if (booking.paymentStatus === "paid" && booking.bookingStatus === "booked") {
+      if (!booking.ticketEmailSentAt) {
+        queueTrainTicketEmail(booking);
+      }
+      return res.json({ ok: true, booking });
+    }
+
     const stripeClient = requireStripeClient();
     const session = await stripeClient.checkout.sessions.retrieve(sessionId);
 
@@ -1114,6 +1160,13 @@ export async function verifyBusStripePayment(req, res, next) {
 
     if (!isOwner) {
       throw new HttpError(403, "Only the booking rider can verify this payment");
+    }
+
+    if (booking.paymentStatus === "paid" && booking.bookingStatus === "booked") {
+      if (!booking.ticketEmailSentAt) {
+        queueBusTicketEmail(booking);
+      }
+      return res.json({ ok: true, booking });
     }
 
     const stripeClient = requireStripeClient();

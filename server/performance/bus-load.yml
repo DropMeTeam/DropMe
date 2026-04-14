@@ -1,0 +1,41 @@
+config:
+  target: "http://localhost:5000"
+  phases:
+    - duration: 30
+      arrivalRate: 5
+      name: warmup
+    - duration: 60
+      arrivalRate: 15
+      name: normal_load
+    - duration: 30
+      arrivalRate: 30
+      name: peak_load
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+scenarios:
+  - name: "Bus public route and availability performance"
+    flow:
+      - get:
+          url: "/api/bus/routes/{{ routeId }}/buses"
+
+      - get:
+          url: "/api/bus/routes/{{ routeId }}/schedules"
+
+      - get:
+          url: "/api/bus/bookings/availability"
+          qs:
+            scheduleId: "{{ scheduleId }}"
+            travelDate: "{{ travelDate }}"
+            pickupLabel: "{{ pickupLabel }}"
+            dropoffLabel: "{{ dropoffLabel }}"
+
+payload:
+  path: "./bus-performance-data.csv"
+  fields:
+    - "routeId"
+    - "scheduleId"
+    - "travelDate"
+    - "pickupLabel"
+    - "dropoffLabel"

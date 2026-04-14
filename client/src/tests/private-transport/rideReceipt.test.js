@@ -11,8 +11,7 @@ vi.mock("../../lib/api", () => ({
 describe("rideReceipt", () => {
   let createObjectURLSpy;
   let revokeObjectURLSpy;
-  let appendChildSpy;
-  let removeChildSpy;
+  let clickSpy;
 
   beforeEach(() => {
     createObjectURLSpy = vi
@@ -23,21 +22,9 @@ describe("rideReceipt", () => {
       .spyOn(URL, "revokeObjectURL")
       .mockImplementation(() => {});
 
-    appendChildSpy = vi.spyOn(document.body, "appendChild");
-    removeChildSpy = vi.spyOn(document.body, "removeChild");
-
-    vi.spyOn(document, "createElement").mockImplementation((tag) => {
-      if (tag === "a") {
-        return {
-          href: "",
-          download: "",
-          rel: "",
-          click: vi.fn(),
-          remove: vi.fn(),
-        };
-      }
-      return document.createElement(tag);
-    });
+    clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -60,12 +47,15 @@ describe("rideReceipt", () => {
     });
 
     await expect(downloadRideReceiptPdf("abc123")).resolves.toBeUndefined();
+
     expect(api.get).toHaveBeenCalledWith("/api/bookings/abc123/receipt", {
       responseType: "blob",
       validateStatus: expect.any(Function),
     });
+
     expect(createObjectURLSpy).toHaveBeenCalled();
-    expect(revokeObjectURLSpy).toHaveBeenCalled();
+    expect(clickSpy).toHaveBeenCalled();
+    expect(revokeObjectURLSpy).toHaveBeenCalledWith("blob:mock-url");
   });
 
   it("throws backend error from json response", async () => {

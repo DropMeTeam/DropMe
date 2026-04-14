@@ -1,0 +1,27 @@
+config:
+  target: "http://localhost:5000"
+  phases:
+    - duration: 30
+      arrivalRate: 5
+      name: Warm up
+    - duration: 30
+      arrivalRate: 10
+      name: Normal load
+    - duration: 30
+      arrivalRate: 20
+      name: High load
+  defaults:
+    headers:
+      Authorization: "Bearer YOUR_TEST_TOKEN"
+
+scenarios:
+  - name: "Private module performance test"
+    flow:
+      - get:
+          url: "/health"
+
+      - get:
+          url: "/api/driver-registration/me"
+
+      - get:
+          url: "/api/users/me"

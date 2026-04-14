@@ -1,0 +1,27 @@
+config:
+  target: "http://localhost:5000"
+  phases:
+    - duration: 30
+      arrivalRate: 5
+      name: Warm up
+    - duration: 30
+      arrivalRate: 15
+      name: Normal load
+    - duration: 30
+      arrivalRate: 25
+      name: High load
+
+scenarios:
+  - name: "Train API performance test"
+    flow:
+      - get:
+          url: "/health"
+
+      - get:
+          url: "/api/train/stations"
+
+      - get:
+          url: "/api/train/nearest-stations?lat=6.9271&lng=79.8612&limit=5"
+
+      - get:
+          url: "/api/train/search-nearby?lat=6.9271&lng=79.8612&to=Kandy&travelDate=2026-04-20"

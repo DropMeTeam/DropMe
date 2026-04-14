@@ -14,6 +14,7 @@ import {
   sendTrainTicketEmail,
   sendBusTicketEmail,
 } from "../utils/mailer.js";
+import { sendEmailWithRetry } from "../utils/emailRetry.js";
 import { BusBooking } from "../modules/bus/models/BusBooking.js";
 import { TrainInventory } from "../modules/train/models/TrainInventory.js";
 import { agentDebugLog } from "../utils/agentDebugLog.js";
@@ -277,25 +278,32 @@ async function finalizeTrainBookingFromSession(session) {
     console.error("Train carbon impact creation failed:", ecoErr);
   }
 
-  try {
-    const pdfBuffer = await generateTrainTicketPdfBuffer(
-      booking.toObject ? booking.toObject() : booking
-    );
+  void (async () => {
+    try {
+      const pdfBuffer = await generateTrainTicketPdfBuffer(
+        booking.toObject ? booking.toObject() : booking
+      );
 
-    const emailed = await sendTrainTicketEmail({
-      to: booking.passengerSnapshot?.email || "",
-      name: booking.passengerSnapshot?.name || "",
-      booking: booking.toObject ? booking.toObject() : booking,
-      pdfBuffer,
-    });
+      const emailed = await sendEmailWithRetry(async () => {
+        return await sendTrainTicketEmail({
+          to: booking.passengerSnapshot?.email || "",
+          name: booking.passengerSnapshot?.name || "",
+          booking: booking.toObject ? booking.toObject() : booking,
+          pdfBuffer,
+        });
+      }, 3, 1000);
 
-    if (emailed) {
-      booking.ticketEmailSentAt = new Date();
-      await booking.save();
+      if (emailed) {
+        booking.ticketEmailSentAt = new Date();
+        await booking.save();
+        console.log(`Train ticket email successfully sent to ${booking.passengerSnapshot?.email}`);
+      } else {
+        console.error(`Failed to send train ticket email to ${booking.passengerSnapshot?.email} after retries`);
+      }
+    } catch (mailErr) {
+      console.error("Train ticket email send failed:", mailErr);
     }
-  } catch (mailErr) {
-    console.error("Train ticket email send failed:", mailErr);
-  }
+  })();
 
   return {
     booking,
@@ -373,25 +381,32 @@ async function finalizeBusBookingFromSession(session) {
     console.error("Bus carbon impact creation failed:", ecoErr);
   }
 
-  try {
-    const pdfBuffer = await generateBusTicketPdfBuffer(
-      booking.toObject ? booking.toObject() : booking
-    );
+  void (async () => {
+    try {
+      const pdfBuffer = await generateBusTicketPdfBuffer(
+        booking.toObject ? booking.toObject() : booking
+      );
 
-    const emailed = await sendBusTicketEmail({
-      to: booking.passengerSnapshot?.email || "",
-      name: booking.passengerSnapshot?.name || "",
-      booking: booking.toObject ? booking.toObject() : booking,
-      pdfBuffer,
-    });
+      const emailed = await sendEmailWithRetry(async () => {
+        return await sendBusTicketEmail({
+          to: booking.passengerSnapshot?.email || "",
+          name: booking.passengerSnapshot?.name || "",
+          booking: booking.toObject ? booking.toObject() : booking,
+          pdfBuffer,
+        });
+      }, 3, 1000);
 
-    if (emailed) {
-      booking.ticketEmailSentAt = new Date();
-      await booking.save();
+      if (emailed) {
+        booking.ticketEmailSentAt = new Date();
+        await booking.save();
+        console.log(`Bus ticket email successfully sent to ${booking.passengerSnapshot?.email}`);
+      } else {
+        console.error(`Failed to send bus ticket email to ${booking.passengerSnapshot?.email} after retries`);
+      }
+    } catch (mailErr) {
+      console.error("Bus ticket email send failed:", mailErr);
     }
-  } catch (mailErr) {
-    console.error("Bus ticket email send failed:", mailErr);
-  }
+  })();
 
   return { booking };
 }

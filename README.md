@@ -128,20 +128,7 @@ The system is built as a **full-stack MERN web application**, with:
 
 ---
 
-## 👨‍💻 Team Contribution Overview
 
-This project was developed by **4 team members**, each focusing on a major business module.
-
-| Team Member | Main Module |
-|---|---|
-| Member 1 | Carpooling / Private Ride Module |
-| Member 2 | Train Ticket Booking Module |
-| Member 3 | Bus Route Scheduling & Ticket Booking Module |
-| Member 4 | Reviews, Ratings & Eco Leaderboard Module |
-
-> Replace the names above with your actual member names and registration numbers.
-
----
 
 ## 🏗️ System Architecture
 
@@ -545,7 +532,7 @@ You said you will add testing images, so place them here:
 
 
 
-## 👥 Team Details
+## 👨‍💻 Team Contribution Overview
 
 **Module:** SE3040 – Application Frameworks  
 **Assignment:** Full Stack Application Development  

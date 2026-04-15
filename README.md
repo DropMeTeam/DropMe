@@ -543,32 +543,7 @@ You said you will add testing images, so place them here:
 
 ---
 
-## 📈 Future Improvements
 
-- Advanced route optimization
-- More real-time transport updates
-- Mobile-responsive PWA enhancements
-- Smarter eco recommendation engine
-- Expanded analytics dashboard
-- Cloud storage for uploaded files
-- More advanced reporting and admin insights
-
----
-
-## 📝 Submission Checklist
-
-- [x] Full-stack backend and frontend implemented
-- [x] Backend deployed on Render
-- [x] Frontend deployed on Vercel
-- [x] Environment variables documented without exposing secrets
-- [x] Live URLs included
-- [x] Main API routes documented
-- [x] Deployment section included
-- [x] Testing section included
-- [ ] Testing images to be added
-- [ ] Final team member names and IDs to be added
-
----
 
 ## 👥 Team Details
 

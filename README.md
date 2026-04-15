@@ -542,5 +542,5 @@ You said you will add testing images, so place them here:
 |---|---|---|
 | Dilhara H.S. | IT23815896 | Carpooling / Private Ride Module |
 | Perera H.C.T | IT23815896 | Train Ticket Booking Module |
-| Perera H.C.T | IT23664012 | Bus Scheduling & Bus Ticket Booking |
+| D.M.T. Shamendra | IT23664012 | Bus Scheduling & Bus Ticket Booking |
 | G.P.T. Nikeshala | IT23664012 | Reviews, Ratings & Eco Leaderboard |

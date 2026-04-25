@@ -9,6 +9,7 @@ import {
   ArrowRight,
   Route as RouteIcon,
   LayoutGrid,
+  Clock3,
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { calculateBusFare, formatLkr } from "../../lib/busFare";
@@ -16,6 +17,36 @@ import { getBusLayoutType } from "../../lib/busSeatLayout";
 
 function shortLabel(label = "") {
   return String(label).split(",")[0].trim();
+}
+
+function normalizeLabel(value = "") {
+  return String(value).trim().toLowerCase();
+}
+
+function resolveJourneyTimes(schedule, route, searchData) {
+  const stopTimes = Array.isArray(schedule?.stopTimes) ? schedule.stopTimes : [];
+
+  if (!stopTimes.length) {
+    return {
+      pickupTime: "",
+      dropTime: "",
+    };
+  }
+
+  const pickupLabel = route?.fromMatch?.label || searchData?.from?.label || "";
+  const dropoffLabel = route?.toMatch?.label || searchData?.to?.label || "";
+
+  const pickupStop = stopTimes.find(
+    (stop) => normalizeLabel(stop?.label) === normalizeLabel(pickupLabel)
+  );
+  const dropoffStop = stopTimes.find(
+    (stop) => normalizeLabel(stop?.label) === normalizeLabel(dropoffLabel)
+  );
+
+  return {
+    pickupTime: pickupStop?.time || "",
+    dropTime: dropoffStop?.time || "",
+  };
 }
 
 function buildAbsoluteImageUrl(url) {
@@ -97,6 +128,11 @@ export default function BusRouteBuses({
               const seatLayoutType = getBusLayoutType(
                 bus.busType,
                 Number(bus.seatsTotal || 0)
+              );
+              const { pickupTime, dropTime } = resolveJourneyTimes(
+                item.schedule,
+                route,
+                searchData
               );
 
               const goToDetails = () => {
@@ -187,6 +223,18 @@ export default function BusRouteBuses({
                         icon={<LayoutGrid className="h-4 w-4" />}
                         label="Seat layout"
                         value={seatLayoutType}
+                      />
+
+                      <MetricRow
+                        icon={<Clock3 className="h-4 w-4" />}
+                        label="Pickup time"
+                        value={pickupTime || "--:--"}
+                      />
+
+                      <MetricRow
+                        icon={<Clock3 className="h-4 w-4" />}
+                        label="Drop time"
+                        value={dropTime || "--:--"}
                       />
                     </div>
 

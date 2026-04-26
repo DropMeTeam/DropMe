@@ -271,8 +271,8 @@ export default function OfferRide() {
           </div>
 
           {/* RIGHT PANEL - MAP */}
-          <div className="col-span-12 lg:col-span-8 min-h-[600px] lg:min-h-full">
-            <div className="sticky top-10 h-[calc(100vh-140px)] w-full rounded-[2.5rem] border border-white/10 bg-[#0c0f17] p-3 shadow-2xl overflow-hidden group">
+          <div className="col-span-12 lg:col-span-8 min-h-[900px] lg:min-h-full">
+            <div className="sticky top-10  w-full  rounded-[2.5rem] border border-white/10 bg-[#0c0f17] p-3 shadow-2xl overflow-hidden group">
               {/* Map Interface Overlay */}
               <div className="absolute top-8 left-8 z-20 pointer-events-none">
                 {meta?.distance && (

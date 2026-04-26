@@ -1,5 +1,11 @@
+// server/src/controllers/eco.controller.js
 import mongoose from "mongoose";
 import CarbonImpact from "../models/CarbonImpact.js";
+import { syncCarbonImpactsForUser,
+         syncCarbonImpactForBusBookingId,
+           syncCarbonImpactForTrainBookingId,
+           syncCarbonImpactForRideBookingId,
+ } from "../services/carbonImpact.service.js";
 
 function getCurrentMonthRange() {
   const now = new Date();
@@ -29,12 +35,16 @@ export async function getMyEcoStats(req, res, next) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    try {
+      await syncCarbonImpactsForUser(userId);
+    } catch (syncErr) {
+      console.error("Eco sync failed:", syncErr);
+    }
+
     const { start, end } = getCurrentMonthRange();
 
     const [lifetimeAgg] = await CarbonImpact.aggregate([
-      {
-        $match: { userId },
-      },
+      { $match: { userId } },
       {
         $group: {
           _id: null,
@@ -69,9 +79,7 @@ export async function getMyEcoStats(req, res, next) {
           occurredAt: { $gte: start, $lt: end },
         },
       },
-      {
-        $sort: { occurredAt: -1 },
-      },
+      { $sort: { occurredAt: -1 } },
       {
         $group: {
           _id: "$userId",
@@ -81,9 +89,7 @@ export async function getMyEcoStats(req, res, next) {
           userSnapshot: { $first: "$userSnapshot" },
         },
       },
-      {
-        $sort: { points: -1, savedKg: -1, trips: -1, _id: 1 },
-      },
+      { $sort: { points: -1, savedKg: -1, trips: -1, _id: 1 } },
     ]);
 
     let rank = null;
@@ -161,6 +167,69 @@ export async function getEcoLeaderboard(req, res, next) {
         trips: item.trips || 0,
         fuelLiters: Number((item.fuelLiters || 0).toFixed(3)),
       })),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function syncMyEcoStats(req, res, next) {
+  try {
+    const rawUserId = getUserIdFromReq(req);
+    const userId = toObjectId(rawUserId);
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const result = await syncCarbonImpactsForUser(userId);
+
+    return res.json({
+      ok: true,
+      message: "Eco sync completed",
+      result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function syncTrainCarbonByBookingId(req, res, next) {
+  try {
+    const impact = await syncCarbonImpactForTrainBookingId(req.params.bookingId);
+
+    return res.json({
+      ok: true,
+      created: Boolean(impact),
+      impact,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function syncBusCarbonByBookingId(req, res, next) {
+  try {
+    const impact = await syncCarbonImpactForBusBookingId(req.params.bookingId);
+
+    return res.json({
+      ok: true,
+      created: Boolean(impact),
+      impact,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function syncRideCarbonByBookingId(req, res, next) {
+  try {
+    const impact = await syncCarbonImpactForRideBookingId(req.params.bookingId);
+
+    return res.json({
+      ok: true,
+      created: Boolean(impact),
+      impact,
     });
   } catch (error) {
     next(error);

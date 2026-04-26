@@ -1,6 +1,8 @@
 import { TrainBooking } from "../models/TrainBooking.js";
 import { HttpError } from "../../../utils/httpError.js";
 
+import { syncCarbonImpactForTrainBookingId, createCarbonImpactForTrainBooking } from "../../../services/carbonImpact.service.js";
+
 function escapeRegex(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -78,6 +80,13 @@ export async function markTrainTicketAsUsed(req, res, next) {
     booking.ticketUsedBy = req.user?.name || req.user?.email || "Admin";
 
     await booking.save();
+
+    try {
+      await syncCarbonImpactForTrainBookingId(booking._id);
+      // await createCarbonImpactForTrainBooking(booking);
+    } catch (ecoErr) {
+      console.error("Train carbon impact creation failed:", ecoErr);
+    }
 
     return res.json({
       ok: true,

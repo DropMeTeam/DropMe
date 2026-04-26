@@ -12,6 +12,7 @@ import {
   Route as RouteIcon,
   CreditCard,
   Loader2,
+  Clock3,
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { calculateBusFare, formatLkr } from "../../lib/busFare";
@@ -20,6 +21,18 @@ import BusSeatLayoutPreview from "../../components/bus/BusSeatLayoutPreview";
 
 function shortLabel(label = "") {
   return String(label).split(",")[0].trim();
+}
+
+function normalizeLabel(value = "") {
+  return String(value).trim().toLowerCase();
+}
+
+function getJourneyTime(stopTimes = [], label = "") {
+  if (!Array.isArray(stopTimes) || !stopTimes.length || !label) return "";
+  const matchedStop = stopTimes.find(
+    (stop) => normalizeLabel(stop?.label) === normalizeLabel(label)
+  );
+  return matchedStop?.time || "";
 }
 
 function normalizeSeatList(value) {
@@ -56,6 +69,9 @@ export default function BusBookingDetailsPage() {
 
   const pickupLabel = route?.fromMatch?.label || searchData?.from?.label || "";
   const dropoffLabel = route?.toMatch?.label || searchData?.to?.label || "";
+  const scheduleStops = Array.isArray(schedule?.stopTimes) ? schedule.stopTimes : [];
+  const pickupTime = getJourneyTime(scheduleStops, pickupLabel);
+  const dropTime = getJourneyTime(scheduleStops, dropoffLabel);
 
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [bookedSeats, setBookedSeats] = useState([]);
@@ -276,6 +292,18 @@ export default function BusBookingDetailsPage() {
                 icon={<MapPin className="h-4 w-4" />}
                 label="Passenger journey"
                 value={`${shortLabel(pickupLabel)} -> ${shortLabel(dropoffLabel)}`}
+              />
+
+              <InfoRow
+                icon={<Clock3 className="h-4 w-4" />}
+                label="Pickup time"
+                value={pickupTime || "--:--"}
+              />
+
+              <InfoRow
+                icon={<Clock3 className="h-4 w-4" />}
+                label="Drop time"
+                value={dropTime || "--:--"}
               />
 
               <InfoRow

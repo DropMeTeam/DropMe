@@ -128,20 +128,7 @@ The system is built as a **full-stack MERN web application**, with:
 
 ---
 
-## 👨‍💻 Team Contribution Overview
 
-This project was developed by **4 team members**, each focusing on a major business module.
-
-| Team Member | Main Module |
-|---|---|
-| Member 1 | Carpooling / Private Ride Module |
-| Member 2 | Train Ticket Booking Module |
-| Member 3 | Bus Route Scheduling & Ticket Booking Module |
-| Member 4 | Reviews, Ratings & Eco Leaderboard Module |
-
-> Replace the names above with your actual member names and registration numbers.
-
----
 
 ## 🏗️ System Architecture
 
@@ -543,34 +530,9 @@ You said you will add testing images, so place them here:
 
 ---
 
-## 📈 Future Improvements
 
-- Advanced route optimization
-- More real-time transport updates
-- Mobile-responsive PWA enhancements
-- Smarter eco recommendation engine
-- Expanded analytics dashboard
-- Cloud storage for uploaded files
-- More advanced reporting and admin insights
 
----
-
-## 📝 Submission Checklist
-
-- [x] Full-stack backend and frontend implemented
-- [x] Backend deployed on Render
-- [x] Frontend deployed on Vercel
-- [x] Environment variables documented without exposing secrets
-- [x] Live URLs included
-- [x] Main API routes documented
-- [x] Deployment section included
-- [x] Testing section included
-- [ ] Testing images to be added
-- [ ] Final team member names and IDs to be added
-
----
-
-## 👥 Team Details
+## 👨‍💻 Team Contribution Overview
 
 **Module:** SE3040 – Application Frameworks  
 **Assignment:** Full Stack Application Development  
@@ -578,7 +540,7 @@ You said you will add testing images, so place them here:
 
 | Member Name | Registration Number | Main Contribution |
 |---|---|---|
-| Member 1 | ITxxxxxxx | Carpooling / Private Ride Module |
-| Member 2 | ITxxxxxxx | Train Ticket Booking Module |
-| Member 3 | ITxxxxxxx | Bus Scheduling & Bus Ticket Booking |
-| Member 4 | ITxxxxxxx | Reviews, Ratings & Eco Leaderboard |
+| Dilhara H.S. | IT23815896 | Carpooling / Private Ride Module |
+| Perera H.C.T | IT23727472 | Train Ticket Booking Module |
+| D.M.T. Shamendra | IT23664012 | Bus Scheduling & Bus Ticket Booking |
+| G.P.T. Nikeshala | IT23859210 | Reviews, Ratings & Eco Leaderboard |

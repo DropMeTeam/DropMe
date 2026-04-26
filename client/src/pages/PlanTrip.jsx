@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../state/AuthContext";
 import PlaceInput from "../components/PlaceInput";
 import MapPicker from "../components/MapPicker";
-import TransportPlannerNav from "../components/TransportPlannerNav";
 import { getRoute } from "../lib/osrm";
 import { api } from "../lib/api";
 import { startLiveLocation, stopLiveLocation } from "../lib/geolocate";
@@ -291,102 +290,75 @@ export default function PlanTrip() {
   }
 
   return (
-    <div className="min-h-screen bg-[#060812] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0f172a] via-[#060812] to-black text-white font-sans selection:bg-indigo-500/30 pb-12">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8">
-        <TransportPlannerNav />
-
-        <div className="mt-8 grid grid-cols-12 gap-8">
-          {/* LEFT PANEL - Controls */}
-          <div className="col-span-12 lg:col-span-4 space-y-6">
-            <div className="rounded-3xl border border-white/5 bg-white/[0.02] backdrop-blur-xl shadow-2xl p-6 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-
-              <div className="mb-10">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-[2px] w-6 bg-gradient-to-r from-[#1ABCFE] to-transparent rounded-full"></div>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#1ABCFE]/80">
-                    Travel Smart
-                  </span>
+    <div className="min-h-screen bg-[#060812] text-white">
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        <div className="grid grid-cols-12 gap-6">
+          <div className="col-span-12 space-y-4 lg:col-span-4">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-xl font-semibold">Plan your DropMe Journey</h1>
+                  <p className="mt-1 text-sm text-white/60">
+                    Type or click on map to select points + live location.
+                  </p>
                 </div>
-
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h1 className="text-3xl font-extrabold tracking-tight text-white leading-tight">
-                      Plan Your{" "}
-                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#1ABCFE] via-white to-white/70">
-                        Journey
-                      </span>
-                    </h1>
-                    <p className="text-xs text-white/40 mt-2 font-medium max-w-[240px] leading-relaxed">
-                      Set your route parameters to discover available professional rides nearby.
-                    </p>
-                  </div>
-
-                  <div className="flex items-center px-3 py-1.5 rounded-2xl bg-[#1ABCFE]/5 border border-[#1ABCFE]/20 text-[10px] font-bold text-[#1ABCFE] backdrop-blur-md shadow-[0_0_15px_rgba(26,188,254,0.1)]">
-                    {user ? (
-                      <span className="flex items-center gap-2">
-                        <span className="relative flex h-1.5 w-1.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1ABCFE] opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#1ABCFE]"></span>
-                        </span>
-                        {user.role.toUpperCase()}
-                      </span>
-                    ) : (
-                      "GUEST"
-                    )}
-                  </div>
+                <div className="mt-1 text-xs text-white/50">
+                  {user ? `Signed in: ${user.role}` : "Not signed in"}
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <div className="space-y-3 relative z-10">
-                  <PlaceInput
-                    label="Pick-up location"
-                    placeholder="Where from?"
-                    valueLabel={pickupText}
-                    onValueLabelChange={setPickupText}
-                    onSelect={(p) => {
-                      setPickup(p);
-                      setPickupText(p.label);
-                      setActivePin("dropoff");
-                      if (dropoff) buildRoute(p, dropoff);
-                    }}
-                  />
+              <div className="mt-5 space-y-4">
+                <PlaceInput
+                  label="Pick-up"
+                  placeholder="Type pickup location"
+                  valueLabel={pickupText}
+                  onValueLabelChange={setPickupText}
+                  onSelect={(p) => {
+                    setPickup(p);
+                    setPickupText(p.label);
+                    setActivePin("dropoff");
+                    if (dropoff) buildRoute(p, dropoff);
+                  }}
+                />
 
-                  <div className="flex gap-3">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={useMyLocationOnce}
+                    disabled={gpsLoading}
+                    className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm hover:bg-white/10 disabled:opacity-60"
+                  >
+                    {gpsLoading ? "Getting location..." : "Use my location"}
+                  </button>
+
+                  {!tracking ? (
                     <button
                       type="button"
-                      onClick={useMyLocationOnce}
-                      disabled={gpsLoading}
-                      className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-white/80 transition-all duration-200 hover:bg-white/[0.08] hover:text-white active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                      onClick={startTracking}
+                      className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-5 py-2.5 text-sm font-medium text-indigo-300 transition-all duration-200 hover:bg-indigo-500/20 hover:text-indigo-200 active:scale-[0.98]"
                     >
-                      {gpsLoading ? <span className="animate-pulse">Locating...</span> : "My Location"}
+                      Start Live
                     </button>
-
-                    {!tracking ? (
-                      <button
-                        type="button"
-                        onClick={startTracking}
-                        className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 px-5 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-indigo-500/20 hover:text-indigo-200 active:scale-[0.98]"
-                      >
-                        Start Live
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={stopTracking}
-                        className="rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 px-5 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-rose-500/20 active:scale-[0.98] relative overflow-hidden"
-                      >
-                        <span className="absolute inset-0 bg-rose-500/20 animate-pulse"></span>
-                        <span className="relative z-10">Stop Live</span>
-                      </button>
-                    )}
-                  </div>
-                  {gpsError && <div className="text-xs text-rose-400 font-medium ml-1">{gpsError}</div>}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={stopTracking}
+                      className="relative overflow-hidden rounded-xl border border-rose-500/30 bg-rose-500/10 px-5 py-2.5 text-sm font-medium text-rose-300 transition-all duration-200 hover:bg-rose-500/20 active:scale-[0.98]"
+                    >
+                      <span className="absolute inset-0 animate-pulse bg-rose-500/20"></span>
+                      <span className="relative z-10">Stop Live</span>
+                    </button>
+                  )}
                 </div>
 
+                {gpsError && (
+                  <div className="ml-1 text-xs font-medium text-rose-400">
+                    {gpsError}
+                  </div>
+                )}
+
                 <div className="relative z-0">
-                  <div className="absolute -left-3.5 top-0 bottom-0 w-[1px] bg-gradient-to-b from-white/10 via-white/5 to-transparent hidden md:block"></div>
+                  <div className="absolute -left-3.5 top-0 bottom-0 hidden w-[1px] bg-gradient-to-b from-white/10 via-white/5 to-transparent md:block"></div>
                   <PlaceInput
                     label="Drop-off location"
                     placeholder="Where to?"
@@ -423,44 +395,41 @@ export default function PlanTrip() {
                   </button>
                 </div>
 
-                <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-6"></div>
-
-                
-                
+                <div className="my-6 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-white/70 mb-2">Pick-up time</label>
+                    <label className="mb-2 block text-sm font-medium text-white/70">Pick-up time</label>
                     <input
                       type="datetime-local"
                       value={pickupTime}
                       min={minPickupTime}
                       onChange={(e) => setPickupTime(e.target.value)}
-                      className="w-full rounded-xl bg-white/[0.03] border border-white/10 px-4 py-3 text-sm text-white outline-none transition-all focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 hover:bg-white/[0.06]"
+                      className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition-all hover:bg-white/[0.06] focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-white/70 mb-2">Seats needed</label>
+                    <label className="mb-2 block text-sm font-medium text-white/70">Seats needed</label>
                     <input
                       type="number"
                       min="1"
                       max="6"
                       value={seats}
                       onChange={(e) => setSeats(Number(e.target.value))}
-                      className="w-full rounded-xl bg-white/[0.03] border border-white/10 px-4 py-3 text-sm text-white outline-none transition-all focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 hover:bg-white/[0.06]"
+                      className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition-all hover:bg-white/[0.06] focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50"
                     />
                   </div>
                 </div>
 
                 {meta && (
-                  <div className="rounded-2xl bg-gradient-to-br from-white/[0.05] to-transparent border border-white/10 p-4 text-sm backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="flex justify-between items-center">
-                      <span className="text-white/50 font-medium">Estimated Distance</span>
+                  <div className="animate-in slide-in-from-bottom-2 fade-in rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-transparent p-4 text-sm backdrop-blur-sm duration-300">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-white/50">Estimated Distance</span>
                       <span className="font-semibold text-white/90">{distanceKm.toFixed(1)} km</span>
                     </div>
-                    <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5">
-                      <span className="text-white/50 font-medium">Estimated Time</span>
+                    <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3">
+                      <span className="font-medium text-white/50">Estimated Time</span>
                       <span className="font-semibold text-white/90">
                         {Math.round(meta.durationSeconds / 60)} min
                       </span>
@@ -471,18 +440,17 @@ export default function PlanTrip() {
                 <button
                   onClick={findMatches}
                   disabled={loading}
-                  className="w-full rounded-2xl bg-white text-black font-bold py-4 text-sm tracking-wide transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(255,255,255,0.2)] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none mt-4 relative overflow-hidden group"
+                  className="group relative mt-4 w-full overflow-hidden rounded-2xl bg-white py-4 text-sm font-bold tracking-wide text-black transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(255,255,255,0.2)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
                 >
                   <span className="relative z-10">{loading ? "Scanning Network..." : "Find Available Rides"}</span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out"></div>
+                  <div className="absolute inset-0 translate-x-[-100%] bg-gradient-to-r from-transparent via-black/10 to-transparent transition-transform duration-700 ease-in-out group-hover:translate-x-[100%]"></div>
                 </button>
               </div>
             </div>
           </div>
 
-          {/* RIGHT PANEL - Map & Offers */}
-          <div className="col-span-12 lg:col-span-8 flex flex-col gap-6">
-            <div className="rounded-3xl border border-white/5 overflow-hidden shadow-2xl h-[400px] lg:h-[500px] relative bg-white/[0.02]">
+          <div className="col-span-12 flex flex-col gap-6 lg:col-span-8">
+            <div className="relative h-[400px] overflow-hidden rounded-3xl border border-white/5 bg-white/[0.02] shadow-2xl lg:h-[500px]">
               <MapPicker
                 pickup={pickup}
                 dropoff={dropoff}
@@ -507,16 +475,16 @@ export default function PlanTrip() {
               />
             </div>
 
-            <div className="rounded-3xl border border-white/5 bg-white/[0.02] backdrop-blur-xl p-6 relative">
-              <div className="flex items-center justify-between gap-3 mb-6">
+            <div className="relative rounded-3xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl">
+              <div className="mb-6 flex items-center justify-between gap-3">
                 <div className="text-lg font-semibold tracking-tight">Available Rides</div>
-                <div className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-white/60">
+                <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/60">
                   {offers?.length || 0} found
                 </div>
               </div>
 
               {offersMsg && (
-                <div className="rounded-xl bg-white/5 border border-white/5 p-4 text-sm text-white/60 text-center">
+                <div className="rounded-xl border border-white/5 bg-white/5 p-4 text-center text-sm text-white/60">
                   {offersMsg}
                 </div>
               )}
@@ -537,37 +505,37 @@ export default function PlanTrip() {
                     return (
                       <div
                         key={o._id}
-                        className="group rounded-2xl border border-white/5 bg-white/[0.02] p-5 transition-all duration-300 hover:bg-white/[0.04] hover:border-white/10 hover:shadow-xl relative overflow-hidden"
+                        className="group relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5 transition-all duration-300 hover:border-white/10 hover:bg-white/[0.04] hover:shadow-xl"
                       >
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="absolute bottom-0 left-0 top-0 w-1 bg-gradient-to-b from-indigo-500 to-purple-500 opacity-0 transition-opacity group-hover:opacity-100"></div>
 
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
                           <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-indigo-200 font-bold shrink-0">
+                            <div className="mb-2 flex items-center gap-3">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 font-bold text-indigo-200">
                                 {driver?.name?.charAt(0) || "D"}
                               </div>
 
                               <div className="min-w-0">
                                 <div className="font-semibold text-white/90">{driver?.name || "Driver"}</div>
-                                <div className="text-xs text-white/50 flex items-center gap-2 flex-wrap">
+                                <div className="flex flex-wrap items-center gap-2 text-xs text-white/50">
                                   <span>★ 4.9</span>
                                   <span>•</span>
                                   <span>
                                     {vehicle?.color || "Color"} {vehicle?.type || "Car"}
                                   </span>
-                                  <span className="uppercase border border-white/10 px-1.5 py-0.5 rounded text-[10px] ml-1 bg-white/5">
+                                  <span className="ml-1 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] uppercase">
                                     {vehicle?.number || "NO-PLATE"}
                                   </span>
                                 </div>
                               </div>
 
                               {vehicleImage ? (
-                                <div className="ml-auto w-20 h-14 rounded-xl overflow-hidden border border-white/10 bg-white/5 shrink-0">
+                                <div className="ml-auto h-14 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5">
                                   <img
                                     src={vehicleImage}
                                     alt={vehicle?.type || "Vehicle"}
-                                    className="w-full h-full object-cover"
+                                    className="h-full w-full object-cover"
                                     loading="lazy"
                                   />
                                 </div>
@@ -576,19 +544,19 @@ export default function PlanTrip() {
 
                             <div className="mt-4 space-y-2">
                               <div className="flex items-start gap-3">
-                                <div className="mt-1 w-2 h-2 rounded-full bg-white/30 border border-white/50 shadow-[0_0_5px_rgba(255,255,255,0.3)] shrink-0"></div>
-                                <div className="text-sm text-white/70 line-clamp-1">{o?.origin?.address || "Origin"}</div>
+                                <div className="mt-1 h-2 w-2 shrink-0 rounded-full border border-white/50 bg-white/30 shadow-[0_0_5px_rgba(255,255,255,0.3)]"></div>
+                                <div className="line-clamp-1 text-sm text-white/70">{o?.origin?.address || "Origin"}</div>
                               </div>
                               <div className="flex items-start gap-3">
-                                <div className="mt-1 w-2 h-2 rounded-full bg-indigo-400 border border-indigo-300 shadow-[0_0_5px_rgba(129,140,248,0.5)] shrink-0"></div>
-                                <div className="text-sm text-white/70 line-clamp-1">
+                                <div className="mt-1 h-2 w-2 shrink-0 rounded-full border border-indigo-300 bg-indigo-400 shadow-[0_0_5px_rgba(129,140,248,0.5)]"></div>
+                                <div className="line-clamp-1 text-sm text-white/70">
                                   {o?.destination?.address || "Destination"}
                                 </div>
                               </div>
                             </div>
 
                             <div className="mt-4 flex flex-wrap gap-4 text-xs font-medium">
-                              <div className="flex items-center gap-1.5 text-white/50 bg-white/5 px-2 py-1 rounded-md">
+                              <div className="flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-1 text-white/50">
                                 ⏰{" "}
                                 {o?.pickupTime
                                   ? new Date(o.pickupTime).toLocaleTimeString([], {
@@ -605,13 +573,13 @@ export default function PlanTrip() {
                             </div>
                           </div>
 
-                          <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center border-t md:border-t-0 md:border-l border-white/5 pt-4 md:pt-0 md:pl-6 min-w-[140px]">
+                          <div className="min-w-[140px] flex-row items-center justify-between border-t border-white/5 pt-4 md:flex md:flex-col md:items-end md:justify-center md:border-l md:border-t-0 md:pl-6 md:pt-0">
                             <div className="text-left md:text-right">
-                              <div className="text-xs text-white/50 font-medium mb-1">Price per seat</div>
-                              <div className="text-xl font-bold text-white tracking-tight">
+                              <div className="mb-1 text-xs font-medium text-white/50">Price per seat</div>
+                              <div className="text-xl font-bold tracking-tight text-white">
                                 {o?.priceLkr ? `LKR ${o.priceLkr}` : "Free"}
                               </div>
-                              <div className="text-xs font-medium mt-1">
+                              <div className="mt-1 text-xs font-medium">
                                 <span className={available >= seatsToBook ? "text-emerald-400" : "text-rose-400"}>
                                   {available} seats left
                                 </span>
@@ -623,10 +591,10 @@ export default function PlanTrip() {
                               type="button"
                               disabled={!canBook}
                               onClick={() => nav(`/checkout/${o._id}?seats=${seatsToBook}&distanceKm=${distanceKm}`)}
-                              className={`mt-0 md:mt-4 px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                              className={`mt-0 rounded-xl px-6 py-2.5 text-sm font-semibold transition-all duration-300 md:mt-4 ${
                                 canBook
                                   ? "bg-white text-black hover:scale-[1.03] hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] active:scale-[0.97]"
-                                  : "bg-white/5 text-white/30 cursor-not-allowed border border-white/5"
+                                  : "cursor-not-allowed border border-white/5 bg-white/5 text-white/30"
                               }`}
                             >
                               {canBook ? "Book Ride" : "Full"}

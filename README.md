@@ -4,7 +4,7 @@
 ### *Smart Carpooling & Public Transport Mobility Platform*
 
 <p align="center">
-  <img src="docs/images/dropme-banner.png" alt="DropMe Banner" width="100%" />
+  <img src="client\src\assets\dropme.jpeg" alt="DropMe Banner" width="100%" />
 </p>
 
 <p align="center">

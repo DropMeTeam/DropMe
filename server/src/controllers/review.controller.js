@@ -3,7 +3,7 @@ import { Review } from "../models/Review.js";
 import { RideBooking } from "../models/RideBooking.js";
 import { User } from "../models/User.js";
 import { HttpError } from "../utils/httpError.js";
-
+import { analyzeReviewText } from "../services/geminiModeration.service.js";
 /**
  * Get current logged-in user id from JWT payload
  */
@@ -38,19 +38,19 @@ function normalizeRating(value, fieldName) {
  * - does not block review creation
  * - does not apply strikes
  */
-async function analyzeReviewText(reviewText = "") {
-  const cleanText = String(reviewText || "").trim();
+// async function analyzeReviewText(reviewText = "") {
+//   const cleanText = String(reviewText || "").trim();
 
-  return {
-    sanitizedText: cleanText,
-    suggestedStatus: "approved", // keep review visible by default
-    profanityLevel: "none",
-    flagged: false,
-    confidence: 1,
-    reason: "Local moderation fallback used",
-    strikeRecommended: false,
-  };
-}
+//   return {
+//     sanitizedText: cleanText,
+//     suggestedStatus: "approved", // keep review visible by default
+//     profanityLevel: "none",
+//     flagged: false,
+//     confidence: 1,
+//     reason: "Local moderation fallback used",
+//     strikeRecommended: false,
+//   };
+// }
 
 export async function createReview(req, res, next) {
   try {

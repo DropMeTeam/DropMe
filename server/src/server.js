@@ -4,7 +4,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { connectDB } from "./config/db.js";
 import { buildApp } from "./app.js";
 import { getAllowedCorsOrigins } from "./utils/corsOrigins.js";
-
+import { autoBackfillAllCarbonImpacts } from "./services/autoBackfill.service.js";
 const PORT = Number(process.env.PORT || 5000);
 
 async function main() {
@@ -46,6 +46,15 @@ async function main() {
   });
 
   app = buildApp({ io });
+
+  setInterval(async () => {
+    try {
+      await autoBackfillAllCarbonImpacts();
+    } catch (err) {
+      console.error("Auto carbon backfill job failed:", err?.message || err);
+    }
+  }, 60 * 1000);
+
 
   httpServer.listen(PORT, () => {
     console.log(`[server] http://localhost:${PORT}`);

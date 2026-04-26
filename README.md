@@ -574,6 +574,6 @@ For full test results and supporting evidence, use the screenshot links below.
 | Member Name | Registration Number | Main Contribution |
 |---|---|---|
 | Dilhara H.S. | IT23815896 | Carpooling / Private Ride Module |
-| Perera H.C.T | IT23727472 | Train Ticket Booking Module |
+| Perera H.C.T | IT23727472 | Train Ticket Booking Module & Train Scheduling |
 | D.M.T. Shamendra | IT23664012 | Bus Scheduling & Bus Ticket Booking |
 | G.P.T. Nikeshala | IT23859210 | Reviews, Ratings & Eco Leaderboard |

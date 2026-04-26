@@ -23,6 +23,7 @@ import { TrainSchedule } from "../modules/train/models/TrainSchedule.js";
 import {
   createCarbonImpactForBusBooking,
   createCarbonImpactForTrainBooking,
+  syncCarbonImpactForBusBookingId,
 } from "../services/carbonImpact.service.js";
 // -----carbon
 
@@ -271,12 +272,17 @@ async function finalizeTrainBookingFromSession(session) {
 
   await booking.save();
 
-  try {
-    await createCarbonImpactForTrainBooking(booking);
-  } catch (ecoErr) {
-    console.error("Train carbon impact creation failed:", ecoErr);
-  }
+//  try {
+//    await createCarbonImpactForTrainBooking(booking);
+//  } catch (ecoErr) {
+//    console.error("Train carbon impact creation failed:", ecoErr);
+//  }
 
+//    try {
+//      await syncCarbonImpactForTrainBookingId(booking._id);
+//    } catch (ecoErr) {
+//      console.error("Bus carbon impact creation failed:", ecoErr);
+//    }
   try {
     const pdfBuffer = await generateTrainTicketPdfBuffer(
       booking.toObject ? booking.toObject() : booking
@@ -368,7 +374,7 @@ async function finalizeBusBookingFromSession(session) {
   await booking.save();
 
   try {
-    await createCarbonImpactForBusBooking(booking);
+    await syncCarbonImpactForBusBooking(booking);
   } catch (ecoErr) {
     console.error("Bus carbon impact creation failed:", ecoErr);
   }
